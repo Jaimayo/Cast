@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { GateHeader } from "@/components/gate-header";
-import { InviteForm } from "@/components/invite-form";
+import { CastShell } from "@/components/cast/cast-shell";
+import { InviteForm } from "@/components/cast/invite-form";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +14,10 @@ export default async function InviteRoute() {
   }
 
   return (
-    <>
-      <GateHeader />
-      <Suspense fallback={<main className="panel card">Loading…</main>}>
+    <CastShell variant="gate">
+      <Suspense fallback={<main className="px-6 py-16 text-center text-muted-foreground">Loading…</main>}>
         <InviteForm />
       </Suspense>
-    </>
+    </CastShell>
   );
 }

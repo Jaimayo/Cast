@@ -31,10 +31,10 @@ export function StillPreview(props: {
 
   if (!src || failed) {
     return (
-      <div className="still-fallback">
+      <div className="flex min-h-16 flex-col justify-center bg-muted px-3 py-4 text-sm">
         <strong>{props.alt}</strong>
-        {props.label ? <div className="muted">{props.label}</div> : null}
-        {failed ? <div className="muted">Preview unavailable</div> : null}
+        {props.label ? <div className="text-muted-foreground">{props.label}</div> : null}
+        {failed ? <div className="text-muted-foreground">Preview unavailable</div> : null}
       </div>
     );
   }
@@ -42,7 +42,7 @@ export function StillPreview(props: {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={props.className ?? "still-thumb"}
+      className={props.className ?? "still-thumb h-full w-full object-cover"}
       src={src}
       alt={props.alt}
       onError={() => {

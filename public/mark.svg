@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cast">
-  <rect width="64" height="64" rx="16" fill="#161310"/>
-  <path d="M18 44V20h10.2c8 0 12.6 3.6 12.6 11.8S36.2 44 28.2 44H18zm8.2-6.4h1.6c3.7 0 5.7-1.9 5.7-5.8s-2-5.8-5.7-5.8h-1.6v11.6z" fill="#e2b657"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" role="img" aria-label="Cast">
+  <rect width="32" height="40" fill="#07070A"/>
+  <rect x="3.5" y="3.5" width="25" height="33" rx="2.5" fill="none" stroke="#C4A574" stroke-width="1.4"/>
+  <rect x="8" y="8" width="16" height="12" rx="1" fill="#C4A574" opacity="0.18"/>
+  <circle cx="16" cy="26" r="1.6" fill="#C4A574"/>
 </svg>

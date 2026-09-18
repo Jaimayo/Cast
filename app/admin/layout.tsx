@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CastShell } from "@/components/cast/cast-shell";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -14,5 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await ensureSessionMatchesUser(user);
   if (!user.ageAttestedAt) redirect("/age");
   if (user.role !== "admin") redirect("/app");
-  return <main className="wrap" style={{ padding: "40px 0 80px" }}>{children}</main>;
+  return (
+    <CastShell variant="studio" user={{ email: user.email, role: user.role }}>
+      {children}
+    </CastShell>
+  );
 }

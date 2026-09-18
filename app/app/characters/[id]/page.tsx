@@ -1,5 +1,5 @@
-import { PackStatusPanel } from "@/components/pack-status-panel";
-import { PackWizard } from "@/components/pack-wizard";
+import { PackStatusPanel } from "@/components/cast/pack-status-panel";
+import { PackWizard } from "@/components/cast/pack-wizard";
 import { publicPack } from "@/lib/media";
 import { countRefs, getPack } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";

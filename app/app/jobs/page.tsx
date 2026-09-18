@@ -75,57 +75,59 @@ export default function JobsPage() {
   }, []);
 
   return (
-    <section>
-      <div className="kicker">Queue</div>
-      <h1>Jobs</h1>
-      <p className="muted">
+    <section className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+      <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Queue</p>
+      <h1 className="mt-1 font-heading text-4xl">Jobs</h1>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
         generateStill uses Venice unless the pack has a locked Soul ID adapter — then RunPod. trainPack is
         RunPod. Stub mode never calls vendors.
       </p>
-      <p className="muted">
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
         Failed stills: generate again from Create. Failed starters: generate the vibe again. Failed training:
         open the character and Train & lock or Retrain. Retrain keeps the previous Locked Soul ID if the new
         train fails.
       </p>
-      {error ? <p className="error">{error}</p> : null}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Kind</th>
-            <th>Status</th>
-            <th>Provider</th>
-            <th>Preview</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => {
-            const meta = statusMeta(job);
-            const code = errorCodeLabel(job);
-            return (
-              <tr key={job.id}>
-                <td>{job.kind}</td>
-                <td>
-                  {statusLabel(job.status)}
-                  {meta ? <div className="muted">{meta}</div> : null}
-                </td>
-                <td>{job.provider}</td>
-                <td>
-                  {job.previewUrl ? (
-                    <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {errorLabel(job)}
-                  {code ? <div className="muted">{code}</div> : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      <div className="mt-6 overflow-x-auto rounded-xl border border-border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Kind</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Provider</th>
+              <th className="px-3 py-2 font-medium">Preview</th>
+              <th className="px-3 py-2 font-medium">Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.map((job) => {
+              const meta = statusMeta(job);
+              const code = errorCodeLabel(job);
+              return (
+                <tr key={job.id} className="border-t border-border">
+                  <td className="px-3 py-2">{job.kind}</td>
+                  <td className="px-3 py-2">
+                    {statusLabel(job.status)}
+                    {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
+                  </td>
+                  <td className="px-3 py-2">{job.provider}</td>
+                  <td className="px-3 py-2">
+                    {job.previewUrl ? (
+                      <StillPreview src={job.previewUrl} alt="" className="still-thumb size-12 rounded-md object-cover" />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {errorLabel(job)}
+                    {code ? <div className="text-xs text-muted-foreground">{code}</div> : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
