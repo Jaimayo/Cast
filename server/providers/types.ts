@@ -28,6 +28,8 @@ export type TrainPackInput = {
   characterPackId: string;
   name: string;
   referenceKeys: string[];
+  /** Short-lived R2 GET URLs when live storage is configured. Stub/local omit this. */
+  referenceUrls?: string[];
 };
 
 export type TrainPackResult = {

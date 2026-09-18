@@ -115,6 +115,7 @@ export const runpodTrainAdapter: TrainPackAdapter = {
       characterPackId: input.characterPackId,
       name: input.name,
       referenceKeys: input.referenceKeys,
+      ...(input.referenceUrls && input.referenceUrls.length > 0 ? { referenceUrls: input.referenceUrls } : {}),
       workflow: workflowPlaceholder,
     };
 
