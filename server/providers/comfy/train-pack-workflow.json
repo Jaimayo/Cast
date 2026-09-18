@@ -1,0 +1,25 @@
+{
+  "_comment": "Placeholder ComfyUI workflow for Character Pack (Soul ID) training. Not executed in Stage 1 scaffold.",
+  "workflowName": "cast-train-pack-v0",
+  "status": "placeholder",
+  "todos": [
+    "Load 12–20 in-app stills / generate-starter refs from R2",
+    "Run identity+body LoRA or IP-Adapter training subgraph",
+    "Export pack adapter artifact and write storage key",
+    "Never accept external real-person face uploads as refs"
+  ],
+  "nodes": {
+    "1": {
+      "class_type": "LoadImageBatch",
+      "inputs": { "directory": "{{reference_dir}}" }
+    },
+    "2": {
+      "class_type": "TODO_TrainCharacterPack",
+      "inputs": { "images": ["1", 0], "steps": 1000, "rank": 16 }
+    },
+    "3": {
+      "class_type": "SaveLoRA",
+      "inputs": { "model": ["2", 0], "filename_prefix": "cast-pack-{{pack_id}}" }
+    }
+  }
+}

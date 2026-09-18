@@ -1,0 +1,53 @@
+{
+  "name": "cast",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cast — private invite-gated adult NSFW stills studio (Stage 1 scaffold)",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "worker": "tsx workers/index.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "invite:create": "tsx scripts/create-invite.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.61.0",
+    "drizzle-orm": "^0.44.6",
+    "ioredis": "^5.8.1",
+    "next": "^15.5.4",
+    "postgres": "^3.4.7",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.18.8",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "drizzle-kit": "^0.31.5",
+    "eslint": "^9.36.0",
+    "eslint-config-next": "^15.5.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "unrs-resolver", "msgpackr-extract"]
+  }
+}

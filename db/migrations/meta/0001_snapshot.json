@@ -1,0 +1,14 @@
+{
+  "id": "0001_optional_composer_chips",
+  "prevId": "0000_stage1_init",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {},
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

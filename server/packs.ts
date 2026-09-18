@@ -1,0 +1,433 @@
+import { createHash } from "node:crypto";
+import { and, desc, eq, sql } from "drizzle-orm";
+import {
+  characterPacks,
+  generationJobs,
+  mediaAssets,
+  recipes,
+  trainingSetAssets,
+  type CharacterPack,
+} from "@/db/schema";
+import { PACK_TARGET_REFS } from "@/lib/constants";
+import { canLockPack, lockWarning } from "@/lib/pack-rules";
+import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
+import { requireStarterPreset } from "@/lib/starters";
+import { isLockedSoul } from "@/lib/soul";
+import { getDb } from "@/server/db";
+import { getEnv } from "@/server/env";
+import { getGenerateStillQueue, getTrainPackQueue } from "@/server/queue";
+
+function hashPrompt(prompt: string): string {
+  return createHash("sha256").update(prompt).digest("hex");
+}
+
+function providerForGenerate(): "venice" | "runpod" | "sister" {
+  const name = getEnv().generateStillProvider;
+  if (name === "runpod" || name === "sister") return name;
+  return "venice";
+}
+
+function providerForTrain(): "runpod" | "sister" {
+  return getEnv().trainPackProvider === "sister" ? "sister" : "runpod";
+}
+
+export async function listPacks(userId: string) {
+  const db = getDb();
+  const packs = await db
+    .select()
+    .from(characterPacks)
+    .where(eq(characterPacks.userId, userId))
+    .orderBy(desc(characterPacks.createdAt));
+  if (packs.length === 0) {
+    return [];
+  }
+  const counts = await db
+    .select({
+      packId: trainingSetAssets.characterPackId,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(trainingSetAssets)
+    .where(eq(trainingSetAssets.userId, userId))
+    .groupBy(trainingSetAssets.characterPackId);
+  const byPack = new Map(counts.map((row) => [row.packId, Number(row.n)]));
+  return packs.map((pack) => ({ ...pack, refCount: byPack.get(pack.id) ?? 0 }));
+}
+
+export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(characterPacks)
+    .where(and(eq(characterPacks.id, packId), eq(characterPacks.userId, userId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createPack(input: {
+  userId: string;
+  name: string;
+  origin: "generate_then_lock" | "library_train";
+}) {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error("Pack name is required");
+  }
+  const db = getDb();
+  const rows = await db
+    .insert(characterPacks)
+    .values({
+      userId: input.userId,
+      name,
+      origin: input.origin,
+      fictionalAttestation: true,
+    })
+    .returning();
+  const pack = rows[0];
+  if (!pack) {
+    throw new Error("Failed to create pack");
+  }
+  return pack;
+}
+
+export async function countRefs(packId: string): Promise<number> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: trainingSetAssets.id })
+    .from(trainingSetAssets)
+    .where(eq(trainingSetAssets.characterPackId, packId));
+  return rows.length;
+}
+
+export async function setRefSelected(input: {
+  userId: string;
+  packId: string;
+  mediaAssetId: string;
+  selected: boolean;
+  kind: "face_ref" | "body_ref" | "still" | "starter_face" | "starter_body";
+  source: "in_app_still" | "generate_starter";
+  starterPresetId?: string;
+}) {
+  const pack = await getPack(input.userId, input.packId);
+  if (!pack) {
+    throw new Error("Pack not found");
+  }
+  if (pack.status !== "draft" && pack.status !== "failed") {
+    throw new Error("Refs can only be changed on a draft pack");
+  }
+
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(trainingSetAssets)
+    .where(
+      and(
+        eq(trainingSetAssets.characterPackId, pack.id),
+        eq(trainingSetAssets.mediaAssetId, input.mediaAssetId),
+      ),
+    )
+    .limit(1);
+
+  if (!input.selected) {
+    if (existing[0]) {
+      await db.delete(trainingSetAssets).where(eq(trainingSetAssets.id, existing[0].id));
+    }
+    return { selected: false, refCount: await countRefs(pack.id) };
+  }
+
+  const current = await countRefs(pack.id);
+  if (existing[0]) {
+    return { selected: true, ref: existing[0], refCount: current };
+  }
+  if (current >= PACK_TARGET_REFS) {
+    throw new Error(`Pack already has the target of ${PACK_TARGET_REFS} refs`);
+  }
+
+  const media = await db
+    .select()
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.id, input.mediaAssetId), eq(mediaAssets.userId, input.userId)))
+    .limit(1);
+  if (!media[0]) {
+    throw new Error("Media asset not found");
+  }
+
+  const rows = await db
+    .insert(trainingSetAssets)
+    .values({
+      characterPackId: pack.id,
+      userId: input.userId,
+      mediaAssetId: input.mediaAssetId,
+      kind: input.kind,
+      source: input.source,
+      starterPresetId: input.starterPresetId ?? null,
+    })
+    .returning();
+  return { selected: true, ref: rows[0], refCount: current + 1 };
+}
+
+export async function lockPack(userId: string, packId: string) {
+  const pack = await getPack(userId, packId);
+  if (!pack) {
+    throw new Error("Pack not found");
+  }
+  if (pack.status !== "draft") {
+    throw new Error("Only draft packs can be locked");
+  }
+  const refs = await countRefs(pack.id);
+  const gate = canLockPack(refs);
+  if (!gate.ok) {
+    throw new Error(gate.message);
+  }
+
+  const db = getDb();
+  const rows = await db
+    .update(characterPacks)
+    .set({ status: "locked", lockedAt: new Date(), updatedAt: new Date() })
+    .where(eq(characterPacks.id, pack.id))
+    .returning();
+  return { pack: rows[0], warning: lockWarning(refs), refCount: refs };
+}
+
+export async function enqueueGenerateStill(input: {
+  userId: string;
+  characterPackId: string;
+  poseChipId: string;
+  outfitChipId?: string | null;
+  sceneChipId?: string | null;
+  lightingChipId?: string | null;
+  bodyChipId?: string | null;
+}) {
+  const pack = await getPack(input.userId, input.characterPackId);
+  if (!pack) {
+    throw new Error("Character pack is required");
+  }
+  if (!isLockedSoul(pack.status)) {
+    throw new Error("Lock a Character Pack (Soul ID) before generating");
+  }
+
+  const compiled = compileComposerPrompt({
+    characterPackName: pack.name,
+    characterPackId: pack.id,
+    poseChipId: input.poseChipId,
+    outfitChipId: input.outfitChipId,
+    sceneChipId: input.sceneChipId,
+    lightingChipId: input.lightingChipId,
+    bodyChipId: input.bodyChipId,
+  });
+
+  const db = getDb();
+  const recipeRows = await db
+    .insert(recipes)
+    .values({
+      userId: input.userId,
+      characterPackId: pack.id,
+      poseChipId: input.poseChipId,
+      outfitChipId: input.outfitChipId ?? null,
+      sceneChipId: input.sceneChipId ?? null,
+      lightingChipId: input.lightingChipId ?? null,
+      bodyChipId: input.bodyChipId ?? null,
+      compiledPromptHash: hashPrompt(compiled.prompt),
+    })
+    .returning();
+  const recipe = recipeRows[0];
+  if (!recipe) {
+    throw new Error("Failed to save recipe");
+  }
+
+  const jobRows = await db
+    .insert(generationJobs)
+    .values({
+      userId: input.userId,
+      kind: "generate_still",
+      status: "queued",
+      provider: providerForGenerate(),
+      characterPackId: pack.id,
+      recipeId: recipe.id,
+      inputJson: {
+        poseChipId: input.poseChipId,
+        outfitChipId: input.outfitChipId ?? null,
+        sceneChipId: input.sceneChipId ?? null,
+        lightingChipId: input.lightingChipId ?? null,
+        bodyChipId: input.bodyChipId ?? null,
+      },
+    })
+    .returning();
+  const job = jobRows[0];
+  if (!job) {
+    throw new Error("Failed to create job");
+  }
+
+  await getGenerateStillQueue().add("generateStill", { generationJobId: job.id });
+  return { job, recipeId: recipe.id };
+}
+
+export async function enqueueGenerateStarter(input: {
+  userId: string;
+  characterPackId: string;
+  presetId: string;
+}) {
+  const pack = await getPack(input.userId, input.characterPackId);
+  if (!pack) {
+    throw new Error("Character pack is required");
+  }
+  if (pack.status !== "draft") {
+    throw new Error("Starters can only be added to a draft pack");
+  }
+
+  const preset = requireStarterPreset(input.presetId);
+  compileStarterPrompt({
+    characterPackName: pack.name,
+    characterPackId: pack.id,
+    presetId: preset.id,
+  });
+
+  const db = getDb();
+  const jobRows = await db
+    .insert(generationJobs)
+    .values({
+      userId: input.userId,
+      kind: "generate_starter",
+      status: "queued",
+      provider: providerForGenerate(),
+      characterPackId: pack.id,
+      inputJson: { presetId: preset.id, kind: preset.kind },
+    })
+    .returning();
+  const job = jobRows[0];
+  if (!job) {
+    throw new Error("Failed to create starter job");
+  }
+
+  await getGenerateStillQueue().add("generateStill", { generationJobId: job.id });
+  return { job, preset };
+}
+
+export async function enqueueTrainPack(userId: string, packId: string) {
+  const pack = await getPack(userId, packId);
+  if (!pack) {
+    throw new Error("Pack not found");
+  }
+  if (pack.status !== "draft" && pack.status !== "failed") {
+    throw new Error("Train & lock is available on draft packs");
+  }
+  const refs = await countRefs(pack.id);
+  const gate = canLockPack(refs);
+  if (!gate.ok) {
+    throw new Error(gate.message);
+  }
+
+  const db = getDb();
+  await db
+    .update(characterPacks)
+    .set({ status: "training", updatedAt: new Date() })
+    .where(eq(characterPacks.id, pack.id));
+
+  const jobRows = await db
+    .insert(generationJobs)
+    .values({
+      userId,
+      kind: "train_pack",
+      status: "queued",
+      provider: providerForTrain(),
+      characterPackId: pack.id,
+      inputJson: { refCount: refs },
+    })
+    .returning();
+  const job = jobRows[0];
+  if (!job) {
+    throw new Error("Failed to create train job");
+  }
+
+  await getTrainPackQueue().add("trainPack", {
+    generationJobId: job.id,
+    characterPackId: pack.id,
+  });
+  return job;
+}
+
+export async function listJobs(userId: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(generationJobs)
+    .where(eq(generationJobs.userId, userId))
+    .orderBy(desc(generationJobs.createdAt));
+}
+
+export async function getJob(userId: string, jobId: string) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(generationJobs)
+    .where(and(eq(generationJobs.id, jobId), eq(generationJobs.userId, userId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listRefs(userId: string, packId: string) {
+  const db = getDb();
+  return db
+    .select({
+      id: trainingSetAssets.id,
+      kind: trainingSetAssets.kind,
+      source: trainingSetAssets.source,
+      starterPresetId: trainingSetAssets.starterPresetId,
+      mediaAssetId: trainingSetAssets.mediaAssetId,
+      storageKey: mediaAssets.storageKey,
+      createdAt: trainingSetAssets.createdAt,
+    })
+    .from(trainingSetAssets)
+    .innerJoin(mediaAssets, eq(mediaAssets.id, trainingSetAssets.mediaAssetId))
+    .where(and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.userId, userId)));
+}
+
+export async function listStarterSheet(userId: string, packId: string) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: mediaAssets.id,
+      kind: mediaAssets.kind,
+      storageKey: mediaAssets.storageKey,
+      generationJobId: mediaAssets.generationJobId,
+      createdAt: mediaAssets.createdAt,
+      inputJson: generationJobs.inputJson,
+    })
+    .from(mediaAssets)
+    .leftJoin(generationJobs, eq(generationJobs.id, mediaAssets.generationJobId))
+    .where(
+      and(
+        eq(mediaAssets.userId, userId),
+        eq(mediaAssets.characterPackId, packId),
+        eq(mediaAssets.kind, "starter"),
+      ),
+    )
+    .orderBy(desc(mediaAssets.createdAt));
+
+  const selected = await db
+    .select({ mediaAssetId: trainingSetAssets.mediaAssetId })
+    .from(trainingSetAssets)
+    .where(eq(trainingSetAssets.characterPackId, packId));
+  const selectedIds = new Set(selected.map((row) => row.mediaAssetId));
+
+  return rows.map((row) => {
+    const presetId = typeof row.inputJson?.presetId === "string" ? row.inputJson.presetId : null;
+    const vibeKind = row.inputJson?.kind === "body" ? "body" : "face";
+    return {
+      id: row.id,
+      storageKey: row.storageKey,
+      createdAt: row.createdAt,
+      presetId,
+      vibeKind,
+      selected: selectedIds.has(row.id),
+    };
+  });
+}
+
+export async function listLibraryStills(userId: string) {
+  const db = getDb();
+  return db
+    .select()
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.kind, "still")))
+    .orderBy(desc(mediaAssets.createdAt));
+}

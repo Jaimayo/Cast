@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+dist
+coverage
+.env
+.env.local
+.env.*.local
+.data
+dump.rdb
+*.rdb
+.DS_Store
+tsconfig.tsbuildinfo
+.pnpm-store
