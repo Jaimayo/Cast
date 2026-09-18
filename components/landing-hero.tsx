@@ -1,33 +1,31 @@
 import { EnterInviteButton, GateHeader } from "@/components/gate-header";
-import { Badge } from "@/components/ui/badge";
+import { EditorialCollage } from "@/components/editorial-collage";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { VoidAtmosphere } from "@/components/void-atmosphere";
 
 export function LandingHero() {
   return (
     <VoidAtmosphere>
       <GateHeader />
-      <main className="mx-auto flex min-h-[calc(100svh-88px)] w-full max-w-3xl flex-col items-center justify-center px-6 pb-24 text-center">
-        <p className="font-heading text-6xl tracking-tight text-foreground sm:text-7xl">Cast</p>
-        <h1 className="mt-6 max-w-[18ch] font-heading text-3xl leading-tight text-foreground sm:text-4xl">
-          Private fictional studio for adults.
-        </h1>
-        <p className="mt-4 max-w-[42ch] text-base leading-relaxed text-muted-foreground">
-          Direct stills with chips — not prompts. Invite-only. No public gallery.
-        </p>
-        <div className="mt-10">
-          <EnterInviteButton />
+      <main className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-16 lg:py-20">
+        <div className="max-w-xl">
+          <StatusBadge status="outline" leftLabel="Invite only" rightLabel="Fictional characters" />
+          <h1 className="mt-6 font-heading text-4xl leading-[1.08] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            Private fictional studio for adults.
+          </h1>
+          <p className="mt-5 max-w-[42ch] text-base leading-relaxed text-muted-foreground">
+            Direct stills with chips — not prompts. Invite-only. No public gallery.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <EnterInviteButton />
+          </div>
+          <div className="mt-8 flex flex-wrap items-center gap-2">
+            <StatusBadge status="outline" leftLabel="Invite" rightLabel="only" />
+            <StatusBadge status="outline" leftLabel="Fictional" rightLabel="characters" />
+            <StatusBadge status="outline" leftLabel="Private" rightLabel="stills" />
+          </div>
         </div>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-          <Badge variant="outline" className="rounded-full border-border px-3 py-1 font-normal text-muted-foreground">
-            Invite-only
-          </Badge>
-          <Badge variant="outline" className="rounded-full border-border px-3 py-1 font-normal text-muted-foreground">
-            Fictional characters
-          </Badge>
-          <Badge variant="outline" className="rounded-full border-border px-3 py-1 font-normal text-muted-foreground">
-            Private stills
-          </Badge>
-        </div>
+        <EditorialCollage />
       </main>
     </VoidAtmosphere>
   );

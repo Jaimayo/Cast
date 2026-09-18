@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
 import { RefCountMeter } from "@/components/ref-count-meter";
-import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MetallicButton } from "@/components/metallic-button";
+import { ElasticGallery } from "@/components/elastic-gallery";
 import { cn } from "@/lib/utils";
 
 type Preset = { id: string; kind: string; label: string };
@@ -166,9 +167,7 @@ export function PackWizard(props: { initialPackId?: string }) {
           <p className="text-[11px] tracking-[0.16em] text-primary uppercase">New character</p>
           <h1 className="font-heading text-3xl">{pack?.name || "Character Pack"}</h1>
         </div>
-        <Badge variant="outline" className="rounded-full px-3 font-normal text-muted-foreground">
-          Fictional only
-        </Badge>
+        <StatusBadge status="outline" leftLabel="Fictional" rightLabel="only" />
       </div>
       <p className="text-sm text-muted-foreground">
         Status: {status}. No device face upload. Starters are not Composer templates.
@@ -275,49 +274,33 @@ export function PackWizard(props: { initialPackId?: string }) {
           <p className="text-sm text-muted-foreground">
             Pick in-app stills you already made in Create. Device uploads are not available.
           </p>
-          {library.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Library is empty until you generate stills in Create with a Locked pack.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
-              {library.map((item) => {
-                const selected = selectedLibrary.has(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={cn(
-                      "relative overflow-hidden rounded-lg bg-muted ring-1 ring-border",
-                      selected && "ring-2 ring-primary",
-                    )}
-                    disabled={training}
-                    onClick={() =>
-                      void toggleRef({
-                        mediaAssetId: item.id,
-                        selected: !selected,
-                        kind: "still",
-                        source: "in_app_still",
-                      })
-                    }
-                  >
-                    {item.previewUrl ? (
-                      <StillPreview src={item.previewUrl} alt="Library still" className="aspect-square w-full object-cover" />
-                    ) : (
-                      <span className="flex aspect-square items-center justify-center text-xs text-muted-foreground">
-                        Still
-                      </span>
-                    )}
-                    {selected ? (
-                      <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                        ✓
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <ElasticGallery
+            items={library.map((item) => ({
+              id: item.id,
+              src: item.previewUrl,
+              alt: "Library still",
+              label: "Still",
+              selected: selectedLibrary.has(item.id),
+            }))}
+            onSelect={
+              training
+                ? undefined
+                : (id) => {
+                    const selected = selectedLibrary.has(id);
+                    void toggleRef({
+                      mediaAssetId: id,
+                      selected: !selected,
+                      kind: "still",
+                      source: "in_app_still",
+                    });
+                  }
+            }
+            empty={
+              <p className="text-sm text-muted-foreground">
+                Library is empty until you generate stills in Create with a Locked pack.
+              </p>
+            }
+          />
         </div>
       )}
 
@@ -333,14 +316,14 @@ export function PackWizard(props: { initialPackId?: string }) {
         ) : null}
         {message ? <p className="text-sm text-success">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button
+        <MetallicButton
           type="button"
           disabled={!canTrain || pending}
-          className="h-11 w-full rounded-full"
+          className="w-full"
           onClick={() => void trainAndLock()}
         >
           {training ? "Training…" : "Train & lock Soul ID"}
-        </Button>
+        </MetallicButton>
       </div>
     </section>
   );

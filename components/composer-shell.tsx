@@ -157,7 +157,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
   }
 
   return (
-    <div className="flex min-h-[calc(100svh-1px)] flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 lg:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <a href="/app/characters" className="font-heading text-xl tracking-tight">

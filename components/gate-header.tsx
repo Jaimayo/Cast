@@ -1,11 +1,18 @@
-import { Button } from "@/components/ui/button";
+import { MetallicButton } from "@/components/metallic-button";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export function GateHeader() {
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-6">
-      <a href="/" className="font-heading text-2xl tracking-tight text-foreground">
-        Cast
-      </a>
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/70 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <a href="/" className="font-heading text-2xl tracking-tight text-foreground">
+            Cast
+          </a>
+          <StatusBadge status="outline" className="hidden sm:inline-flex" leftLabel="Invite" rightLabel="only" />
+        </div>
+        <EnterInviteButton />
+      </div>
     </header>
   );
 }
@@ -20,8 +27,8 @@ export function GateTrustLine() {
 
 export function EnterInviteButton(props: { className?: string }) {
   return (
-    <Button asChild size="lg" className={`h-11 rounded-full px-6 ${props.className ?? ""}`}>
+    <MetallicButton asChild className={props.className}>
       <a href="/invite">Enter with invite</a>
-    </Button>
+    </MetallicButton>
   );
 }

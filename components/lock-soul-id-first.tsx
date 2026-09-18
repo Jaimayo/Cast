@@ -1,5 +1,5 @@
 import { LOCK_SOUL_ID_FIRST, packDetailPath } from "@/lib/soul";
-import { Button } from "@/components/ui/button";
+import { MetallicButton } from "@/components/metallic-button";
 
 export function LockSoulIdFirstCta(props: {
   packId?: string | null;
@@ -16,9 +16,9 @@ export function LockSoulIdFirstCta(props: {
           {label}
         </a>
       ) : (
-        <Button asChild className="h-11 rounded-full px-5">
+        <MetallicButton asChild>
           <a href={href}>{label}</a>
-        </Button>
+        </MetallicButton>
       )}
     </div>
   );

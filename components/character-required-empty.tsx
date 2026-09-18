@@ -1,3 +1,4 @@
+import { MetallicButton } from "@/components/metallic-button";
 import { Button } from "@/components/ui/button";
 
 function GeometricMark() {
@@ -21,9 +22,9 @@ export function CharacterRequiredEmpty(props: { packId?: string | null; training
         Generate needs a Locked character. Draft and training packs stay off the canvas.
       </p>
       <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row">
-        <Button asChild className="h-11 rounded-full px-5">
+        <MetallicButton asChild>
           <a href="/app/characters">Go to Characters</a>
-        </Button>
+        </MetallicButton>
         {showLockLink ? (
           <Button asChild variant="outline" className="h-11 rounded-full px-5">
             <a href={`/app/characters/${props.packId}`}>Lock Soul ID first</a>

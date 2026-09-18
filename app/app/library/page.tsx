@@ -1,6 +1,6 @@
 import { listLibraryStills } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
-import { StillPreview } from "@/components/still-preview";
+import { ElasticGallery } from "@/components/elastic-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +14,15 @@ export default async function LibraryPage() {
       <p className="text-sm text-muted-foreground">
         In-app stills only. No public gallery and no device face upload.
       </p>
-      {stills.length === 0 ? <p className="text-sm text-muted-foreground">Nothing stored yet.</p> : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
-        {stills.map((still) => (
-          <div key={still.id} className="overflow-hidden rounded-lg ring-1 ring-border">
-            <StillPreview src={still.previewUrl} alt="Your still" className="aspect-square w-full object-cover" />
-          </div>
-        ))}
-      </div>
+      <ElasticGallery
+        items={stills.map((still) => ({
+          id: still.id,
+          src: still.previewUrl,
+          alt: "Your still",
+          label: "Still",
+        }))}
+        empty={<p className="text-sm text-muted-foreground">Nothing stored yet.</p>}
+      />
     </section>
   );
 }

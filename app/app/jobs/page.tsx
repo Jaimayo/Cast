@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StillPreview } from "@/components/still-preview";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { api } from "@/lib/client";
 
 type Job = {
@@ -18,13 +19,13 @@ type Job = {
   previewUrl?: string | null;
 };
 
-function statusLabel(status: string): string {
-  if (status === "queued") return "Queued";
-  if (status === "running") return "Running";
-  if (status === "succeeded") return "Succeeded";
-  if (status === "failed") return "Failed";
-  if (status === "canceled") return "Canceled";
-  return status;
+function jobStatus(status: string): { left: string; right: string; tone: "success" | "error" | "muted" | "outline" } {
+  if (status === "queued") return { left: "Job", right: "Queued", tone: "outline" };
+  if (status === "running") return { left: "Job", right: "Running", tone: "muted" };
+  if (status === "succeeded") return { left: "Job", right: "Succeeded", tone: "success" };
+  if (status === "failed") return { left: "Job", right: "Failed", tone: "error" };
+  if (status === "canceled") return { left: "Job", right: "Canceled", tone: "outline" };
+  return { left: "Job", right: status, tone: "outline" };
 }
 
 function formatJobAge(ageSeconds: number | undefined): string | null {
@@ -103,12 +104,18 @@ export default function JobsPage() {
             {jobs.map((job) => {
               const meta = statusMeta(job);
               const code = errorCodeLabel(job);
+              const status = jobStatus(job.status);
               return (
                 <tr key={job.id} className="border-t border-border">
                   <td className="px-3 py-2 font-mono text-xs">{job.kind}</td>
                   <td className="px-3 py-2">
-                    {statusLabel(job.status)}
-                    {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
+                    <StatusBadge
+                      status={status.tone}
+                      leftLabel={status.left}
+                      rightLabel={status.right}
+                      className={job.status === "running" ? "animate-pulse" : undefined}
+                    />
+                    {meta ? <div className="mt-1 text-xs text-muted-foreground">{meta}</div> : null}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{job.provider}</td>
                   <td className="px-3 py-2">

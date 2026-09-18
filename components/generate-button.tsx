@@ -1,6 +1,7 @@
 import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+import { MetallicButton } from "@/components/metallic-button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function GenerateButton(props: {
@@ -10,15 +11,14 @@ export function GenerateButton(props: {
   disabledReason?: string;
 }) {
   return (
-    <Button
+    <MetallicButton
       type="button"
-      className="h-11 min-w-36 rounded-full px-6"
       disabled={props.disabled || props.pending}
       title={props.disabled ? (props.disabledReason ?? LOCK_SOUL_ID_FIRST) : undefined}
       onClick={props.onClick}
     >
       {props.pending ? "Queueing…" : "Generate"}
-    </Button>
+    </MetallicButton>
   );
 }
 
@@ -38,9 +38,7 @@ export function TeaserAnimateLater() {
             Short clips come in Phase 1.5 — stills first.
           </TooltipContent>
         </Tooltip>
-        <Badge variant="outline" className="rounded-full px-2.5 font-normal text-muted-foreground">
-          Phase 1.5
-        </Badge>
+        <StatusBadge status="outline" leftLabel="Phase" rightLabel="1.5" />
       </div>
       <p className="text-xs text-muted-foreground">Short clips come in Phase 1.5 — stills first.</p>
     </div>

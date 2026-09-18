@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 import { TEST_GRID_SIZE } from "@/lib/test-grid";
 import { Button } from "@/components/ui/button";
+import { MetallicButton } from "@/components/metallic-button";
 
 type Pack = {
   id: string;
@@ -104,9 +105,9 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         {locked ? (
-          <Button asChild className="rounded-full">
+          <MetallicButton asChild>
             <a href={`/app/create?pack=${props.pack.id}`}>Use in Create</a>
-          </Button>
+          </MetallicButton>
         ) : (
           <span className="text-sm text-muted-foreground">
             Lock Soul ID first — Generate stays off until this pack is Locked.

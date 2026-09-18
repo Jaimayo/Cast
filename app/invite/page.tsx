@@ -1,4 +1,4 @@
-import { GateHeader } from "@/components/gate-header";
+import { GateStage } from "@/components/gate-stage";
 import { InviteForm } from "@/components/invite-form";
 import { VoidAtmosphere } from "@/components/void-atmosphere";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
@@ -16,14 +16,15 @@ export default async function InviteRoute() {
 
   return (
     <VoidAtmosphere>
-      <GateHeader />
-      <Suspense
-        fallback={
-          <main className="mx-auto max-w-md px-5 py-10 text-sm text-muted-foreground">Loading…</main>
-        }
+      <GateStage
+        kicker="Gated access"
+        headline="Enter with an invite."
+        subhead="Invite-only studio. Invalid, used, or expired codes cannot continue."
       >
-        <InviteForm />
-      </Suspense>
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+          <InviteForm />
+        </Suspense>
+      </GateStage>
     </VoidAtmosphere>
   );
 }

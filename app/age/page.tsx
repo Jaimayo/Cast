@@ -1,4 +1,4 @@
-import { GateHeader } from "@/components/gate-header";
+import { GateStage } from "@/components/gate-stage";
 import { AgePolicyAttest } from "@/components/age-policy-attest";
 import { VoidAtmosphere } from "@/components/void-atmosphere";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
@@ -18,8 +18,13 @@ export default async function AgeRoute() {
 
   return (
     <VoidAtmosphere>
-      <GateHeader />
-      <AgePolicyAttest />
+      <GateStage
+        kicker="Age confirmation"
+        headline="Adults only."
+        subhead="Both confirmations are required to enter the studio."
+      >
+        <AgePolicyAttest />
+      </GateStage>
     </VoidAtmosphere>
   );
 }

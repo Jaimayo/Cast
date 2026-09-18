@@ -152,4 +152,67 @@
     transition-duration: 180ms;
     transition-timing-function: ease-out;
   }
+
+  /* Serafim dotted-dialog overlay, remixed onto champagne-on-void. */
+  .cast-dots {
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--foreground) 16%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 18px 18px;
+  }
+
+  .cast-dots-veil {
+    background-color: color-mix(in srgb, var(--background) 58%, transparent);
+    background-image: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--foreground) 18%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 16px 16px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  /*
+    Hyperiux metallic-button — CSS rim only.
+    Visual system forbids particle/WebGL porn on landing.
+  */
+  .cast-metal {
+    --cast-metal-hi: color-mix(in srgb, var(--foreground) 26%, var(--primary));
+    --cast-metal-mid: var(--primary);
+    --cast-metal-lo: color-mix(in srgb, #6e5736 52%, var(--primary));
+    background-color: var(--primary);
+    background-image: linear-gradient(
+      180deg,
+      var(--cast-metal-hi) 0%,
+      var(--cast-metal-mid) 46%,
+      var(--cast-metal-lo) 100%
+    );
+    color: var(--primary-foreground);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--foreground) 48%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, #000 30%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--primary) 38%, #2a2418);
+  }
+
+  .cast-metal:hover {
+    filter: brightness(1.07);
+  }
+
+  .cast-metal:active {
+    filter: brightness(0.96);
+    transform: translateY(0.5px);
+  }
+
+  .cast-metal:disabled,
+  .cast-metal[aria-disabled="true"] {
+    background-image: none;
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+    box-shadow: none;
+    filter: none;
+    transform: none;
+  }
 }
