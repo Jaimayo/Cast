@@ -24,7 +24,7 @@ const trainWorker = new Worker<TrainPackJobData>(
   JOB_QUEUES.trainPack,
   async (job) => {
     log("trainPack start", { jobId: job.data.generationJobId, packId: job.data.characterPackId });
-    await processTrainPackJob(job.data.generationJobId, job.data.characterPackId);
+    await processTrainPackJob(job.data.generationJobId, job.data.characterPackId, job.data.attempt ?? 0);
     log("trainPack done", { jobId: job.data.generationJobId });
   },
   { connection: redisConnection(), concurrency: 1 },

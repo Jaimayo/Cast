@@ -3,10 +3,24 @@
   "dialect": "postgresql",
   "entries": [
     {
+      "idx": 0,
+      "version": "7",
+      "when": 1758170000000,
+      "tag": "0000_stage1_init",
+      "breakpoints": true
+    },
+    {
       "idx": 1,
       "version": "7",
       "when": 1758174000000,
       "tag": "0001_optional_composer_chips",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758180000000,
+      "tag": "0002_adapter_artifacts",
       "breakpoints": true
     }
   ]

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChipSelect } from "@/components/chip-select";
+import { isLockedSoul } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
@@ -21,18 +22,27 @@ export function ChipRail(props: {
   onLighting: (id: string) => void;
   onBody: (id: string) => void;
 }) {
+  const lockedPacks = props.packs.filter((pack) => isLockedSoul(pack.status));
+
   return (
     <aside className="chip-rail">
       <div className="chip-family">
         <h4>Character *</h4>
-        <select value={props.characterPackId} onChange={(event) => props.onCharacter(event.target.value)}>
-          <option value="">Select a Locked pack…</option>
-          {props.packs.map((pack) => (
-            <option key={pack.id} value={pack.id}>
-              {pack.name} · {pack.status}
-            </option>
-          ))}
-        </select>
+        {lockedPacks.length === 0 ? (
+          <p className="muted">
+            No Locked Soul ID yet.{" "}
+            <a href="/app/characters">Train & lock a character</a> first.
+          </p>
+        ) : (
+          <select value={props.characterPackId} onChange={(event) => props.onCharacter(event.target.value)}>
+            <option value="">Select a Locked pack…</option>
+            {lockedPacks.map((pack) => (
+              <option key={pack.id} value={pack.id}>
+                {pack.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <ChipSelect title="Pose" required chips={props.chips.pose} value={props.poseChipId} onChange={props.onPose} />
       <ChipSelect title="Outfit" optional chips={props.chips.outfit} value={props.outfitChipId} onChange={props.onOutfit} />

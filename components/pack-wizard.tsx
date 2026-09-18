@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
 import { RefCountMeter } from "@/components/ref-count-meter";
+import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
 
 type Preset = { id: string; kind: string; label: string };
-type Pack = { id: string; name: string; status: string; origin: string };
-type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean };
-type LibraryItem = { id: string; kind: string; storageKey: string };
+type Pack = { id: string; name: string; status: string; origin: string; adapterStorageKey?: string | null };
+type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean; previewUrl?: string | null };
+type LibraryItem = { id: string; kind: string; storageKey: string; previewUrl?: string | null };
 
 type Ref = { mediaAssetId: string };
 
@@ -28,6 +29,7 @@ export function PackWizard(props: { initialPackId?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [awaitingStarters, setAwaitingStarters] = useState(false);
 
   async function loadPack(id: string) {
     const data = await api<{
@@ -43,16 +45,34 @@ export function PackWizard(props: { initialPackId?: string }) {
     setStarters(data.starters);
     setLibrary(data.library);
     setSelectedLibrary(new Set(data.refs.map((ref) => ref.mediaAssetId)));
+    return data.pack;
   }
 
   useEffect(() => {
     void api<{ face: Preset[]; body: Preset[] }>("/api/generate-starters/catalog").then(setCatalog);
     if (props.initialPackId) {
-      void loadPack(props.initialPackId).catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load pack");
-      });
+      void loadPack(props.initialPackId)
+        .then((loaded) => {
+          if (loaded.origin === "library_train") setTab("library");
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Failed to load pack");
+        });
     }
   }, [props.initialPackId]);
+
+  useEffect(() => {
+    if (!pack) return;
+    if (pack.status === "locked" || pack.status === "ready" || pack.status === "training") {
+      router.push(`/app/characters/${pack.id}`);
+      return;
+    }
+    if (!awaitingStarters) return;
+    const timer = window.setInterval(() => {
+      void loadPack(pack.id);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [pack?.id, pack?.status, awaitingStarters, router]);
 
   async function ensurePack(): Promise<string> {
     if (pack) return pack.id;
@@ -67,6 +87,7 @@ export function PackWizard(props: { initialPackId?: string }) {
       }),
     });
     setPack(created.pack);
+    router.replace(`/app/characters/${created.pack.id}`);
     return created.pack.id;
   }
 
@@ -81,9 +102,8 @@ export function PackWizard(props: { initialPackId?: string }) {
         body: JSON.stringify({ characterPackId: packId, presetId }),
       });
       setMessage(`Queued ${result.preset.label}. Select stills on the contact sheet once they land.`);
-      window.setTimeout(() => {
-        void loadPack(packId);
-      }, 1200);
+      setAwaitingStarters(true);
+      window.setTimeout(() => setAwaitingStarters(false), 45_000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Starter failed");
     } finally {
@@ -119,9 +139,7 @@ export function PackWizard(props: { initialPackId?: string }) {
     try {
       const result = await api<{ job: { id: string } }>(`/api/packs/${pack.id}/train`, { method: "POST" });
       setMessage(`Training Soul ID (${result.job.id}). Generate unlocks when status is Locked.`);
-      window.setTimeout(() => {
-        void loadPack(pack.id).then(() => router.push(`/app/characters/${pack.id}`));
-      }, 1500);
+      router.push(`/app/characters/${pack.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Train & lock failed");
     } finally {
@@ -130,7 +148,12 @@ export function PackWizard(props: { initialPackId?: string }) {
   }
 
   const status = pack ? soulStatusLabel(pack.status) : "Draft";
-  const canTrain = Boolean(pack) && refCount >= PACK_MIN_REFS && (pack?.status === "draft" || pack?.status === "failed");
+  const training = pack?.status === "training";
+  const canTrain =
+    Boolean(pack) &&
+    refCount >= PACK_MIN_REFS &&
+    (pack?.status === "draft" || pack?.status === "failed") &&
+    !training;
 
   return (
     <section>
@@ -141,7 +164,9 @@ export function PackWizard(props: { initialPackId?: string }) {
         </div>
         <span className="fictional-badge">Fictional only</span>
       </div>
-      <p className="muted">Status: {status}. No device face upload. Starters are not Composer templates.</p>
+      <p className="muted">
+        Status: {status}. No device face upload. Starters are not Composer templates.
+      </p>
 
       <label htmlFor="name">Name</label>
       <input
@@ -153,20 +178,37 @@ export function PackWizard(props: { initialPackId?: string }) {
       />
 
       <div className="tabs">
-        <button type="button" className={tab === "starters" ? "tab active" : "tab"} onClick={() => setTab("starters")}>
+        <button
+          type="button"
+          className={tab === "starters" ? "tab active" : "tab"}
+          onClick={() => setTab("starters")}
+        >
           Starters
         </button>
-        <button type="button" className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}>
+        <button
+          type="button"
+          className={tab === "library" ? "tab active" : "tab"}
+          onClick={() => setTab("library")}
+        >
           From library
         </button>
       </div>
 
       {tab === "starters" ? (
         <>
+          <p className="muted">
+            Generate face and body vibes, pick at least {PACK_MIN_REFS} stills, then Train & lock Soul ID.
+          </p>
           <h3>Face starters</h3>
           <div className="chips">
             {(catalog?.face ?? []).map((preset) => (
-              <button key={preset.id} className="chip" type="button" disabled={pending} onClick={() => void generateStarter(preset.id)}>
+              <button
+                key={preset.id}
+                className="chip"
+                type="button"
+                disabled={pending || training}
+                onClick={() => void generateStarter(preset.id)}
+              >
                 {preset.label}
               </button>
             ))}
@@ -174,7 +216,13 @@ export function PackWizard(props: { initialPackId?: string }) {
           <h3>Body starters</h3>
           <div className="chips">
             {(catalog?.body ?? []).map((preset) => (
-              <button key={preset.id} className="chip" type="button" disabled={pending} onClick={() => void generateStarter(preset.id)}>
+              <button
+                key={preset.id}
+                className="chip"
+                type="button"
+                disabled={pending || training}
+                onClick={() => void generateStarter(preset.id)}
+              >
                 {preset.label}
               </button>
             ))}
@@ -195,7 +243,9 @@ export function PackWizard(props: { initialPackId?: string }) {
         </>
       ) : (
         <>
-          <p className="muted">Pick in-app stills only. Device uploads are not available.</p>
+          <p className="muted">
+            Pick in-app stills you already made in Create. Device uploads are not available.
+          </p>
           {library.length === 0 ? (
             <p className="muted">Library is empty until you generate stills in Create with a Locked pack.</p>
           ) : (
@@ -207,6 +257,7 @@ export function PackWizard(props: { initialPackId?: string }) {
                     key={item.id}
                     type="button"
                     className={selected ? "sheet-tile selected" : "sheet-tile"}
+                    disabled={training}
                     onClick={() =>
                       void toggleRef({
                         mediaAssetId: item.id,
@@ -216,7 +267,11 @@ export function PackWizard(props: { initialPackId?: string }) {
                       })
                     }
                   >
-                    {item.storageKey}
+                    {item.previewUrl ? (
+                      <StillPreview src={item.previewUrl} alt="Library still" />
+                    ) : (
+                      item.storageKey
+                    )}
                     <div className="muted">{selected ? "Selected" : "Tap to add"}</div>
                   </button>
                 );
@@ -227,10 +282,11 @@ export function PackWizard(props: { initialPackId?: string }) {
       )}
 
       <RefCountMeter count={refCount} />
+      {training ? <p className="ok">Training Soul ID… this page updates when it locks.</p> : null}
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
-        Train & lock Soul ID
+        {training ? "Training…" : "Train & lock Soul ID"}
       </button>
     </section>
   );

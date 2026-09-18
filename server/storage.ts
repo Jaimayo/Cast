@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getEnv } from "@/server/env";
 
 export type StoredObject = {
@@ -9,13 +10,31 @@ export type StoredObject = {
   mimeType: string;
 };
 
+const PRESIGN_TTL_SECONDS = 120;
+
 function localRoot(): string {
   return path.join(process.cwd(), ".data", "storage");
 }
 
-function s3Configured(): boolean {
+export function isS3Configured(): boolean {
   const s3 = getEnv().s3;
   return Boolean(s3.endpoint && s3.accessKeyId && s3.secretAccessKey);
+}
+
+export function assertSafeStorageKey(key: string): string {
+  const trimmed = key.trim();
+  if (!trimmed) {
+    throw new Error("Invalid storage key");
+  }
+  if (
+    trimmed.includes("\0") ||
+    trimmed.includes("..") ||
+    trimmed.startsWith("/") ||
+    trimmed.includes("\\")
+  ) {
+    throw new Error("Invalid storage key");
+  }
+  return trimmed;
 }
 
 function client(): S3Client {
@@ -36,30 +55,60 @@ export async function putObject(input: {
   body: Buffer;
   mimeType: string;
 }): Promise<StoredObject> {
-  if (s3Configured()) {
+  const key = assertSafeStorageKey(input.key);
+  if (isS3Configured()) {
     const s3 = getEnv().s3;
     await client().send(
       new PutObjectCommand({
         Bucket: s3.bucket,
-        Key: input.key,
+        Key: key,
         Body: input.body,
         ContentType: input.mimeType,
       }),
     );
-    return { key: input.key, byteSize: input.body.byteLength, mimeType: input.mimeType };
+    return { key, byteSize: input.body.byteLength, mimeType: input.mimeType };
   }
 
-  const full = path.join(localRoot(), input.key);
+  const full = path.join(localRoot(), key);
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, input.body);
-  return { key: input.key, byteSize: input.body.byteLength, mimeType: input.mimeType };
+  return { key, byteSize: input.body.byteLength, mimeType: input.mimeType };
 }
 
 export async function readObject(key: string): Promise<Buffer> {
-  if (s3Configured()) {
-    throw new Error("readObject via S3 is a Build TODO — use presigned GET");
+  const safe = assertSafeStorageKey(key);
+  if (isS3Configured()) {
+    const s3 = getEnv().s3;
+    const out = await client().send(
+      new GetObjectCommand({
+        Bucket: s3.bucket,
+        Key: safe,
+      }),
+    );
+    const bytes = await out.Body?.transformToByteArray();
+    if (!bytes) {
+      throw new Error("Empty object");
+    }
+    return Buffer.from(bytes);
   }
-  return readFile(path.join(localRoot(), key));
+  return readFile(path.join(localRoot(), safe));
+}
+
+/** Time-limited R2/S3 GET. Local storage has no bucket — callers should use `/api/media/:id` instead. */
+export async function presignGetUrl(key: string, expiresInSeconds = PRESIGN_TTL_SECONDS): Promise<string> {
+  const safe = assertSafeStorageKey(key);
+  if (!isS3Configured()) {
+    throw new Error("S3 is not configured");
+  }
+  const s3 = getEnv().s3;
+  return getSignedUrl(
+    client(),
+    new GetObjectCommand({
+      Bucket: s3.bucket,
+      Key: safe,
+    }),
+    { expiresIn: expiresInSeconds },
+  );
 }
 
 export function mediaKey(parts: { kind: string; userId: string; id: string; ext?: string }): string {

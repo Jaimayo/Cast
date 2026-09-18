@@ -445,7 +445,58 @@ input[type="checkbox"] {
   justify-content: center;
   color: var(--ink-dim);
   text-align: center;
+  overflow: hidden;
+  padding: 0;
+}
+
+.hero-frame > div,
+.hero-frame > span {
   padding: 24px;
+}
+
+.still-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+}
+
+.hero-frame .still-thumb {
+  border-radius: 18px;
+}
+
+.sheet-tile .still-thumb {
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 160px;
+  margin-bottom: 8px;
+}
+
+.still-fallback {
+  min-height: 72px;
+}
+
+.history-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.history-item .still-thumb {
+  aspect-ratio: 3 / 4;
+  height: auto;
+  border-radius: 8px;
+}
+
+.job-thumb {
+  width: 48px;
+  height: 64px;
+  border-radius: 6px;
 }
 
 .app-header {
