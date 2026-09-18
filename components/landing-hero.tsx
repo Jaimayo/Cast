@@ -1,4 +1,4 @@
-import { EnterInviteButton, GateHeader, GateTrustLine } from "@/components/gate-header";
+import { EnterInviteButton, GateHeader } from "@/components/gate-header";
 import { Badge } from "@/components/ui/badge";
 import { VoidAtmosphere } from "@/components/void-atmosphere";
 
@@ -27,9 +27,6 @@ export function LandingHero() {
           <Badge variant="outline" className="rounded-full border-border px-3 py-1 font-normal text-muted-foreground">
             Private stills
           </Badge>
-        </div>
-        <div className="mt-4">
-          <GateTrustLine />
         </div>
       </main>
     </VoidAtmosphere>

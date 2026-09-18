@@ -24,8 +24,8 @@ export function CastShell(props: {
           </div>
           <StudioNav admin={props.admin} />
           <div className="hidden lg:mt-auto lg:block">
-            <p className="truncate font-mono text-xs text-muted-foreground">{props.email}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Fictional adults only</p>
+            <p className="break-all font-mono text-[11px] leading-snug text-muted-foreground">{props.email}</p>
+            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Fictional adults only</p>
           </div>
         </div>
       </aside>
