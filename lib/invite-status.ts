@@ -45,3 +45,12 @@ export function throwIfInviteUnusable(issue: InviteIssue): asserts issue is "ok"
   }
   throw new AuthError(INVITE_ERROR_MESSAGE[issue], 400);
 }
+
+export type InviteRevokeState = "not-found" | "already-revoked" | "active";
+
+/** Admin revoke: missing 404, already-revoked is a no-op, active gets stamped. */
+export function inviteRevokeState(invite: { revokedAt: Date | string | null } | null | undefined): InviteRevokeState {
+  if (!invite) return "not-found";
+  if (invite.revokedAt) return "already-revoked";
+  return "active";
+}

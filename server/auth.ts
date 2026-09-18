@@ -9,7 +9,7 @@ import { assertAdmin, assertAttested, assertSignedIn, roleForEmail, sessionAgeFl
 import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/constants";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { newInviteCode } from "@/lib/invite-code";
-import { classifyInvite, normalizeInviteCode, throwIfInviteUnusable } from "@/lib/invite-status";
+import { classifyInvite, inviteRevokeState, normalizeInviteCode, throwIfInviteUnusable } from "@/lib/invite-status";
 import { decodeSession, encodeSession, sessionCookieAttrs } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -275,11 +275,12 @@ export async function revokeInvite(id: string): Promise<{ id: string; revokedAt:
   const db = getDb();
   const existing = await db.select().from(inviteCodes).where(eq(inviteCodes.id, id)).limit(1);
   const invite = existing[0];
-  if (!invite) {
+  const state = inviteRevokeState(invite);
+  if (state === "not-found" || !invite) {
     throw new AuthError("Invite not found", 404);
   }
-  if (invite.revokedAt) {
-    return { id: invite.id, revokedAt: invite.revokedAt };
+  if (state === "already-revoked") {
+    return { id: invite.id, revokedAt: invite.revokedAt as Date };
   }
 
   const rows = await db

@@ -112,9 +112,10 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 - `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys and the Comfy placeholder, then polls `GET .../status/{id}` until complete. On success the worker stores LoRA/adapter bytes or object-key pointers (including live-shaped nested `output` / `lora_url`). Missing adapters fail closed (`TRAIN_NO_ADAPTER`). Venice **cannot** be selected for trainPack.
 - Locked pack detail: **Test grid** queues a small set of Composer stills (same `generateStill` path). **Retrain** re-queues `trainPack` with the existing refs. Generate is refused unless the pack is **Locked** and a Pose chip is set (server-side).
 - Enqueue abuse: invite redeem, Generate, Train & lock, and generate-starters are per-user (invite also per IP) sliding-window rate limited. Too many queued/running jobs return **429** with a distinct `code` (`GENERATE_STILL_RATE_LIMIT`, `TRAIN_PACK_BUSY`, …) plus `Retry-After`. `PROVIDER_MODE=stub` uses the same in-memory limiter (no Redis required for tests).
+- Jobs retry transient vendor/network errors; permanent pack/chip/Soul ID errors fail immediately with a user-safe message. Duplicate Generate/Train clicks reuse the same BullMQ job id. Exhausted jobs land on a dead-letter queue (logged, not retried). A crashed train poll is resumed at most once per job so Jobs / pack pages do not stack extra RunPod polls.
 - `sister` adapters implement the same interfaces and are selected only when `GENERATE_STILL_PROVIDER` / `TRAIN_PACK_PROVIDER` is `sister`.
 
-Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews use a short-lived presigned GET (R2) or `/api/media/:id` (local).
+Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. Keep the bucket **private** — Cast never mints a public object URL. If those env vars are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews require a signed-in, 18+ session (`/api/media/:id`); R2 uses a 120s private GET.
 
 ## What Stage 1 intentionally excludes
 

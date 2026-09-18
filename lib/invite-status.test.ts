@@ -3,6 +3,7 @@ import { AuthError } from "@/lib/auth-error";
 import {
   INVITE_ERROR_MESSAGE,
   classifyInvite,
+  inviteRevokeState,
   normalizeInviteCode,
   throwIfInviteUnusable,
 } from "@/lib/invite-status";
@@ -95,5 +96,13 @@ describe("invite error copy", () => {
 
   it("trims pasted invite codes", () => {
     expect(normalizeInviteCode("  abcd1234efgh  ")).toBe("abcd1234efgh");
+  });
+});
+
+describe("invite revoke", () => {
+  it("is a no-op when the code is already revoked", () => {
+    expect(inviteRevokeState(null)).toBe("not-found");
+    expect(inviteRevokeState({ revokedAt: null })).toBe("active");
+    expect(inviteRevokeState({ revokedAt: new Date("2026-01-01") })).toBe("already-revoked");
   });
 });
