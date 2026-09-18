@@ -6,6 +6,7 @@ import {
   RATE_LIMIT_CODES,
   RATE_LIMIT_MESSAGES,
   RATE_LIMIT_POLICIES,
+  RATE_LIMIT_REDIS_PREFIX,
   RateLimitError,
   assertInFlightCap,
   busyCodeForAction,
@@ -16,6 +17,8 @@ import {
   inspectSlidingWindow,
   inviteRedeemKeys,
   rateLimitCodeForAction,
+  redisRateLimitKey,
+  shouldUseRedisRateLimits,
   userActionKey,
 } from "@/lib/rate-limit";
 
@@ -44,6 +47,13 @@ describe("rate-limit product copy and Stage 1 caps", () => {
     expect(rateLimitCodeForAction("trainPack")).toBe(RATE_LIMIT_CODES.TRAIN_PACK_RATE_LIMIT);
     expect(rateLimitCodeForAction("generateStarter")).toBe(RATE_LIMIT_CODES.GENERATE_STARTER_RATE_LIMIT);
     expect(busyCodeForAction("trainPack")).toBe(RATE_LIMIT_CODES.TRAIN_PACK_BUSY);
+  });
+
+  it("uses Redis only in live mode; stub/tests stay in-memory", () => {
+    expect(shouldUseRedisRateLimits({ providerMode: "stub", nodeEnv: "production", vitest: "" })).toBe(false);
+    expect(shouldUseRedisRateLimits({ providerMode: "live", nodeEnv: "test", vitest: "" })).toBe(false);
+    expect(shouldUseRedisRateLimits({ providerMode: "live", nodeEnv: "production", vitest: "" })).toBe(true);
+    expect(redisRateLimitKey("trainPack:user:u1")).toBe(`${RATE_LIMIT_REDIS_PREFIX}trainPack:user:u1`);
   });
 });
 

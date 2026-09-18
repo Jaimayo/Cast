@@ -1,7 +1,28 @@
 /**
  * Per-user (and invite) enqueue abuse guards.
- * Sliding-window math is pure + in-memory so stub tests never need Redis.
+ * Sliding-window math is pure so stub tests never need Redis.
+ * Live mode stores the same window in Redis (`lib/rate-limit-redis.ts`) so
+ * multiple app instances share caps; stub/tests keep an in-memory Map.
  */
+
+export const RATE_LIMIT_REDIS_PREFIX = "cast:rl:";
+
+export function redisRateLimitKey(logicalKey: string): string {
+  return `${RATE_LIMIT_REDIS_PREFIX}${logicalKey}`;
+}
+
+/** Live (non-stub) process: Redis. Vitest / stub: in-memory, no Redis required. */
+export function shouldUseRedisRateLimits(input?: {
+  providerMode?: string;
+  nodeEnv?: string;
+  vitest?: string;
+}): boolean {
+  const nodeEnv = input?.nodeEnv ?? process.env.NODE_ENV ?? "development";
+  const vitest = input?.vitest ?? process.env.VITEST;
+  if (nodeEnv === "test" || vitest) return false;
+  const providerMode = input?.providerMode ?? process.env.PROVIDER_MODE ?? "stub";
+  return providerMode !== "stub";
+}
 
 export const RATE_LIMIT_CODES = {
   INVITE_REDEEM_RATE_LIMIT: "INVITE_REDEEM_RATE_LIMIT",
@@ -75,6 +96,32 @@ export class RateLimitError extends Error {
 }
 
 export type HitStore = Map<string, number[]>;
+
+export type RateLimitConsumeInput = {
+  keys: readonly string[];
+  now: number;
+  policy: RateLimitPolicy;
+  cost?: number;
+};
+
+/** Async store used by the server limiter (memory Map or Redis). */
+export type RateLimitBackend = {
+  consume(input: RateLimitConsumeInput): Promise<WindowDecision>;
+};
+
+export function memoryRateLimitBackend(store: HitStore): RateLimitBackend {
+  return {
+    async consume(input) {
+      return consumeAllKeys({
+        store,
+        keys: input.keys,
+        now: input.now,
+        policy: input.policy,
+        cost: input.cost,
+      });
+    },
+  };
+}
 
 export type WindowDecision =
   | { allowed: true; remaining: number; retryAfterSeconds: 0 }

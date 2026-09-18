@@ -67,7 +67,7 @@ async function guardJobEnqueue(
     action === "generateStill" ? "generate_still" : action === "trainPack" ? "train_pack" : "generate_starter";
   const inFlight = await countInFlightJobs(userId, kind);
   assertUserInFlightCap(action, inFlight, adding);
-  consumeUserActionLimit(action, userId, adding);
+  await consumeUserActionLimit(action, userId, adding);
 }
 
 export async function listPacks(userId: string) {
