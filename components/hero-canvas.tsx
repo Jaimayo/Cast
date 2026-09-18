@@ -1,3 +1,4 @@
+import { StillPreview } from "@/components/still-preview";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 
 export function CharacterRequiredEmpty(props: { packId?: string | null; training?: boolean }) {
@@ -23,8 +24,7 @@ export function HeroCanvas(props: {
   return (
     <div className="hero-frame">
       {props.previewUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="still-thumb" src={props.previewUrl} alt="Generated still" />
+        <StillPreview src={props.previewUrl} alt="Generated still" />
       ) : (
         <span>{props.message ?? "Hero Frame still. Generate to fill this canvas."}</span>
       )}

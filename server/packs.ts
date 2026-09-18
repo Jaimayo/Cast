@@ -15,7 +15,7 @@ import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compil
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
-import { mediaPreviewPath } from "@/lib/media";
+import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
@@ -58,7 +58,7 @@ export async function listPacks(userId: string) {
     .where(eq(trainingSetAssets.userId, userId))
     .groupBy(trainingSetAssets.characterPackId);
   const byPack = new Map(counts.map((row) => [row.packId, Number(row.n)]));
-  return packs.map((pack) => ({ ...pack, refCount: byPack.get(pack.id) ?? 0 }));
+  return packs.map((pack) => publicPack({ ...pack, refCount: byPack.get(pack.id) ?? 0 }));
 }
 
 export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
@@ -448,13 +448,13 @@ export async function getJob(userId: string, jobId: string) {
     return null;
   }
   const [withPreview] = await attachJobPreviews(userId, [job]);
-  return withPreview ?? { ...job, previewUrl: null as string | null };
+  return withPreview ?? publicJob({ ...job, previewUrl: null });
 }
 
-async function attachJobPreviews<T extends { id: string; kind: string }>(
+async function attachJobPreviews<T extends { id: string; kind: string; resultAssetKey?: string | null }>(
   userId: string,
   jobs: T[],
-): Promise<Array<T & { previewUrl: string | null }>> {
+): Promise<Array<Omit<T, "resultAssetKey"> & { previewUrl: string | null }>> {
   if (jobs.length === 0) {
     return [];
   }
@@ -469,27 +469,32 @@ async function attachJobPreviews<T extends { id: string; kind: string }>(
       byJob.set(row.generationJobId, row.id);
     }
   }
-  return jobs.map((job) => ({
-    ...job,
-    previewUrl: job.kind === "train_pack" ? null : (byJob.has(job.id) ? mediaPreviewPath(byJob.get(job.id)!) : null),
-  }));
+  return jobs.map((job) =>
+    publicJob({
+      ...job,
+      previewUrl: job.kind === "train_pack" ? null : (byJob.has(job.id) ? publicMediaAsset({ id: byJob.get(job.id)! }).previewUrl : null),
+    }),
+  );
 }
 
 export async function listRefs(userId: string, packId: string) {
   const db = getDb();
-  return db
+  const rows = await db
     .select({
       id: trainingSetAssets.id,
       kind: trainingSetAssets.kind,
       source: trainingSetAssets.source,
       starterPresetId: trainingSetAssets.starterPresetId,
       mediaAssetId: trainingSetAssets.mediaAssetId,
-      storageKey: mediaAssets.storageKey,
       createdAt: trainingSetAssets.createdAt,
     })
     .from(trainingSetAssets)
     .innerJoin(mediaAssets, eq(mediaAssets.id, trainingSetAssets.mediaAssetId))
     .where(and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.userId, userId)));
+  return rows.map((row) => ({
+    ...row,
+    previewUrl: publicMediaAsset({ id: row.mediaAssetId }).previewUrl,
+  }));
 }
 
 export async function listStarterSheet(userId: string, packId: string) {
@@ -498,7 +503,6 @@ export async function listStarterSheet(userId: string, packId: string) {
     .select({
       id: mediaAssets.id,
       kind: mediaAssets.kind,
-      storageKey: mediaAssets.storageKey,
       generationJobId: mediaAssets.generationJobId,
       createdAt: mediaAssets.createdAt,
       inputJson: generationJobs.inputJson,
@@ -523,14 +527,15 @@ export async function listStarterSheet(userId: string, packId: string) {
   return rows.map((row) => {
     const presetId = typeof row.inputJson?.presetId === "string" ? row.inputJson.presetId : null;
     const vibeKind = row.inputJson?.kind === "body" ? "body" : "face";
+    const preview = publicMediaAsset({ id: row.id });
     return {
-      id: row.id,
-      storageKey: row.storageKey,
+      id: preview.id,
       createdAt: row.createdAt,
       presetId,
       vibeKind,
       selected: selectedIds.has(row.id),
-      previewUrl: mediaPreviewPath(row.id),
+      previewUrl: preview.previewUrl,
+      previewExpiresInSeconds: preview.previewExpiresInSeconds,
     };
   });
 }
@@ -542,5 +547,5 @@ export async function listLibraryStills(userId: string) {
     .from(mediaAssets)
     .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.kind, "still")))
     .orderBy(desc(mediaAssets.createdAt));
-  return rows.map((row) => ({ ...row, previewUrl: mediaPreviewPath(row.id) }));
+  return rows.map((row) => publicMediaAsset(row));
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { publicJob } from "@/lib/media";
 import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import { enqueueGenerateStarter } from "@/server/packs";
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       presetId: body.presetId,
     });
     return NextResponse.json(
-      { job: result.job, preset: { id: result.preset.id, kind: result.preset.kind, label: result.preset.label } },
+      { job: publicJob(result.job), preset: { id: result.preset.id, kind: result.preset.kind, label: result.preset.label } },
       { status: 202 },
     );
   } catch (err) {

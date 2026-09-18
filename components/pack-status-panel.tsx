@@ -10,12 +10,12 @@ type Pack = {
   id: string;
   name: string;
   status: string;
-  adapterStorageKey?: string | null;
+  hasAdapter?: boolean;
 };
 
 export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
   const [status, setStatus] = useState(props.pack.status);
-  const [adapterReady, setAdapterReady] = useState(Boolean(props.pack.adapterStorageKey));
+  const [adapterReady, setAdapterReady] = useState(Boolean(props.pack.hasAdapter));
   const [pending, setPending] = useState<"test-grid" | "retrain" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
     const timer = window.setInterval(() => {
       void api<{ pack: Pack }>(`/api/packs/${props.pack.id}`).then((data) => {
         setStatus(data.pack.status);
-        setAdapterReady(Boolean(data.pack.adapterStorageKey));
+        setAdapterReady(Boolean(data.pack.hasAdapter));
         if (data.pack.status === "locked" || data.pack.status === "ready" || data.pack.status === "failed") {
           window.location.reload();
         }
