@@ -98,21 +98,25 @@ export const characterPacks = pgTable("character_packs", {
   ...timestamps,
 });
 
-export const mediaAssets = pgTable("media_assets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  kind: mediaKindEnum("kind").notNull(),
-  storageKey: text("storage_key").notNull(),
-  mimeType: text("mime_type").notNull().default("image/webp"),
-  byteSize: integer("byte_size"),
-  generationJobId: uuid("generation_job_id"),
-  characterPackId: uuid("character_pack_id").references(() => characterPacks.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: mediaKindEnum("kind").notNull(),
+    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull().default("image/webp"),
+    byteSize: integer("byte_size"),
+    generationJobId: uuid("generation_job_id"),
+    characterPackId: uuid("character_pack_id").references(() => characterPacks.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("media_assets_generation_job_id_idx").on(table.generationJobId)],
+);
 
 export const trainingSetAssets = pgTable("training_set_assets", {
   id: uuid("id").primaryKey().defaultRandom(),

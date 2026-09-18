@@ -14,6 +14,10 @@ import {
   trainPackFailureMessage,
   trainPackStalledMessage,
   trainPackTimeoutMessage,
+  generateStillBullJobId,
+  trainPackBullJobId,
+  isDuplicateBullJobError,
+  trainSubmitDecision,
 } from "@/lib/job-errors";
 
 describe("HTTP retry classification", () => {
@@ -201,5 +205,20 @@ describe("train failure copy", () => {
     expect(trainPackFailureMessage(false)).toMatch(/Train & lock again/);
     expect(trainPackTimeoutMessage(true)).toMatch(/previous Locked Soul ID is unchanged/);
     expect(trainPackStalledMessage(true)).toMatch(/previous Locked Soul ID is unchanged/);
+  });
+});
+
+describe("idempotent BullMQ ids and train submit", () => {
+  it("keys generate/train jobs on generationJobId", () => {
+    expect(generateStillBullJobId("job-1")).toBe("generateStill:job-1");
+    expect(trainPackBullJobId("job-1")).toBe("trainPack:job-1");
+    expect(trainPackBullJobId("job-1", 3)).toBe("trainPack:job-1:poll:3");
+    expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);
+  });
+
+  it("does not resubmit trainPack after the first /run", () => {
+    expect(trainSubmitDecision({ providerJobId: "rp_1", submitAttempted: true })).toBe("poll");
+    expect(trainSubmitDecision({ providerJobId: null, submitAttempted: false })).toBe("submit");
+    expect(trainSubmitDecision({ providerJobId: "  ", submitAttempted: true })).toBe("fail-in-flight");
   });
 });

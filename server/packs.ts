@@ -15,11 +15,12 @@ import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compil
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
+import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
-import { getGenerateStillQueue, getTrainPackQueue } from "@/server/queue";
+import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 
 function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex");
@@ -211,7 +212,7 @@ export async function enqueueGenerateStill(input: {
   if (!pack) {
     throw new Error("Character pack is required");
   }
-  requireLockedSoulForGenerate(pack.status);
+  assertGenerateStillAllowed({ packStatus: pack.status, poseChipId: input.poseChipId });
 
   const compiled = compileComposerPrompt({
     characterPackName: pack.name,
@@ -266,7 +267,7 @@ export async function enqueueGenerateStill(input: {
     throw new Error("Failed to create job");
   }
 
-  await getGenerateStillQueue().add("generateStill", { generationJobId: job.id });
+  await enqueueGenerateStillJob(job.id);
   return { job, recipeId: recipe.id };
 }
 
@@ -307,7 +308,7 @@ export async function enqueueGenerateStarter(input: {
     throw new Error("Failed to create starter job");
   }
 
-  await getGenerateStillQueue().add("generateStill", { generationJobId: job.id });
+  await enqueueGenerateStillJob(job.id);
   return { job, preset };
 }
 
@@ -347,7 +348,7 @@ export async function enqueueTrainPack(userId: string, packId: string) {
     throw new Error("Failed to create train job");
   }
 
-  await getTrainPackQueue().add("trainPack", {
+  await enqueueTrainPackJob({
     generationJobId: job.id,
     characterPackId: pack.id,
   });
@@ -417,7 +418,7 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
     throw new Error("Failed to create retrain job");
   }
 
-  await getTrainPackQueue().add("trainPack", {
+  await enqueueTrainPackJob({
     generationJobId: job.id,
     characterPackId: pack.id,
   });

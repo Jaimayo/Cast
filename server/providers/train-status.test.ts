@@ -4,8 +4,10 @@ import {
   extractAdapterPointer,
   mapRunPodJobStatus,
   publicAdapterMeta,
+  runPodTrainErrorCode,
   shouldContinuePolling,
   TRAIN_POLL_MAX_ATTEMPTS,
+  trainPollDecision,
   trainPollDelayMs,
 } from "@/server/providers/train-status";
 import { assertSafeStorageKey, mediaKey, putObject, readObject, presignGetUrl } from "@/server/storage";
@@ -62,6 +64,25 @@ describe("RunPod train status", () => {
     expect(trainPollDelayMs(10)).toBe(15_000);
     expect(trainPollDelayMs(40)).toBe(30_000);
     expect(TRAIN_POLL_MAX_ATTEMPTS).toBeGreaterThan(20);
+    expect(trainPollDecision({ status: "queued", attempt: 0 })).toEqual({ action: "poll", nextAttempt: 1 });
+    expect(trainPollDecision({ status: "succeeded", attempt: 2 })).toEqual({ action: "persist" });
+    expect(trainPollDecision({ status: "failed", attempt: 2 })).toEqual({
+      action: "fail",
+      errorCode: "TRAIN_PACK_FAILED",
+    });
+    expect(trainPollDecision({ status: "running", attempt: TRAIN_POLL_MAX_ATTEMPTS })).toEqual({
+      action: "timeout",
+      errorCode: "TRAIN_POLL_TIMEOUT",
+    });
+  });
+
+  it("maps live RunPod failure strings onto stored error codes", () => {
+    expect(runPodTrainErrorCode("COMPLETED")).toBeNull();
+    expect(runPodTrainErrorCode("FAILED")).toBe("TRAIN_PACK_FAILED");
+    expect(runPodTrainErrorCode("TIMED_OUT")).toBe("TRAIN_PACK_TIMEOUT");
+    expect(runPodTrainErrorCode("CANCELLED")).toBe("TRAIN_PACK_CANCELED");
+    expect(runPodTrainErrorCode("FAILED", "OOM_KILL")).toBe("OOM_KILL");
+    expect(runPodTrainErrorCode("FAILED", "something exploded in the worker")).toBe("TRAIN_PACK_FAILED");
   });
 
   it("extracts adapter pointers from worker output", () => {
@@ -83,6 +104,22 @@ describe("RunPod train status", () => {
         lora: "https://example.invalid/pack.safetensors",
       }),
     ).toMatchObject({ sourceUrl: "https://example.invalid/pack.safetensors" });
+
+    expect(
+      extractAdapterPointer({
+        output: {
+          artifacts: { adapterKey: "adapters/u/p.safetensors" },
+        },
+      }),
+    ).toMatchObject({ storageKey: "adapters/u/p.safetensors" });
+
+    expect(
+      extractAdapterPointer({
+        output: {
+          output: { lora_url: "https://example.invalid/nested.safetensors" },
+        },
+      }),
+    ).toMatchObject({ sourceUrl: "https://example.invalid/nested.safetensors" });
 
     expect(extractAdapterPointer({ hello: "nope" })).toBeNull();
   });

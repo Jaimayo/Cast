@@ -1,5 +1,6 @@
 import { FICTIONAL_ADULT_CONSTRAINT } from "@/lib/constants";
 import { requireChip, type Chip } from "@/lib/chips";
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { requireStarterPreset } from "@/lib/starters";
 
 export type ComposerSelectionInput = {
@@ -56,7 +57,7 @@ export function compileComposerPrompt(input: ComposerSelectionInput): CompiledPr
     throw new Error("Character pack is required");
   }
   if (!input.poseChipId?.trim()) {
-    throw new Error("Pose is required");
+    throw new JobError({ code: JOB_ERROR_CODES.POSE_REQUIRED, retryable: false });
   }
 
   const pose = requireChip(input.poseChipId, "pose");

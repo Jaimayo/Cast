@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth-error";
+import { JobError } from "@/lib/job-errors";
 import { ObjectNotFoundError } from "@/server/storage";
 
 function looksLikeStorageLeak(message: string): boolean {
@@ -12,6 +13,9 @@ function looksLikeStorageLeak(message: string): boolean {
 export function jsonError(err: unknown): NextResponse {
   if (err instanceof AuthError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
+  }
+  if (err instanceof JobError) {
+    return NextResponse.json({ error: err.userMessage, code: err.code }, { status: 400 });
   }
   if (err instanceof ObjectNotFoundError) {
     return NextResponse.json({ error: "Media not found" }, { status: 404 });

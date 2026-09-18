@@ -1,6 +1,15 @@
 import { eq } from "drizzle-orm";
 import { characterPacks, generationJobs, mediaAssets, trainingSetAssets } from "@/db/schema";
-import { JobError, JOB_ERROR_CODES, keepLockedAfterTrainFail, trainPackFailureMessage, type JobAttempt } from "@/lib/job-errors";
+import {
+  JobError,
+  JOB_ERROR_CODES,
+  isSubmitAttempted,
+  keepLockedAfterTrainFail,
+  trainPackFailureMessage,
+  trainSubmitDecision,
+  withSubmitAttempted,
+  type JobAttempt,
+} from "@/lib/job-errors";
 import { jobLog } from "@/lib/job-log";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -14,69 +23,11 @@ import {
   previousTrainProviderJobId,
   restorePackAfterTrainFailure,
 } from "@/server/jobs";
+import { persistAdapterPointer } from "@/server/providers/adapter-persist";
 import { getTrainPackAdapter } from "@/server/providers/registry";
-import {
-  shouldContinuePolling,
-  TRAIN_POLL_MAX_ATTEMPTS,
-  trainPollDelayMs,
-} from "@/server/providers/train-status";
+import { shouldContinuePolling, TRAIN_POLL_MAX_ATTEMPTS, trainPollDelayMs } from "@/server/providers/train-status";
 import { type TrainPackResult } from "@/server/providers/types";
-import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
-import { mediaKey, putObject } from "@/server/storage";
-
-async function persistAdapterPointer(input: {
-  packUserId: string;
-  packId: string;
-  providerJobId: string;
-  result: TrainPackResult;
-}): Promise<{ storageKey: string; mimeType: string; meta: Record<string, unknown> }> {
-  let mimeType = input.result.adapterMimeType ?? "application/octet-stream";
-  const storageKey =
-    input.result.adapterStorageKey ??
-    mediaKey({
-      kind: "adapters",
-      userId: input.packUserId,
-      id: input.packId,
-      ext: input.result.adapterBytesBase64 ? "lora" : "json",
-    });
-
-  if (input.result.adapterBytesBase64) {
-    await putObject({
-      key: storageKey,
-      body: Buffer.from(input.result.adapterBytesBase64, "base64"),
-      mimeType,
-    });
-  } else if (input.result.provider === "stub") {
-    await putObject({
-      key: storageKey,
-      body: Buffer.from("stub-lora-adapter"),
-      mimeType,
-    });
-  } else if (!input.result.adapterStorageKey) {
-    mimeType = "application/json";
-    await putObject({
-      key: storageKey,
-      body: Buffer.from(
-        JSON.stringify({
-          provider: input.result.provider,
-          providerJobId: input.providerJobId,
-          sourceUrl: input.result.adapterMeta?.sourceUrl ?? null,
-        }),
-      ),
-      mimeType,
-    });
-  }
-
-  return {
-    storageKey,
-    mimeType,
-    meta: {
-      ...(input.result.adapterMeta ?? {}),
-      provider: input.result.provider,
-      providerJobId: input.providerJobId,
-    },
-  };
-}
+import { enqueueTrainPackJob } from "@/server/queue";
 
 export async function processTrainPackJob(
   generationJobId: string,
@@ -153,12 +104,27 @@ export async function processTrainPackJob(
       hasProviderJobId: Boolean(job.providerJobId),
     });
 
-    // Resume this job only — never reuse a prior pack train id (Retrain starts a new RunPod job).
-    const existingProviderJobId = job.providerJobId;
+    const submit = trainSubmitDecision({
+      providerJobId: job.providerJobId,
+      submitAttempted: isSubmitAttempted(job.inputJson),
+    });
     let result: TrainPackResult;
-    if (existingProviderJobId && adapter.getTrainStatus) {
-      result = await adapter.getTrainStatus(existingProviderJobId);
+    if (submit === "fail-in-flight") {
+      throw new JobError({ code: JOB_ERROR_CODES.TRAIN_SUBMIT_IN_FLIGHT, retryable: false });
+    }
+    if (submit === "poll") {
+      if (!adapter.getTrainStatus || !job.providerJobId) {
+        throw new JobError({ code: JOB_ERROR_CODES.TRAIN_SUBMIT_IN_FLIGHT, retryable: false });
+      }
+      result = await adapter.getTrainStatus(job.providerJobId);
     } else {
+      await db
+        .update(generationJobs)
+        .set({
+          inputJson: withSubmitAttempted(job.inputJson),
+          updatedAt: new Date(),
+        })
+        .where(eq(generationJobs.id, job.id));
       result = await adapter.trainPack({
         jobId: job.id,
         characterPackId: pack.id,
@@ -171,12 +137,13 @@ export async function processTrainPackJob(
     }
 
     if (result.status === "failed") {
+      const errorCode = result.errorCode ?? JOB_ERROR_CODES.TRAIN_PACK_FAILED;
       await db
         .update(generationJobs)
         .set({
           status: "failed",
           providerJobId: result.providerJobId,
-          errorCode: JOB_ERROR_CODES.TRAIN_PACK_FAILED,
+          errorCode,
           errorMessage: trainPackFailureMessage(keepLockedOnFail),
           updatedAt: new Date(),
         })
@@ -193,6 +160,7 @@ export async function processTrainPackJob(
         provider: result.provider,
         providerJobId: result.providerJobId,
         keepLocked: keepLockedOnFail,
+        code: errorCode,
       });
       return;
     }
@@ -223,11 +191,11 @@ export async function processTrainPackJob(
           updatedAt: new Date(),
         })
         .where(eq(characterPacks.id, pack.id));
-      await getTrainPackQueue().add(
-        "trainPack",
-        { generationJobId: job.id, characterPackId: pack.id, attempt: nextAttempt },
-        { ...TRAIN_PACK_JOB_OPTIONS, delay: trainPollDelayMs(nextAttempt) },
-      );
+      await enqueueTrainPackJob({
+        generationJobId: job.id,
+        characterPackId: pack.id,
+        attempt: nextAttempt,
+      });
       jobLog("trainPack.poll_scheduled", {
         jobId: job.id,
         packId: pack.id,
