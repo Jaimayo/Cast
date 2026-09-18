@@ -1,3 +1,5 @@
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+
 export type ChipFamily = "pose" | "outfit" | "scene" | "lighting" | "body";
 
 export type Chip = {
@@ -78,12 +80,16 @@ export function getChip(id: string): Chip | undefined {
 }
 
 export function requireChip(id: string, familyName: ChipFamily): Chip {
-  const chip = byId.get(id);
-  if (!chip) {
-    throw new Error(`Unknown chip: ${id}`);
+  const trimmed = id.trim();
+  if (!trimmed) {
+    if (familyName === "pose") {
+      throw new JobError({ code: JOB_ERROR_CODES.POSE_REQUIRED, retryable: false });
+    }
+    throw new JobError({ code: JOB_ERROR_CODES.INVALID_CHIP, retryable: false });
   }
-  if (chip.family !== familyName) {
-    throw new Error(`Chip ${id} is family ${chip.family}, expected ${familyName}`);
+  const chip = byId.get(trimmed);
+  if (!chip || chip.family !== familyName) {
+    throw new JobError({ code: JOB_ERROR_CODES.INVALID_CHIP, retryable: false });
   }
   return chip;
 }

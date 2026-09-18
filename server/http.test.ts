@@ -98,6 +98,17 @@ describe("jsonError media failures", () => {
     const full = jsonError(new JobError({ code: JOB_ERROR_CODES.PACK_REFS_FULL, retryable: false }));
     expect(full.status).toBe(400);
     expect(await bodyOf(full)).toMatchObject({ code: JOB_ERROR_CODES.PACK_REFS_FULL });
+
+    const pose = jsonError(new JobError({ code: JOB_ERROR_CODES.POSE_REQUIRED, retryable: false }));
+    expect(pose.status).toBe(400);
+    expect(await bodyOf(pose)).toEqual({ error: "Pose is required", code: JOB_ERROR_CODES.POSE_REQUIRED });
+
+    const policy = jsonError(new JobError({ code: JOB_ERROR_CODES.POLICY_DENIED, retryable: false }));
+    expect(policy.status).toBe(400);
+    const policyPayload = await bodyOf(policy);
+    expect(policyPayload.code).toBe(JOB_ERROR_CODES.POLICY_DENIED);
+    expect(policyPayload.error).toMatch(/fictional adults only/i);
+    expect(JSON.stringify(policyPayload)).not.toMatch(/prompt|child|hash/i);
   });
 
   it("redacts filesystem and bucket errors", async () => {

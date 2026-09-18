@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { characterPacks, mediaAssets, recipes } from "@/db/schema";
-import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
+import { preflightComposerPrompt, preflightStarterPrompt } from "@/lib/policy-preflight";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
 import type { JobAttempt } from "@/lib/job-errors";
@@ -80,7 +80,7 @@ export async function processGenerateStillJob(
     let negativePrompt: string;
     if (job.kind === "generate_starter") {
       const presetId = String(job.inputJson.presetId ?? "");
-      const compiled = compileStarterPrompt({
+      const compiled = preflightStarterPrompt({
         characterPackName: pack.name,
         characterPackId: pack.id,
         presetId,
@@ -108,7 +108,7 @@ export async function processGenerateStillJob(
 
       assertGenerateStillAllowed({ packStatus: pack.status, poseChipId });
 
-      const compiled = compileComposerPrompt({
+      const compiled = preflightComposerPrompt({
         characterPackName: pack.name,
         characterPackId: pack.id,
         poseChipId,

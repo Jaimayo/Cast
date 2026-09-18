@@ -7,13 +7,15 @@ import { enqueueGenerateStill } from "@/server/packs";
 
 export const dynamic = "force-dynamic";
 
+const optionalChipId = z.string().optional().nullable();
+
 const bodySchema = z.object({
   characterPackId: z.string().uuid(),
-  poseChipId: z.string().min(1),
-  outfitChipId: z.string().min(1).optional().nullable(),
-  sceneChipId: z.string().min(1).optional().nullable(),
-  lightingChipId: z.string().min(1).optional().nullable(),
-  bodyChipId: z.string().min(1).optional().nullable(),
+  poseChipId: optionalChipId,
+  outfitChipId: optionalChipId,
+  sceneChipId: optionalChipId,
+  lightingChipId: optionalChipId,
+  bodyChipId: optionalChipId,
 });
 
 export async function POST(request: Request) {
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     const result = await enqueueGenerateStill({
       userId: user.id,
       characterPackId: body.characterPackId,
-      poseChipId: body.poseChipId,
+      poseChipId: body.poseChipId ?? "",
       outfitChipId: body.outfitChipId,
       sceneChipId: body.sceneChipId,
       lightingChipId: body.lightingChipId,

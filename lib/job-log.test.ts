@@ -26,7 +26,23 @@ describe("publicJobLogFields", () => {
       status: "running",
       attempt: 2,
     });
-    expect(JSON.stringify(fields)).not.toMatch(/prompt|secret|Bearer|AAAA/i);
+    expect(JSON.stringify(fields)).not.toMatch(/secret|Bearer|AAAA/i);
+  });
+
+  it("keeps prompt hashes so policy hits can be audited without the prompt", () => {
+    const fields = publicJobLogFields({
+      jobId: "job-3",
+      prompt: "wholly fictional adult human, child",
+      promptHash: "a".repeat(64),
+      compiledPromptHash: "b".repeat(64),
+      compiledPrompt: "hidden",
+    });
+    expect(fields).toEqual({
+      jobId: "job-3",
+      promptHash: "a".repeat(64),
+      compiledPromptHash: "b".repeat(64),
+    });
+    expect(JSON.stringify(fields)).not.toMatch(/wholly fictional|child|hidden/);
   });
 
   it("drops nested objects and buffers", () => {

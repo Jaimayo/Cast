@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   characterPackId: z.string().uuid(),
-  presetId: z.string().min(1),
+  presetId: z.string().optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const result = await enqueueGenerateStarter({
       userId: user.id,
       characterPackId: body.characterPackId,
-      presetId: body.presetId,
+      presetId: body.presetId ?? "",
     });
     return NextResponse.json(
       { job: publicJob(result.job), preset: { id: result.preset.id, kind: result.preset.kind, label: result.preset.label } },
