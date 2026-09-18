@@ -1,3 +1,5 @@
+import { applyStubGenerateScenario, applyStubTrainScenario, stubTrainOmitsAdapter } from "@/lib/stub-job-scenario";
+import { getEnv } from "@/server/env";
 import {
   type GenerateStillAdapter,
   type GenerateStillInput,
@@ -15,6 +17,10 @@ const PLACEHOLDER_WEBP = Buffer.from(
 export const stubGenerateAdapter: GenerateStillAdapter = {
   name: "stub",
   async generateStill(input: GenerateStillInput): Promise<GenerateStillResult> {
+    applyStubGenerateScenario({
+      scenario: getEnv().stubJobScenario,
+      attempt: input.attempt,
+    });
     return {
       provider: "stub",
       providerJobId: `stub-${input.jobId}`,
@@ -27,6 +33,18 @@ export const stubGenerateAdapter: GenerateStillAdapter = {
 export const stubTrainAdapter: TrainPackAdapter = {
   name: "stub",
   async trainPack(input: TrainPackInput): Promise<TrainPackResult> {
+    const scenario = getEnv().stubJobScenario;
+    applyStubTrainScenario({ scenario, attempt: input.attempt });
+    if (stubTrainOmitsAdapter(scenario)) {
+      return {
+        provider: "stub",
+        providerJobId: `stub-train-${input.characterPackId}`,
+        status: "succeeded",
+        adapterStorageKey: null,
+        adapterMimeType: null,
+        adapterMeta: { stub: true, omitAdapter: true },
+      };
+    }
     return {
       provider: "stub",
       providerJobId: `stub-train-${input.characterPackId}`,

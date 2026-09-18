@@ -115,6 +115,8 @@ export type PublicJobFields = {
   attemptCount: number;
   lastErrorCode: string | null;
   lastError: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
 };
 
 export function publicJob<
@@ -125,18 +127,31 @@ export function publicJob<
     attemptsMade?: number | null;
     errorCode?: string | null;
     errorMessage?: string | null;
+    inputJson?: unknown;
+    providerJobId?: string | null;
   },
->(job: T, options: { now?: Date } = {}): Omit<T, "resultAssetKey" | "attemptsMade"> & PublicJobFields {
+>(
+  job: T,
+  options: { now?: Date } = {},
+): Omit<T, "resultAssetKey" | "attemptsMade" | "inputJson" | "providerJobId" | "errorCode" | "errorMessage"> &
+  PublicJobFields {
   const now = options.now ?? new Date();
-  const { resultAssetKey, attemptsMade, ...rest } = job;
+  const { resultAssetKey, attemptsMade, inputJson, providerJobId, errorCode, errorMessage, ...rest } = job;
   void resultAssetKey;
+  void attemptsMade;
+  void inputJson;
+  void providerJobId;
+  const safeMessage = userSafeLastError(errorCode, errorMessage);
+  const safeCode = errorCode ?? null;
   return {
     ...rest,
     previewUrl: job.previewUrl ?? null,
     ageSeconds: jobAgeSeconds(job.createdAt, now),
     attemptCount: jobAttemptCount(attemptsMade),
-    lastErrorCode: job.errorCode ?? null,
-    lastError: userSafeLastError(job.errorCode, job.errorMessage),
+    lastErrorCode: safeCode,
+    lastError: safeMessage,
+    errorCode: safeCode,
+    errorMessage: safeMessage,
   };
 }
 

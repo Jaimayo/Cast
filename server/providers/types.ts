@@ -5,6 +5,8 @@ export type GenerateStillInput = {
   width?: number;
   height?: number;
   seed?: number;
+  /** 1-based BullMQ attempt. Stub scenarios use this for retry-then-succeed. */
+  attempt?: number;
   /** Opaque pack id for identity routing. Venice ignores this (no Soul ID). */
   characterPackId?: string;
   /** Trained LoRA / adapter object key when a Soul ID exists. Venice ignores this. */
@@ -25,6 +27,8 @@ export type TrainPackInput = {
   characterPackId: string;
   name: string;
   referenceKeys: string[];
+  /** 1-based BullMQ attempt. Stub scenarios use this for retry-then-succeed. */
+  attempt?: number;
 };
 
 export type TrainPackResult = {

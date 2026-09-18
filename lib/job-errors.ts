@@ -9,6 +9,20 @@ export const GENERATE_STILL_BACKOFF_MS = 2_000;
 export const TRAIN_PACK_MAX_ATTEMPTS = 5;
 export const TRAIN_PACK_BACKOFF_MS = 3_000;
 
+/** Product-facing retry budget shared by queue options, Jobs copy, and tests. */
+export const JOB_RETRY_POLICY = {
+  generateStill: {
+    maxAttempts: GENERATE_STILL_MAX_ATTEMPTS,
+    backoffMs: GENERATE_STILL_BACKOFF_MS,
+    backoff: "exponential" as const,
+  },
+  trainPack: {
+    maxAttempts: TRAIN_PACK_MAX_ATTEMPTS,
+    backoffMs: TRAIN_PACK_BACKOFF_MS,
+    backoff: "exponential" as const,
+  },
+} as const;
+
 export const JOB_ERROR_CODES = {
   JOB_NOT_FOUND: "JOB_NOT_FOUND",
   PACK_NOT_FOUND: "PACK_NOT_FOUND",
@@ -31,6 +45,8 @@ export const JOB_ERROR_CODES = {
   TRAIN_PACK_TIMEOUT: "TRAIN_PACK_TIMEOUT",
   TRAIN_PACK_CANCELED: "TRAIN_PACK_CANCELED",
   GENERATE_NO_IMAGE: "GENERATE_NO_IMAGE",
+  GENERATE_TIMEOUT: "GENERATE_TIMEOUT",
+  GENERATE_MISSING_ADAPTER: "GENERATE_MISSING_ADAPTER",
   POSE_REQUIRED: "POSE_REQUIRED",
   JOB_STALLED: "JOB_STALLED",
   PACK_REFS_TOO_FEW: "PACK_REFS_TOO_FEW",
@@ -61,6 +77,9 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   TRAIN_PACK_TIMEOUT: "The training service timed out. You can try Train & lock again.",
   TRAIN_PACK_CANCELED: "Training was canceled. You can try Train & lock again.",
   GENERATE_NO_IMAGE: "The image service returned no still. Try again.",
+  GENERATE_TIMEOUT: "Still generation took too long. Try Generate again.",
+  GENERATE_MISSING_ADAPTER:
+    "This character's Soul ID adapter is missing. Retrain, or lock without Train to generate without identity.",
   POSE_REQUIRED: "Pose is required",
   JOB_STALLED: "This job stopped unexpectedly. Try again.",
   PACK_REFS_TOO_FEW: "Need at least 12 training refs to lock Soul ID.",
@@ -114,6 +133,9 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.TRAIN_SUBMIT_IN_FLIGHT ||
     code === JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT ||
     code === JOB_ERROR_CODES.TRAIN_PACK_CANCELED ||
+    code === JOB_ERROR_CODES.GENERATE_TIMEOUT ||
+    code === JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER ||
+    code === JOB_ERROR_CODES.GENERATE_NO_IMAGE ||
     code === JOB_ERROR_CODES.POSE_REQUIRED ||
     code === JOB_ERROR_CODES.JOB_STALLED ||
     code === JOB_ERROR_CODES.PACK_REFS_TOO_FEW ||
@@ -176,7 +198,46 @@ const GENERIC_USER_JOB_FAILURE = "This job failed. Try again.";
 
 function looksUnsafeJobMessage(message: string): boolean {
   if (message.includes("\n    at ")) return true;
-  return /compiled prompt|negativePrompt|Authorization:|Bearer\s+\S/i.test(message);
+  if (message.length > 280) return true;
+  return /compiled prompt|negativePrompt|Authorization:|Bearer\s+\S|adapterStorageKey|lora[_-]?bytes|base64,|traceback|at \w+\s*\(/i.test(
+    message,
+  );
+}
+
+/** Persist this on the job row while BullMQ retries so Jobs can show lastError mid-flight. */
+export function retryingJobPatch(
+  error: ClassifiedJobError,
+  attempt: JobAttempt,
+): { errorCode: string; errorMessage: string; attemptsMade: number } {
+  return {
+    errorCode: error.code,
+    errorMessage: error.userMessage,
+    attemptsMade: attempt.attempt,
+  };
+}
+
+export function jobErrorFromTrainPollFail(errorCode?: string | null): JobError {
+  const code =
+    errorCode && errorCode in USER_JOB_MESSAGES
+      ? (errorCode as JobErrorCode)
+      : JOB_ERROR_CODES.TRAIN_PACK_FAILED;
+  return new JobError({ code, retryable: false });
+}
+
+/**
+ * Soul ID Generate was queued for RunPod, but the pack no longer has a ready adapter.
+ * Fail closed instead of silently falling back to Venice on a retry.
+ */
+export function generateMissingAdapter(input: {
+  kind: string;
+  provider?: string | null;
+  hasReadyAdapter: boolean;
+}): JobError | null {
+  if (input.kind === "generate_starter") return null;
+  if (input.kind !== "generate_still") return null;
+  if (input.provider !== "runpod") return null;
+  if (input.hasReadyAdapter) return null;
+  return new JobError({ code: JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER, retryable: false });
 }
 
 /**
@@ -295,7 +356,16 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
     if (/train pack polling timed out/i.test(message) || /train.*poll/i.test(message)) {
       return classified(JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT, false);
     }
+    if (/generateStill polling timed out|still generation took too long/i.test(message)) {
+      return classified(JOB_ERROR_CODES.GENERATE_TIMEOUT, false);
+    }
     return classified(JOB_ERROR_CODES.PROVIDER_TIMEOUT, true);
+  }
+  if (/generateStill returned no image|returned no still/i.test(message)) {
+    return classified(JOB_ERROR_CODES.GENERATE_NO_IMAGE, false);
+  }
+  if (/soul id adapter is missing|generate_missing_adapter/i.test(message)) {
+    return classified(JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER, false);
   }
   if (looksLikeNetwork(message, name)) {
     return classified(JOB_ERROR_CODES.NETWORK_ERROR, true);

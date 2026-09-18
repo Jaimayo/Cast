@@ -85,6 +85,14 @@ export function planAdapterPersist(input: AdapterPersistInput): AdapterPersistPl
   const mimeType = defaultMime(input.result);
   const meta = persistMeta(input);
 
+  if (input.result.adapterMeta?.omitAdapter === true) {
+    return {
+      action: "fail",
+      errorCode: JOB_ERROR_CODES.TRAIN_NO_ADAPTER,
+      message: "Train pack finished without a LoRA / adapter pointer",
+    };
+  }
+
   if (input.result.adapterBytesBase64) {
     return {
       action: "write-bytes",

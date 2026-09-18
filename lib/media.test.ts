@@ -189,7 +189,7 @@ describe("job observability DTO", () => {
     expect(job.lastError).toBe("Training took too long. You can try Train & lock again.");
   });
 
-  it("does not leak stacks or prompts through lastError", () => {
+  it("does not leak stacks, prompts, or provider payloads through lastError or errorMessage", () => {
     const job = publicJob({
       id: "job-raw",
       kind: "generate_still",
@@ -197,9 +197,45 @@ describe("job observability DTO", () => {
       errorCode: "GENERATE_STILL_FAILED",
       errorMessage: "Venice explode\n    at generateStill (workers/generateStill.ts:12)\ncompiled prompt: secret pose",
       resultAssetKey: "still/u1/x.webp",
+      providerJobId: "rp-secret-99",
+      inputJson: { compiledPrompt: "secret pose", adapterStorageKey: "adapters/u1/p.lora" },
     });
     expect(job.lastError).toBe("Still generation failed. Try again from Create.");
+    expect(job.errorMessage).toBe(job.lastError);
     expect(job.lastError).not.toMatch(/compiled prompt|at generateStill|secret pose/);
-    expect(JSON.stringify(job)).not.toMatch(/still\/u1/);
+    expect(JSON.stringify(job)).not.toMatch(/still\/u1|rp-secret|compiledPrompt|adapters\//);
+    expect("inputJson" in job).toBe(false);
+    expect("providerJobId" in job).toBe(false);
+  });
+
+  it("exposes timeout, missing adapter, and stall copy for Jobs list/detail", () => {
+    const timeout = publicJob({
+      id: "job-to",
+      kind: "generate_still",
+      status: "failed",
+      errorCode: "GENERATE_TIMEOUT",
+      errorMessage: null,
+    });
+    expect(timeout.lastError).toBe("Still generation took too long. Try Generate again.");
+    expect(timeout.lastErrorCode).toBe("GENERATE_TIMEOUT");
+
+    const missing = publicJob({
+      id: "job-ma",
+      kind: "generate_still",
+      status: "failed",
+      errorCode: "GENERATE_MISSING_ADAPTER",
+      errorMessage: null,
+    });
+    expect(missing.lastError).toMatch(/Soul ID adapter is missing/);
+
+    const stall = publicJob({
+      id: "job-st",
+      kind: "train_pack",
+      status: "failed",
+      errorCode: "JOB_STALLED",
+      errorMessage: "Training stopped unexpectedly. Your previous Locked Soul ID is unchanged.",
+    });
+    expect(stall.lastError).toMatch(/previous Locked Soul ID is unchanged/);
+    expect(stall.errorMessage).toBe(stall.lastError);
   });
 });

@@ -30,7 +30,7 @@ describe("storage keys", () => {
   });
 
   it("round-trips bytes in local storage when R2 is unset", async () => {
-    const key = `still/test/${Date.now()}.webp`;
+    const key = `still/train-status-test/${Date.now()}.webp`;
     const body = Buffer.from("cast-local-preview");
     await putObject({ key, body, mimeType: "image/webp" });
     const read = await readObject(key);
