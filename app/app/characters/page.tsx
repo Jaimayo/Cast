@@ -1,4 +1,5 @@
-import { CharacterRoster } from "@/components/character-roster";
+import { CharacterRoster } from "@/components/cast/character-roster";
+import { Button } from "@/components/ui/button";
 import { listPacks } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
 
@@ -8,17 +9,19 @@ export default async function CharactersPage() {
   const user = await requireAttestedUser();
   const packs = await listPacks(user.id);
   return (
-    <section>
-      <div className="row-between">
+    <section className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+      <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <div className="kicker">Characters</div>
-          <h1>Character Packs</h1>
+          <p className="text-[11px] tracking-[0.16em] text-muted-foreground uppercase">Characters</p>
+          <h1 className="mt-1 font-heading text-4xl">Character Packs</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            Lock a character before Create. Fictional only — no real-person upload.
+          </p>
         </div>
-        <a className="btn" href="/app/characters/new">
-          + New
-        </a>
+        <Button asChild size="xl">
+          <a href="/app/characters/new">+ New</a>
+        </Button>
       </div>
-      <p className="muted">Lock a character before Create. Fictional only — no real-person upload.</p>
       <CharacterRoster packs={packs} />
     </section>
   );

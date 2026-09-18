@@ -1,4 +1,4 @@
-import { PackWizard } from "@/components/pack-wizard";
+import { PackWizard } from "@/components/cast/pack-wizard";
 
 export default function NewCharacterPage() {
   return <PackWizard />;

@@ -1,4 +1,4 @@
-import { ComposerShell } from "@/components/composer-shell";
+import { ComposerShell } from "@/components/cast/composer-shell";
 
 export default async function CreatePage({
   searchParams,
