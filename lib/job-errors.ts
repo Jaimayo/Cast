@@ -285,8 +285,10 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
   }
   if (
     /generateStill requires a character pack/i.test(message) ||
-    /only draft packs/i.test(message) ||
     /train & lock is available/i.test(message) ||
+    /training is already running/i.test(message) ||
+    /only draft packs/i.test(message) ||
+    /retrain is available/i.test(message) ||
     /refs can only be changed/i.test(message) ||
     /starters can only be added/i.test(message)
   ) {

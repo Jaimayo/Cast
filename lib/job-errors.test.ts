@@ -70,7 +70,11 @@ describe("classifyJobError", () => {
       code: JOB_ERROR_CODES.PACK_NOT_FOUND,
       retryable: false,
     });
-    expect(classifyJobError(new Error("generateStill requires a character pack"))).toMatchObject({
+    expect(classifyJobError(new Error("Training is already running. Check Jobs — do not start a second train."))).toMatchObject({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      retryable: false,
+    });
+    expect(classifyJobError(new Error("Retrain is available after Soul ID is Locked."))).toMatchObject({
       code: JOB_ERROR_CODES.INVALID_PACK_STATE,
       retryable: false,
     });
