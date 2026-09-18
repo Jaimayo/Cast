@@ -4,7 +4,7 @@ import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compil
 import { getDb } from "@/server/db";
 import {
   generateStillFallbackAdapter,
-  getGenerateStillAdapter,
+  getGenerateStillAdapterForPack,
 } from "@/server/providers/registry";
 import { ProviderNotConfiguredError } from "@/server/providers/types";
 import { mediaKey, putObject } from "@/server/storage";
@@ -85,7 +85,7 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
       negativePrompt = compiled.negativePrompt;
     }
 
-    const adapter = getGenerateStillAdapter();
+    const adapter = getGenerateStillAdapterForPack(pack);
     let result;
     try {
       result = await adapter.generateStill({
@@ -94,6 +94,7 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         negativePrompt,
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
+        adapterMeta: pack.adapterMeta,
       });
     } catch (err) {
       const fallback = generateStillFallbackAdapter();
@@ -110,6 +111,7 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         negativePrompt,
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
+        adapterMeta: pack.adapterMeta,
       });
     }
 

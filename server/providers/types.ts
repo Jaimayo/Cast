@@ -9,6 +9,8 @@ export type GenerateStillInput = {
   characterPackId?: string;
   /** Trained LoRA / adapter object key when a Soul ID exists. Venice ignores this. */
   adapterStorageKey?: string | null;
+  /** trainPack meta (e.g. sourceUrl). Venice ignores this. */
+  adapterMeta?: Record<string, unknown> | null;
 };
 
 export type GenerateStillResult = {

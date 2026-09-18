@@ -38,7 +38,10 @@ export default function JobsPage() {
     <section>
       <div className="kicker">Queue</div>
       <h1>Jobs</h1>
-      <p className="muted">generateStill (Venice) and trainPack (RunPod) workers.</p>
+      <p className="muted">
+        generateStill uses Venice unless the pack has a locked Soul ID adapter — then RunPod. trainPack is
+        RunPod. Stub mode never calls vendors.
+      </p>
       {error ? <p className="error">{error}</p> : null}
       <table className="table">
         <thead>

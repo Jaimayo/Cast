@@ -1,3 +1,4 @@
+import { resolveGenerateStillRoute } from "@/lib/generate-route";
 import { getEnv } from "@/server/env";
 import { runpodGenerateAdapter, runpodTrainAdapter } from "@/server/providers/runpod";
 import { sisterGenerateAdapter, sisterTrainAdapter } from "@/server/providers/sister";
@@ -24,16 +25,24 @@ export const providerRegistry = {
 } as const;
 
 export function getGenerateStillAdapter(): GenerateStillAdapter {
-  const env = getEnv();
-  if (env.providerMode === "stub") {
-    return providerRegistry.generateStill.stub;
-  }
+  return getGenerateStillAdapterForPack({ adapterStorageKey: null });
+}
 
-  const name = env.generateStillProvider;
-  if (name === "venice") return providerRegistry.generateStill.venice;
-  if (name === "runpod") return providerRegistry.generateStill.runpod;
-  if (name === "sister") return providerRegistry.generateStill.sister;
-  throw new ProviderCapabilityError(`Unknown GENERATE_STILL_PROVIDER: ${name}`);
+/** Venice default; RunPod when the pack has a stored Soul ID adapter. Stub stays stub. */
+export function getGenerateStillAdapterForPack(pack: {
+  adapterStorageKey?: string | null;
+}): GenerateStillAdapter {
+  const env = getEnv();
+  const route = resolveGenerateStillRoute({
+    providerMode: env.providerMode,
+    generateStillProvider: env.generateStillProvider,
+    adapterStorageKey: pack.adapterStorageKey,
+  });
+  if (route === "stub") return providerRegistry.generateStill.stub;
+  if (route === "runpod") return providerRegistry.generateStill.runpod;
+  if (route === "sister") return providerRegistry.generateStill.sister;
+  if (route === "venice") return providerRegistry.generateStill.venice;
+  throw new ProviderCapabilityError(`Unknown generateStill route: ${route}`);
 }
 
 export function getTrainPackAdapter(): TrainPackAdapter {
