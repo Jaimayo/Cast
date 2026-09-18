@@ -38,6 +38,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
 | `lib/prompt-compiler.ts` | Chips → hidden prompt (unit tested) |
+| `lib/rate-limit.ts` | Per-user enqueue / invite redeem 429 guards (in-memory, stub-friendly) |
 | `lib/chips.ts` | Composer families only |
 | `lib/starters.ts` | Face/body vibe catalog (separate from composer) |
 | `server/providers/venice.ts` | `generateStill` HTTP client against native `/image/generate` |
@@ -110,6 +111,7 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 - If Venice is unset/fails **and** there is no Soul ID adapter, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set. RunPod generate polls `GET .../status/{id}` for image bytes.
 - `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys and the Comfy placeholder, then polls `GET .../status/{id}` until complete. On success the worker stores LoRA/adapter bytes or object-key pointers (including live-shaped nested `output` / `lora_url`). Missing adapters fail closed (`TRAIN_NO_ADAPTER`). Venice **cannot** be selected for trainPack.
 - Locked pack detail: **Test grid** queues a small set of Composer stills (same `generateStill` path). **Retrain** re-queues `trainPack` with the existing refs. Generate is refused unless the pack is **Locked** and a Pose chip is set (server-side).
+- Enqueue abuse: invite redeem, Generate, Train & lock, and generate-starters are per-user (invite also per IP) sliding-window rate limited. Too many queued/running jobs return **429** with a distinct `code` (`GENERATE_STILL_RATE_LIMIT`, `TRAIN_PACK_BUSY`, …) plus `Retry-After`. `PROVIDER_MODE=stub` uses the same in-memory limiter (no Redis required for tests).
 - `sister` adapters implement the same interfaces and are selected only when `GENERATE_STILL_PROVIDER` / `TRAIN_PACK_PROVIDER` is `sister`.
 
 Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews use a short-lived presigned GET (R2) or `/api/media/:id` (local).

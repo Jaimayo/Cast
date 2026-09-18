@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth-error";
 import { JobError } from "@/lib/job-errors";
+import { RateLimitError } from "@/lib/rate-limit";
 import { ObjectNotFoundError } from "@/server/storage";
 
 function looksLikeStorageLeak(message: string): boolean {
@@ -11,6 +12,15 @@ function looksLikeStorageLeak(message: string): boolean {
 }
 
 export function jsonError(err: unknown): NextResponse {
+  if (err instanceof RateLimitError) {
+    return NextResponse.json(
+      { error: err.message, code: err.code, retryAfterSeconds: err.retryAfterSeconds },
+      {
+        status: 429,
+        headers: { "Retry-After": String(err.retryAfterSeconds) },
+      },
+    );
+  }
   if (err instanceof AuthError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   characterPacks,
   generationJobs,
@@ -14,13 +14,14 @@ import { canLockPack, lockWarning } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
-import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
+import { canRetrainPack, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
 import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
+import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
 
 function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex");
@@ -37,6 +38,36 @@ function providerForGenerate(adapterStorageKey?: string | null): "venice" | "run
 
 function providerForTrain(): "runpod" | "sister" {
   return getEnv().trainPackProvider === "sister" ? "sister" : "runpod";
+}
+
+async function countInFlightJobs(
+  userId: string,
+  kind: "generate_still" | "train_pack" | "generate_starter",
+): Promise<number> {
+  const db = getDb();
+  const rows = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(generationJobs)
+    .where(
+      and(
+        eq(generationJobs.userId, userId),
+        eq(generationJobs.kind, kind),
+        inArray(generationJobs.status, ["queued", "running"]),
+      ),
+    );
+  return Number(rows[0]?.n ?? 0);
+}
+
+async function guardJobEnqueue(
+  userId: string,
+  action: "generateStill" | "trainPack" | "generateStarter",
+  adding = 1,
+): Promise<void> {
+  const kind =
+    action === "generateStill" ? "generate_still" : action === "trainPack" ? "train_pack" : "generate_starter";
+  const inFlight = await countInFlightJobs(userId, kind);
+  assertUserInFlightCap(action, inFlight, adding);
+  consumeUserActionLimit(action, userId, adding);
 }
 
 export async function listPacks(userId: string) {
@@ -207,12 +238,16 @@ export async function enqueueGenerateStill(input: {
   lightingChipId?: string | null;
   bodyChipId?: string | null;
   source?: "composer" | "test_grid";
+  skipAbuseGuard?: boolean;
 }) {
   const pack = await getPack(input.userId, input.characterPackId);
   if (!pack) {
     throw new Error("Character pack is required");
   }
   assertGenerateStillAllowed({ packStatus: pack.status, poseChipId: input.poseChipId });
+  if (!input.skipAbuseGuard) {
+    await guardJobEnqueue(input.userId, "generateStill");
+  }
 
   const compiled = compileComposerPrompt({
     characterPackName: pack.name,
@@ -290,6 +325,7 @@ export async function enqueueGenerateStarter(input: {
     characterPackId: pack.id,
     presetId: preset.id,
   });
+  await guardJobEnqueue(input.userId, "generateStarter");
 
   const db = getDb();
   const jobRows = await db
@@ -325,6 +361,7 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   if (!gate.ok) {
     throw new Error(gate.message);
   }
+  await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
   await db
@@ -361,6 +398,7 @@ export async function enqueueTestGrid(userId: string, packId: string) {
     throw new Error("Pack not found");
   }
   requireLockedSoulForGenerate(pack.status);
+  await guardJobEnqueue(userId, "generateStill", TEST_GRID_SIZE);
 
   const jobs = [];
   for (const selection of TEST_GRID_SELECTIONS) {
@@ -372,6 +410,7 @@ export async function enqueueTestGrid(userId: string, packId: string) {
       sceneChipId: selection.sceneChipId,
       lightingChipId: selection.lightingChipId,
       source: "test_grid",
+      skipAbuseGuard: true,
     });
     jobs.push(result.job);
   }
@@ -391,6 +430,7 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   if (!gate.ok) {
     throw new Error(gate.message);
   }
+  await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
   await db
