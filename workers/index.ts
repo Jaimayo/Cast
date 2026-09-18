@@ -7,7 +7,7 @@ import { enqueueDeadLetterJob } from "@/server/queue";
 import { redisConnection } from "@/server/redis";
 import { processGenerateStillJob } from "@/workers/generateStill";
 import { processTrainPackJob } from "@/workers/trainPack";
-import type { GenerateStillJobData, TrainPackJobData } from "@/server/queue";
+import type { DeadLetterJobData, GenerateStillJobData, TrainPackJobData } from "@/server/queue";
 
 const generateWorker = new Worker<GenerateStillJobData>(
   JOB_QUEUES.generateStill,
@@ -53,6 +53,23 @@ const trainWorker = new Worker<TrainPackJobData>(
     lockDuration: 2 * 60 * 1000,
     stalledInterval: 30_000,
     maxStalledCount: 2,
+  },
+);
+
+const deadLetterWorker = new Worker<DeadLetterJobData>(
+  JOB_QUEUES.deadLetter,
+  async (job) => {
+    jobLog("job.dead_letter", {
+      sourceQueue: job.data.sourceQueue,
+      jobId: job.data.generationJobId,
+      packId: job.data.characterPackId ?? null,
+      code: job.data.errorCode,
+      attemptsMade: job.data.attemptsMade,
+    });
+  },
+  {
+    connection: redisConnection(),
+    concurrency: 1,
   },
 );
 
@@ -106,7 +123,7 @@ for (const worker of [generateWorker, trainWorker]) {
 
 async function shutdown() {
   jobLog("workers.shutdown");
-  await Promise.all([generateWorker.close(), trainWorker.close()]);
+  await Promise.all([generateWorker.close(), trainWorker.close(), deadLetterWorker.close()]);
   process.exit(0);
 }
 

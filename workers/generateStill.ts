@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { characterPacks, mediaAssets, recipes } from "@/db/schema";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { jobLog } from "@/lib/job-log";
 import type { JobAttempt } from "@/lib/job-errors";
 import { getDb } from "@/server/db";
@@ -179,15 +180,26 @@ export async function processGenerateStillJob(
     const alreadyStored = await existingMediaForJob(job.id);
     if (!alreadyStored) {
       const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
-      await db.insert(mediaAssets).values({
-        userId: job.userId,
-        kind: mediaKind,
-        storageKey: key,
-        mimeType: result.mimeType,
-        byteSize: result.imageBytes.byteLength,
-        generationJobId: job.id,
-        characterPackId: pack.id,
-      });
+      try {
+        await db.insert(mediaAssets).values({
+          userId: job.userId,
+          kind: mediaKind,
+          storageKey: key,
+          mimeType: result.mimeType,
+          byteSize: result.imageBytes.byteLength,
+          generationJobId: job.id,
+          characterPackId: pack.id,
+        });
+      } catch (err) {
+        if (!isUniqueViolation(err)) {
+          throw err;
+        }
+        jobLog("generateStill.skip_duplicate_media", {
+          jobId: job.id,
+          kind: job.kind,
+          attempt: attempt.attempt,
+        });
+      }
     }
 
     await markJobSucceeded({

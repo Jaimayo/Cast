@@ -9,6 +9,7 @@ import {
   generateStillBullJobId,
   isDuplicateBullJobError,
   trainPackBullJobId,
+  trainPackRecoverBullJobId,
 } from "@/lib/job-errors";
 import { redisConnection } from "@/server/redis";
 import { trainPollDelayMs } from "@/server/providers/train-status";
@@ -115,6 +116,17 @@ export async function enqueueTrainPackJob(data: TrainPackJobData): Promise<void>
     attempt > 0
       ? { ...TRAIN_PACK_JOB_OPTIONS, delay: trainPollDelayMs(attempt) }
       : TRAIN_PACK_JOB_OPTIONS,
+  );
+}
+
+/** Resume polling after a worker crash. Same job id on every scan — no stacked polls. */
+export async function enqueueTrainPackRecoverJob(data: TrainPackJobData): Promise<void> {
+  await addIdempotent(
+    getTrainPackQueue(),
+    "trainPack",
+    { ...data, attempt: data.attempt ?? 0 },
+    trainPackRecoverBullJobId(data.generationJobId),
+    TRAIN_PACK_JOB_OPTIONS,
   );
 }
 

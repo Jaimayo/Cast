@@ -15,7 +15,7 @@ import {
 import { jobLog } from "@/lib/job-log";
 import { decideStaleJob, staleScanCutoff } from "@/lib/job-stale";
 import { getDb } from "@/server/db";
-import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
+import { enqueueTrainPackRecoverJob } from "@/server/queue";
 
 export function isRetrainJob(inputJson: Record<string, unknown>): boolean {
   return inputJson.retrain === true;
@@ -276,15 +276,15 @@ export async function recoverStaleJobs(filter?: {
     }
 
     if (decision.action === "requeue_train_poll" && job.characterPackId) {
+      await enqueueTrainPackRecoverJob({
+        generationJobId: job.id,
+        characterPackId: job.characterPackId,
+        attempt: 0,
+      });
       await db
         .update(generationJobs)
         .set({ status: "running", updatedAt: now })
         .where(eq(generationJobs.id, job.id));
-      await getTrainPackQueue().add(
-        "trainPack",
-        { generationJobId: job.id, characterPackId: job.characterPackId, attempt: 0 },
-        TRAIN_PACK_JOB_OPTIONS,
-      );
       jobLog("job.stale_requeue", {
         jobId: job.id,
         kind: job.kind,

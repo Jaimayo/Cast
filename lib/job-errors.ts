@@ -255,7 +255,10 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
   if (message === LOCK_SOUL_ID_FIRST || /lock soul id first/i.test(message)) {
     return classified(JOB_ERROR_CODES.PACK_NOT_LOCKED, false);
   }
-  if (/unknown chip|expected pose|expected outfit|expected scene|expected lighting|expected body|pose is required/i.test(message)) {
+  if (message === USER_JOB_MESSAGES.POSE_REQUIRED || /^pose is required$/i.test(message)) {
+    return classified(JOB_ERROR_CODES.POSE_REQUIRED, false);
+  }
+  if (/unknown chip|expected pose|expected outfit|expected scene|expected lighting|expected body/i.test(message)) {
     return classified(JOB_ERROR_CODES.INVALID_CHIP, false);
   }
   if (/unknown starter preset|starter .+ is (face|body), expected/i.test(message)) {
@@ -298,6 +301,11 @@ export function generateStillBullJobId(generationJobId: string): string {
 
 export function trainPackBullJobId(generationJobId: string, attempt = 0): string {
   return attempt <= 0 ? `trainPack:${generationJobId}` : `trainPack:${generationJobId}:poll:${attempt}`;
+}
+
+/** One recover job per generationJobId so stale scans do not stack duplicate RunPod polls. */
+export function trainPackRecoverBullJobId(generationJobId: string): string {
+  return `trainPack:${generationJobId}:recover`;
 }
 
 export function deadLetterBullJobId(sourceQueue: string, generationJobId: string): string {

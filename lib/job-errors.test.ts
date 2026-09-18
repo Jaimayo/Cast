@@ -16,6 +16,7 @@ import {
   trainPackTimeoutMessage,
   generateStillBullJobId,
   trainPackBullJobId,
+  trainPackRecoverBullJobId,
   isDuplicateBullJobError,
   trainSubmitDecision,
 } from "@/lib/job-errors";
@@ -53,7 +54,7 @@ describe("classifyJobError", () => {
       retryable: false,
     });
     expect(classifyJobError(new Error("Pose is required"))).toMatchObject({
-      code: JOB_ERROR_CODES.INVALID_CHIP,
+      code: JOB_ERROR_CODES.POSE_REQUIRED,
       retryable: false,
     });
     expect(classifyJobError(new Error("Unknown starter preset: nope"))).toMatchObject({
@@ -213,7 +214,14 @@ describe("idempotent BullMQ ids and train submit", () => {
     expect(generateStillBullJobId("job-1")).toBe("generateStill:job-1");
     expect(trainPackBullJobId("job-1")).toBe("trainPack:job-1");
     expect(trainPackBullJobId("job-1", 3)).toBe("trainPack:job-1:poll:3");
+    expect(trainPackRecoverBullJobId("job-1")).toBe("trainPack:job-1:recover");
     expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);
+  });
+
+  it("uses one recover id so stale scans do not stack polls", () => {
+    expect(trainPackRecoverBullJobId("job-1")).toBe(trainPackRecoverBullJobId("job-1"));
+    expect(trainPackRecoverBullJobId("job-1")).not.toBe(trainPackBullJobId("job-1"));
+    expect(trainPackRecoverBullJobId("job-1")).not.toBe(trainPackBullJobId("job-1", 2));
   });
 
   it("does not resubmit trainPack after the first /run", () => {
