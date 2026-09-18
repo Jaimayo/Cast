@@ -54,5 +54,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: ["/app/:path*", "/app", "/admin/:path*", "/age", "/invite"],
 };
