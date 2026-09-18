@@ -86,7 +86,8 @@ export function publicJob<
     errorCode?: string | null;
     errorMessage?: string | null;
   },
->(job: T, now: Date = new Date()): Omit<T, "resultAssetKey" | "attemptsMade"> & PublicJobFields {
+>(job: T, options: { now?: Date } = {}): Omit<T, "resultAssetKey" | "attemptsMade"> & PublicJobFields {
+  const now = options.now ?? new Date();
   const { resultAssetKey, attemptsMade, ...rest } = job;
   void resultAssetKey;
   return {

@@ -146,7 +146,7 @@ describe("job observability DTO", () => {
         resultAssetKey: "still/u1/secret.webp",
         previewUrl: null,
       },
-      now,
+      { now },
     );
     expect(job).toMatchObject({
       id: "job-fail",
@@ -172,7 +172,7 @@ describe("job observability DTO", () => {
         errorCode: "TRAIN_POLL_TIMEOUT",
         errorMessage: null,
       },
-      now,
+      { now },
     );
     expect(job.ageSeconds).toBe(3600);
     expect(job.attemptCount).toBe(0);

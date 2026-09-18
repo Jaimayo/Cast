@@ -11,7 +11,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     const user = await requireAttestedUser();
     const { id } = await context.params;
     const result = await enqueueTestGrid(user.id, id);
-    return NextResponse.json({ ...result, jobs: result.jobs.map(publicJob) }, { status: 202 });
+    return NextResponse.json({ ...result, jobs: result.jobs.map((job) => publicJob(job)) }, { status: 202 });
   } catch (err) {
     return jsonError(err);
   }
