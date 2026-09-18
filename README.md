@@ -48,6 +48,8 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `server/storage.ts` | R2/S3 (or local) object storage |
 | `workers/` | `generateStill` and `trainPack` BullMQ workers |
 | `scripts/create-invite.ts` | CLI invite mint (no UI required) |
+| `scripts/seed-demo-pack.ts` | Stub-only Locked + Draft packs for product review |
+| `components/chip-thumb-grid.tsx` | Pose/Outfit/Scene/Lighting/Body thumbnail pickers |
 
 ## Local setup
 
@@ -83,6 +85,49 @@ pnpm worker
 
 Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` → `/age` → `/app/characters`.
 
+## Product review path
+
+Jai (and anyone reviewing the product, not the code) should click this path with **stub providers**. No Venice/RunPod keys. No camera, Advanced, raw prompt, or real-person upload.
+
+### Run locally with stub providers
+
+```bash
+pnpm install
+cp .env.example .env.local
+cp .env.example .env
+```
+
+In both env files:
+
+- `PROVIDER_MODE=stub`
+- a long `SESSION_SECRET`
+- your email in `ADMIN_EMAILS` (optional, for `/admin/invites`)
+
+```bash
+docker compose up -d
+pnpm db:migrate
+pnpm invite:create -- --note=review
+pnpm dev
+```
+
+Worker is optional for UI review. Stub train/generate stills finish faster with `pnpm worker` running in a second terminal.
+
+### Exact clicks
+
+1. **Landing** `/` — non-explicit brand. Click **Enter with invite**.
+2. **Invite** `/invite` — paste the code printed by `pnpm invite:create`, email, password (≥10 chars). Continue.
+3. **Age** `/age` — check **I confirm I am 18+.** then the fictional-subjects box. **Enter studio** stays disabled until both are checked.
+4. **Characters** `/app/characters` — empty roster. Either:
+   - Click **Seed demo Locked pack** (stub banner), or
+   - `pnpm demo:pack -- --email=you@example.com` after you have an account.
+   This creates **Mara (demo)** (Locked Soul ID, 12 placeholder refs) and **Iris (draft)** (not locked).
+5. Open **Create** `/app/create` **before** seeding to see **Lock a character to create** (center empty state, Generate disabled, **Go to Characters**). After seeding, Create auto-selects Mara.
+6. **Composer** — Character pack thumbs on top (not a `<select>`). Pose / Outfit / Scene / Lighting / Body are thumbnail grids. Header shows **Privacy: Private** and **Credits — later**. **Animate later** is disabled with a **Phase 1.5** badge and helper copy.
+7. Click **Iris (draft)** in the character strip to see the empty state again, with secondary **Lock Soul ID first** → pack detail.
+8. **Pack wizard** `/app/characters/new` — name + non-removable **Fictional only**. Starters tab uses vibe thumbs (not Composer templates). **Train & lock Soul ID** stays disabled under 12 refs.
+
+Generate is enabled only when a **Locked** pack is selected **and** a Pose thumb is selected.
+
 ### Commands
 
 | Script | Purpose |
@@ -91,8 +136,9 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 | `pnpm worker` | BullMQ workers (`generateStill`, `trainPack`) |
 | `pnpm db:migrate` | Apply Drizzle SQL migrations |
 | `pnpm invite:create` | Mint an invite code |
+| `pnpm demo:pack` | Stub-only: seed Locked + Draft demo packs for a user email |
 | `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Prompt-compiler unit tests |
+| `pnpm test` | Unit tests |
 | `pnpm build` | Production Next.js build |
 | `pnpm check` | typecheck + test + build |
 

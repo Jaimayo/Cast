@@ -25,8 +25,13 @@ export default function JobsPage() {
     <section>
       <div className="kicker">Queue</div>
       <h1>Jobs</h1>
-      <p className="muted">generateStill (Venice) and trainPack (RunPod) workers.</p>
+      <p className="lede-sm">generateStill (Venice) and trainPack (RunPod) workers. Stub mode finishes locally.</p>
       {error ? <p className="error">{error}</p> : null}
+      {jobs.length === 0 ? (
+        <div className="empty-sheet">
+          <p className="muted">No jobs yet. Lock a character, pick a pose, then Generate.</p>
+        </div>
+      ) : null}
       <table className="table">
         <thead>
           <tr>

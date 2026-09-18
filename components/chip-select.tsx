@@ -1,15 +1,34 @@
 "use client";
 
-type Chip = { id: string; label: string };
+import { ChipThumbGrid, type ThumbChip } from "@/components/chip-thumb-grid";
+import type { ChipFamily } from "@/lib/chips";
+
+type Chip = ThumbChip;
 
 export function ChipSelect(props: {
   title: string;
+  family: ChipFamily;
   chips: Chip[];
   value: string;
   onChange: (id: string) => void;
   optional?: boolean;
   required?: boolean;
+  variant?: "thumbs" | "chips";
 }) {
+  if (props.variant !== "chips") {
+    return (
+      <ChipThumbGrid
+        family={props.family}
+        title={props.title}
+        chips={props.chips}
+        value={props.value}
+        onChange={props.onChange}
+        optional={props.optional}
+        required={props.required}
+      />
+    );
+  }
+
   return (
     <div className="chip-family">
       <h4>

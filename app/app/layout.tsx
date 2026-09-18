@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { PrivacyStrip } from "@/components/privacy-strip";
+import { StudioNav } from "@/components/studio-nav";
+import { StudioTopbar } from "@/components/studio-topbar";
 import { getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -19,17 +20,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <aside className="rail">
         <div className="kicker">Studio</div>
         <div className="wordmark">Cast</div>
-        <nav>
-          <a href="/app/characters">Characters</a>
-          <a href="/app/create">Create</a>
-          <a href="/app/library">Library</a>
-          <a href="/app/jobs">Jobs</a>
-          {user.role === "admin" ? <a href="/admin/invites">Admin</a> : null}
-        </nav>
-        <p className="muted">{user.email}</p>
+        <StudioNav admin={user.role === "admin"} />
+        <div className="rail-foot">
+          <p className="muted">{user.email}</p>
+          <p className="muted rail-note">Fictional adults only</p>
+        </div>
       </aside>
-      <div>
-        <PrivacyStrip />
+      <div className="studio-main">
+        <StudioTopbar />
         <div className="canvas">{children}</div>
       </div>
     </div>

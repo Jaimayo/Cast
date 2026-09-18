@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
 import { RefCountMeter } from "@/components/ref-count-meter";
 import { api } from "@/lib/client";
+import { chipSwatch } from "@/lib/chip-visuals";
 import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
 
@@ -133,24 +134,32 @@ export function PackWizard(props: { initialPackId?: string }) {
   const canTrain = Boolean(pack) && refCount >= PACK_MIN_REFS && (pack?.status === "draft" || pack?.status === "failed");
 
   return (
-    <section>
+    <section className="page-section wizard">
       <div className="row-between">
         <div>
           <div className="kicker">New character</div>
           <h1>{pack?.name || "Character Pack"}</h1>
         </div>
-        <span className="fictional-badge">Fictional only</span>
+        <span className="fictional-badge" title="Cannot be removed">
+          Fictional only
+        </span>
       </div>
-      <p className="muted">Status: {status}. No device face upload. Starters are not Composer templates.</p>
+      <p className="lede-sm">
+        Status: {status}. No device face upload. Face/body vibes are Generate-starters — they are not Composer
+        templates.
+      </p>
 
-      <label htmlFor="name">Name</label>
-      <input
-        id="name"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        disabled={Boolean(pack)}
-        required
-      />
+      <div className="card wizard-name">
+        <label htmlFor="name">Name</label>
+        <input
+          id="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={Boolean(pack)}
+          placeholder="A fictional adult name"
+          required
+        />
+      </div>
 
       <div className="tabs">
         <button type="button" className={tab === "starters" ? "tab active" : "tab"} onClick={() => setTab("starters")}>
@@ -164,21 +173,20 @@ export function PackWizard(props: { initialPackId?: string }) {
       {tab === "starters" ? (
         <>
           <h3>Face starters</h3>
-          <div className="chips">
-            {(catalog?.face ?? []).map((preset) => (
-              <button key={preset.id} className="chip" type="button" disabled={pending} onClick={() => void generateStarter(preset.id)}>
-                {preset.label}
-              </button>
-            ))}
-          </div>
+          <p className="muted">Tap a vibe to queue a training still. Select tiles on the contact sheet.</p>
+          <StarterVibeRow
+            kind="face"
+            presets={catalog?.face ?? []}
+            pending={pending}
+            onPick={(id) => void generateStarter(id)}
+          />
           <h3>Body starters</h3>
-          <div className="chips">
-            {(catalog?.body ?? []).map((preset) => (
-              <button key={preset.id} className="chip" type="button" disabled={pending} onClick={() => void generateStarter(preset.id)}>
-                {preset.label}
-              </button>
-            ))}
-          </div>
+          <StarterVibeRow
+            kind="body"
+            presets={catalog?.body ?? []}
+            pending={pending}
+            onPick={(id) => void generateStarter(id)}
+          />
           <h3>Contact sheet</h3>
           <ContactSheet
             tiles={starters}
@@ -197,7 +205,9 @@ export function PackWizard(props: { initialPackId?: string }) {
         <>
           <p className="muted">Pick in-app stills only. Device uploads are not available.</p>
           {library.length === 0 ? (
-            <p className="muted">Library is empty until you generate stills in Create with a Locked pack.</p>
+            <div className="empty-sheet">
+              <p className="muted">Library is empty until you generate stills in Create with a Locked pack.</p>
+            </div>
           ) : (
             <div className="contact-sheet">
               {library.map((item) => {
@@ -226,12 +236,45 @@ export function PackWizard(props: { initialPackId?: string }) {
         </>
       )}
 
-      <RefCountMeter count={refCount} />
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-      <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
-        Train & lock Soul ID
-      </button>
+      <div className="wizard-lock">
+        <RefCountMeter count={refCount} />
+        {message ? <p className="ok">{message}</p> : null}
+        {error ? <p className="error">{error}</p> : null}
+        <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
+          Train & lock Soul ID
+        </button>
+        <p className="muted">Generate in Create stays disabled until this pack is Locked.</p>
+      </div>
     </section>
+  );
+}
+
+function StarterVibeRow(props: {
+  kind: "face" | "body";
+  presets: Preset[];
+  pending: boolean;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="chip-thumb-grid starter-grid">
+      {props.presets.map((preset) => {
+        const swatch = chipSwatch(props.kind === "body" ? "body" : "pose", preset.id);
+        return (
+          <button
+            key={preset.id}
+            type="button"
+            className="thumb-tile"
+            disabled={props.pending}
+            onClick={() => props.onPick(preset.id)}
+          >
+            <span
+              className="thumb-art"
+              style={{ background: `linear-gradient(152deg, ${swatch.from}, ${swatch.to})` }}
+            />
+            <span className="thumb-label">{preset.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

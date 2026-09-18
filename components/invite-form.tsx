@@ -15,7 +15,7 @@ export function InviteForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const title = useMemo(() => (mode === "invite" ? "Invite" : "Sign in"), [mode]);
+  const title = useMemo(() => (mode === "invite" ? "Enter with invite" : "Welcome back"), [mode]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -44,11 +44,26 @@ export function InviteForm() {
   }
 
   return (
-    <main className="panel card">
+    <main className="panel card gate-card">
       <div className="kicker">Gated access</div>
       <h1>{title}</h1>
-      <p className="muted">Enter your invite code. Invalid, used, or expired codes cannot continue.</p>
+      <p className="lede-sm">
+        Private studio. Invalid, used, or expired codes cannot continue. No public signup.
+      </p>
       <form onSubmit={onSubmit}>
+        {mode === "invite" ? (
+          <>
+            <label htmlFor="invite">Invite code</label>
+            <input
+              id="invite"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value)}
+              autoComplete="one-time-code"
+              placeholder="Paste your code"
+              required
+            />
+          </>
+        ) : null}
         <label htmlFor="email">Email</label>
         <input
           id="email"
@@ -69,22 +84,14 @@ export function InviteForm() {
           required
         />
         {mode === "invite" ? (
-          <>
-            <label htmlFor="invite">Invite code</label>
-            <input
-              id="invite"
-              value={inviteCode}
-              onChange={(event) => setInviteCode(event.target.value)}
-              required
-            />
-          </>
+          <p className="muted">Password must be at least 10 characters.</p>
         ) : null}
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={pending}>
           {pending ? "Working…" : "Continue"}
         </button>
       </form>
-      <p className="muted">
+      <p className="gate-switch">
         {mode === "invite" ? (
           <button className="btn secondary" type="button" onClick={() => setMode("signin")}>
             Already have an account

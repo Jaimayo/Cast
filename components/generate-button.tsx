@@ -12,8 +12,21 @@ export function GenerateButton(props: {
 
 export function TeaserAnimateLater() {
   return (
-    <button className="btn secondary" type="button" disabled title="Phase 1.5">
-      Animate later
-    </button>
+    <div className="teaser-animate">
+      <div className="teaser-row">
+        <button
+          className="btn secondary teaser-btn"
+          type="button"
+          disabled
+          title="Short clips come in Phase 1.5 — stills first."
+        >
+          Animate later
+        </button>
+        <span className="phase-badge" title="Not available in Stage 1">
+          Phase 1.5
+        </span>
+      </div>
+      <p className="teaser-help">Short clips come in Phase 1.5 — stills first.</p>
+    </div>
   );
 }

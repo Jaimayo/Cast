@@ -20,6 +20,8 @@ export const POSE_CHIPS: Chip[] = family("pose", [
   ["three-quarter", "Three-quarter", "three-quarter view, weight on the back leg, chin slightly turned"],
   ["over-shoulder", "Over-shoulder", "looking back over one shoulder, torso twisted, eye contact"],
   ["contrapposto", "Contrapposto", "contrapposto stance, hip shift, one leg engaged"],
+  ["kneeling", "Kneeling", "kneeling on a surface, upright torso, hands resting on thighs"],
+  ["leaning-wall", "Leaning", "leaning against a wall, one shoulder planted, crossed ankles"],
 ]);
 
 export const OUTFIT_CHIPS: Chip[] = family("outfit", [
@@ -29,6 +31,8 @@ export const OUTFIT_CHIPS: Chip[] = family("outfit", [
   ["evening", "Evening", "eveningwear, refined fabric, adult fashion photography"],
   ["lingerie", "Lingerie", "adult lingerie, tasteful styling, clearly adult subject"],
   ["implied-nude", "Implied nude", "implied nude with strategic drape, adult figure study, no pornographic staging"],
+  ["satin-slip", "Satin slip", "satin slip dress, bias cut, adult evening at-home styling"],
+  ["white-shirt", "White shirt", "oversized white shirt, open collar, clean studio wardrobe"],
 ]);
 
 export const SCENE_CHIPS: Chip[] = family("scene", [
@@ -38,6 +42,8 @@ export const SCENE_CHIPS: Chip[] = family("scene", [
   ["bathroom-marble", "Marble bath", "marble bathroom, steam, soft reflections"],
   ["night-interior", "Night interior", "night interior, practical lights, shallow depth of field"],
   ["outdoor-dusk", "Outdoor dusk", "outdoor dusk, private garden, golden residual light"],
+  ["rooftop-night", "Rooftop night", "private rooftop at night, distant city bokeh, no street-level public"],
+  ["reading-nook", "Reading nook", "quiet reading nook, warm wood, low lamp, intimate interior"],
 ]);
 
 export const LIGHTING_CHIPS: Chip[] = family("lighting", [
@@ -47,6 +53,8 @@ export const LIGHTING_CHIPS: Chip[] = family("lighting", [
   ["neon-practical", "Neon practical", "colored practical neon, cinematic color contrast"],
   ["candle-warm", "Candle warm", "warm practical candlelight, amber highlights, deep shadows"],
   ["high-key", "High key", "high-key lighting, bright even exposure, fashion look"],
+  ["rim-light", "Rim light", "subtle rim light, edge highlight on hair and shoulders, dark fill"],
+  ["moonlight", "Moonlight", "cool moonlight through a window, silver highlights, quiet contrast"],
 ]);
 
 /** Optional. Not a camera control — body-shape lock language only. */
@@ -56,6 +64,9 @@ export const BODY_CHIPS: Chip[] = family("body", [
   ["lean", "Lean", "lean adult frame, narrow hips, long limbs"],
   ["solid", "Solid", "solid adult build, broader torso, grounded stance"],
   ["tall", "Tall", "tall adult stature, elongated torso-to-leg line"],
+  ["curvy", "Curvy", "curvy adult proportions, full hip, natural waist, clearly adult"],
+  ["compact", "Compact", "compact adult frame, shorter stature, clearly adult proportions"],
+  ["broad", "Broad", "broad adult shoulders, strong back, grounded presence"],
 ]);
 
 export const COMPOSER_CHIPS: Record<ChipFamily, Chip[]> = {
