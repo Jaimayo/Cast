@@ -25,9 +25,11 @@ import {
 } from "@/server/jobs";
 import { persistAdapterPointer } from "@/server/providers/adapter-persist";
 import { getTrainPackAdapter } from "@/server/providers/registry";
+import { planTrainReferences } from "@/server/providers/train-refs";
 import { shouldContinuePolling, TRAIN_POLL_MAX_ATTEMPTS, trainPollDelayMs } from "@/server/providers/train-status";
 import { type TrainPackResult } from "@/server/providers/types";
 import { enqueueTrainPackJob } from "@/server/queue";
+import { isS3Configured, presignGetUrlForTrain } from "@/server/storage";
 
 export async function processTrainPackJob(
   generationJobId: string,
@@ -129,7 +131,12 @@ export async function processTrainPackJob(
         jobId: job.id,
         characterPackId: pack.id,
         name: pack.name,
-        referenceKeys: refs.map((row) => row.storageKey),
+        ...(await planTrainReferences({
+          referenceKeys: refs.map((row) => row.storageKey),
+          live: getEnv().providerMode === "live",
+          s3Configured: isS3Configured(),
+          presign: presignGetUrlForTrain,
+        })),
       });
       if (result.providerJobId) {
         await persistProviderJobId(job.id, result.providerJobId);

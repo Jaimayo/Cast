@@ -2,7 +2,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
+import { MEDIA_PRESIGN_TTL_SECONDS, TRAIN_REF_PRESIGN_TTL_SECONDS } from "@/lib/constants";
 import { clampPresignTtlSeconds } from "@/lib/media";
 import { getEnv } from "@/server/env";
 
@@ -164,11 +164,23 @@ export async function readObject(key: string): Promise<Buffer> {
  * Do not persist the returned URL or send the object key to the browser.
  */
 export async function presignGetUrl(key: string, expiresInSeconds?: number): Promise<string> {
+  return signedGetUrl(key, clampPresignTtlSeconds(expiresInSeconds));
+}
+
+/**
+ * Server-to-server GET for RunPod trainPack refs. Caps at TRAIN_REF_PRESIGN_TTL_SECONDS.
+ * Do not use for browser `<img>` — studio previews stay on `/api/media/:id` (120s).
+ */
+export async function presignGetUrlForTrain(key: string, expiresInSeconds: number): Promise<string> {
+  const ttl = Math.min(Math.max(1, Math.floor(expiresInSeconds)), TRAIN_REF_PRESIGN_TTL_SECONDS);
+  return signedGetUrl(key, ttl);
+}
+
+async function signedGetUrl(key: string, expiresIn: number): Promise<string> {
   const safe = assertSafeStorageKey(key);
   if (!isS3Configured()) {
     throw new Error("S3 is not configured");
   }
-  const ttl = clampPresignTtlSeconds(expiresInSeconds);
   const s3 = getEnv().s3;
   return getSignedUrl(
     client(),
@@ -176,7 +188,7 @@ export async function presignGetUrl(key: string, expiresInSeconds?: number): Pro
       Bucket: s3.bucket,
       Key: safe,
     }),
-    { expiresIn: ttl },
+    { expiresIn },
   );
 }
 

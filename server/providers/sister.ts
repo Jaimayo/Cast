@@ -76,6 +76,7 @@ export const sisterTrainAdapter: TrainPackAdapter = {
       jobId: input.jobId,
       characterPackId: input.characterPackId,
       referenceKeys: input.referenceKeys,
+      ...(input.referenceUrls && input.referenceUrls.length > 0 ? { referenceUrls: input.referenceUrls } : {}),
     });
     if (!response.ok) {
       throw new ProviderHttpError("sister", response.status);
