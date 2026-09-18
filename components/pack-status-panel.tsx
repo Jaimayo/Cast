@@ -43,7 +43,7 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
         {soulStatusLabel(status)} · refs {props.refCount}/20
       </p>
       <div className="banner">Face upload from a real person is intentionally omitted.</div>
-      {status === "training" ? <p className="ok">Training Soul ID… Generate unlocks when this pack is Locked.</p> : null}
+      {status === "training" ? <p className="ok">Training Soul ID…</p> : null}
       {adapterReady ? <p className="ok">Identity adapter saved. Create can use this Soul ID.</p> : null}
       <div className="actions">
         {locked ? (
@@ -51,7 +51,7 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
             Use in Create
           </a>
         ) : (
-          <span className="muted">Generate unlocks when this pack is Locked.</span>
+          <span className="muted">Lock Soul ID first — Generate stays off until this pack is Locked.</span>
         )}
         <button className="btn secondary" type="button" disabled title="Later">
           Test grid

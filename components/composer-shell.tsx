@@ -4,13 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { ChipRail } from "@/components/chip-rail";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
+import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
-import { isLockedSoul } from "@/lib/soul";
+import { isLockedSoul, LOCK_SOUL_ID_FIRST } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
 type Job = { id: string; kind: string; status: string; previewUrl?: string | null };
+
+function spotlightPack(packs: Pack[], initialPackId?: string): Pack | undefined {
+  const preferred = initialPackId ? packs.find((pack) => pack.id === initialPackId) : undefined;
+  if (preferred && !isLockedSoul(preferred.status)) {
+    return preferred;
+  }
+  return packs.find((pack) => pack.status === "training") ?? packs.find((pack) => !isLockedSoul(pack.status));
+}
 
 export function ComposerShell(props: { initialPackId?: string }) {
   const [chips, setChips] = useState<{
@@ -57,14 +66,30 @@ export function ComposerShell(props: { initialPackId?: string }) {
     });
   }, [props.initialPackId]);
 
+  const trainingAny = packs.some((pack) => pack.status === "training");
+  useEffect(() => {
+    if (!trainingAny) return;
+    const timer = window.setInterval(() => {
+      void api<{ packs: Pack[] }>("/api/packs").then((data) => {
+        setPacks(data.packs);
+        const locked = data.packs.find((pack) => isLockedSoul(pack.status));
+        setCharacterPackId((current) => {
+          if (current && data.packs.some((pack) => pack.id === current && isLockedSoul(pack.status))) {
+            return current;
+          }
+          return locked?.id ?? "";
+        });
+      });
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [trainingAny]);
+
   const selected = packs.find((pack) => pack.id === characterPackId);
   const locked = Boolean(selected && isLockedSoul(selected.status));
+  const focus = spotlightPack(packs, props.initialPackId);
+  const training = focus?.status === "training" || selected?.status === "training";
   const canGenerate = locked && Boolean(poseChipId);
-  const disabledReason = !locked
-    ? "Lock a Character Pack (Soul ID) before generating"
-    : !poseChipId
-      ? "Pick a Pose"
-      : undefined;
+  const disabledReason = !locked ? LOCK_SOUL_ID_FIRST : !poseChipId ? "Pick a Pose" : undefined;
 
   const characterName = selected?.name;
 
@@ -140,6 +165,8 @@ export function ComposerShell(props: { initialPackId?: string }) {
           sceneChipId={sceneChipId}
           lightingChipId={lightingChipId}
           bodyChipId={bodyChipId}
+          lockPackId={focus?.id}
+          training={training}
           onCharacter={setCharacterPackId}
           onPose={setPoseChipId}
           onOutfit={setOutfitChipId}
@@ -148,7 +175,13 @@ export function ComposerShell(props: { initialPackId?: string }) {
           onBody={setBodyChipId}
         />
         <div className="hero-canvas">
-          <HeroCanvas locked={locked} message={message} previewUrl={heroUrl} />
+          <HeroCanvas
+            locked={locked}
+            message={message}
+            previewUrl={heroUrl}
+            packId={focus?.id}
+            training={training}
+          />
           {error ? <p className="error">{error}</p> : null}
           <div className="actions" style={{ marginTop: 0 }}>
             <GenerateButton
@@ -159,6 +192,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
             />
             <TeaserAnimateLater />
           </div>
+          {!locked ? <LockSoulIdFirstCta packId={focus?.id} training={false} variant="link" /> : null}
           <p className="hidden-note">
             Generate needs a Locked Soul ID and a Pose. No prompt textarea. No camera. No Advanced.
             Starters live in the Pack wizard only. Animate later is Phase 1.5.

@@ -12,7 +12,7 @@ import { PACK_TARGET_REFS } from "@/lib/constants";
 import { canLockPack, lockWarning } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
-import { isLockedSoul } from "@/lib/soul";
+import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { mediaPreviewPath } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -202,9 +202,7 @@ export async function enqueueGenerateStill(input: {
   if (!pack) {
     throw new Error("Character pack is required");
   }
-  if (!isLockedSoul(pack.status)) {
-    throw new Error("Lock a Character Pack (Soul ID) before generating");
-  }
+  requireLockedSoulForGenerate(pack.status);
 
   const compiled = compileComposerPrompt({
     characterPackName: pack.name,

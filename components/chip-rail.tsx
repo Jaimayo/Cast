@@ -1,6 +1,7 @@
 "use client";
 
 import { ChipSelect } from "@/components/chip-select";
+import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { isLockedSoul } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
@@ -21,6 +22,8 @@ export function ChipRail(props: {
   onScene: (id: string) => void;
   onLighting: (id: string) => void;
   onBody: (id: string) => void;
+  lockPackId?: string | null;
+  training?: boolean;
 }) {
   const lockedPacks = props.packs.filter((pack) => isLockedSoul(pack.status));
 
@@ -29,10 +32,7 @@ export function ChipRail(props: {
       <div className="chip-family">
         <h4>Character *</h4>
         {lockedPacks.length === 0 ? (
-          <p className="muted">
-            No Locked Soul ID yet.{" "}
-            <a href="/app/characters">Train & lock a character</a> first.
-          </p>
+          <LockSoulIdFirstCta packId={props.lockPackId} training={props.training} variant="link" />
         ) : (
           <select value={props.characterPackId} onChange={(event) => props.onCharacter(event.target.value)}>
             <option value="">Select a Locked pack…</option>

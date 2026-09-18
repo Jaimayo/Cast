@@ -1,3 +1,5 @@
+import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+
 export function GenerateButton(props: {
   disabled: boolean;
   pending: boolean;
@@ -9,7 +11,7 @@ export function GenerateButton(props: {
       className="btn"
       type="button"
       disabled={props.disabled || props.pending}
-      title={props.disabled ? (props.disabledReason ?? "Select a Locked character and a Pose") : undefined}
+      title={props.disabled ? (props.disabledReason ?? LOCK_SOUL_ID_FIRST) : undefined}
       onClick={props.onClick}
     >
       {props.pending ? "Queueing…" : "Generate"}

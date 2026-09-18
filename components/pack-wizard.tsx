@@ -138,7 +138,7 @@ export function PackWizard(props: { initialPackId?: string }) {
     setPending(true);
     try {
       const result = await api<{ job: { id: string } }>(`/api/packs/${pack.id}/train`, { method: "POST" });
-      setMessage(`Training Soul ID (${result.job.id}). Generate unlocks when status is Locked.`);
+      setMessage(`Training Soul ID (${result.job.id}). Lock Soul ID first — Generate stays off until Locked.`);
       router.push(`/app/characters/${pack.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Train & lock failed");
