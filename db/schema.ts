@@ -174,6 +174,8 @@ export const generationJobs = pgTable("generation_jobs", {
   errorCode: text("error_code"),
   /** User-safe failure copy for Jobs UI. Never a compiled prompt or provider payload. */
   errorMessage: text("error_message"),
+  /** Worker starts persisted for Jobs (BullMQ retries and train poll touches). */
+  attempt: integer("attempt").notNull().default(0),
   providerJobId: text("provider_job_id"),
   ...timestamps,
 });

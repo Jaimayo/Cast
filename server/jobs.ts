@@ -1,5 +1,5 @@
 import { UnrecoverableError } from "bullmq";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { characterPacks, generationJobs, mediaAssets, type CharacterPack, type GenerationJob } from "@/db/schema";
 import {
   JOB_ERROR_CODES,
@@ -45,10 +45,15 @@ export async function existingMediaForJob(jobId: string) {
   return rows[0] ?? null;
 }
 
-export async function markJobRunning(jobId: string): Promise<void> {
+export async function markJobRunning(jobId: string, attempt?: number): Promise<void> {
+  const nextAttempt = typeof attempt === "number" && Number.isFinite(attempt) ? Math.max(0, Math.floor(attempt)) : null;
   await getDb()
     .update(generationJobs)
-    .set({ status: "running", errorCode: null, errorMessage: null, updatedAt: new Date() })
+    .set({
+      status: "running",
+      updatedAt: new Date(),
+      ...(nextAttempt === null ? {} : { attempt: sql`GREATEST(${generationJobs.attempt}, ${nextAttempt})` }),
+    })
     .where(eq(generationJobs.id, jobId));
 }
 
@@ -75,6 +80,27 @@ export async function persistProviderJobId(jobId: string, providerJobId: string)
     .update(generationJobs)
     .set({ providerJobId, status: "running", updatedAt: new Date() })
     .where(eq(generationJobs.id, jobId));
+}
+
+export async function persistJobLastError(input: {
+  jobId: string;
+  errorCode: string;
+  errorMessage: string;
+  attempt?: number;
+}): Promise<void> {
+  const nextAttempt =
+    typeof input.attempt === "number" && Number.isFinite(input.attempt)
+      ? Math.max(0, Math.floor(input.attempt))
+      : null;
+  await getDb()
+    .update(generationJobs)
+    .set({
+      errorCode: input.errorCode,
+      errorMessage: input.errorMessage,
+      updatedAt: new Date(),
+      ...(nextAttempt === null ? {} : { attempt: sql`GREATEST(${generationJobs.attempt}, ${nextAttempt})` }),
+    })
+    .where(eq(generationJobs.id, input.jobId));
 }
 
 export async function markJobFailedIfActive(input: {
@@ -162,6 +188,12 @@ export async function finalizeWorkerError(input: {
   });
 
   if (!terminal) {
+    await persistJobLastError({
+      jobId: input.jobId,
+      errorCode: classified.code,
+      errorMessage: userMessage,
+      attempt: input.attempt.attempt,
+    });
     throw input.err instanceof Error ? input.err : new Error(classified.userMessage);
   }
 

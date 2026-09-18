@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
+import type { PublicJob } from "@/lib/job-view";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 import { TEST_GRID_SIZE } from "@/lib/test-grid";
 
@@ -19,13 +20,17 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
   const [pending, setPending] = useState<"test-grid" | "retrain" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastTrainError, setLastTrainError] = useState<{ code: string; message: string } | null>(null);
 
   useEffect(() => {
     if (status !== "training") return;
     const timer = window.setInterval(() => {
-      void api<{ pack: Pack }>(`/api/packs/${props.pack.id}`).then((data) => {
+      void api<{ pack: Pack; lastTrainJob?: PublicJob | null }>(`/api/packs/${props.pack.id}`).then((data) => {
         setStatus(data.pack.status);
         setAdapterReady(Boolean(data.pack.hasAdapter));
+        if (data.pack.status === "failed") {
+          setLastTrainError(data.lastTrainJob?.lastError ?? null);
+        }
         if (data.pack.status === "locked" || data.pack.status === "ready" || data.pack.status === "failed") {
           window.location.reload();
         }
@@ -79,6 +84,12 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
       </p>
       <div className="banner">Face upload from a real person is intentionally omitted.</div>
       {status === "training" ? <p className="ok">Training Soul ID…</p> : null}
+      {status === "failed" && lastTrainError ? (
+        <p className="error">
+          Training failed: {lastTrainError.message}
+          {lastTrainError.code ? <span className="muted"> ({lastTrainError.code})</span> : null}
+        </p>
+      ) : null}
       {adapterReady ? (
         <p className="ok">Identity adapter saved. Generate uses this Soul ID on stills.</p>
       ) : locked ? (

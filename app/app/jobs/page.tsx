@@ -3,39 +3,32 @@
 import { useEffect, useState } from "react";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
+import { formatJobAge, formatJobAttempts, type PublicJob } from "@/lib/job-view";
 
-type Job = {
-  id: string;
-  kind: string;
-  status: string;
-  provider: string;
-  errorCode: string | null;
-  errorMessage: string | null;
-  previewUrl?: string | null;
-};
-
-function statusLabel(status: string): string {
-  if (status === "queued") return "Queued";
-  if (status === "running") return "Running";
-  if (status === "succeeded") return "Succeeded";
-  if (status === "failed") return "Failed";
-  if (status === "canceled") return "Canceled";
-  return status;
+function statusLabel(job: PublicJob): string {
+  if (job.status === "queued" && job.attempt > 1) return "Retrying";
+  if (job.status === "running" && job.attempt > 1) return "Retrying";
+  if (job.status === "queued") return "Queued";
+  if (job.status === "running") return "Running";
+  if (job.status === "succeeded") return "Succeeded";
+  if (job.status === "failed") return "Failed";
+  if (job.status === "canceled") return "Canceled";
+  return job.status;
 }
 
-function errorLabel(job: Job): string {
-  return job.errorMessage || job.errorCode || "—";
+function errorLabel(job: PublicJob): string {
+  return job.lastError?.message || job.errorMessage || job.errorCode || "—";
 }
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<PublicJob[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const data = await api<{ jobs: Job[] }>("/api/jobs");
+        const data = await api<{ jobs: PublicJob[] }>("/api/jobs");
         if (!cancelled) setJobs(data.jobs);
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
@@ -58,9 +51,9 @@ export default function JobsPage() {
         RunPod. Stub mode never calls vendors.
       </p>
       <p className="muted">
-        Failed stills: generate again from Create. Failed starters: generate the vibe again. Failed training:
-        open the character and Train & lock or Retrain. Retrain keeps the previous Locked Soul ID if the new
-        train fails.
+        Age is how long the job has been running (or ran). Attempts count retries and Train polls. Last error
+        stays visible while a job retries. Failed stills: generate again from Create. Failed starters: generate
+        the vibe again. Failed training: open the character and Train & lock or Retrain.
       </p>
       {error ? <p className="error">{error}</p> : null}
       <table className="table">
@@ -68,6 +61,8 @@ export default function JobsPage() {
           <tr>
             <th>Kind</th>
             <th>Status</th>
+            <th>Age</th>
+            <th>Attempts</th>
             <th>Provider</th>
             <th>Preview</th>
             <th>Error</th>
@@ -77,7 +72,9 @@ export default function JobsPage() {
           {jobs.map((job) => (
             <tr key={job.id}>
               <td>{job.kind}</td>
-              <td>{statusLabel(job.status)}</td>
+              <td>{statusLabel(job)}</td>
+              <td>{formatJobAge(job.durationMs)}</td>
+              <td>{formatJobAttempts(job.attempt, job.maxAttempts)}</td>
               <td>{job.provider}</td>
               <td>
                 {job.previewUrl ? (
@@ -88,7 +85,7 @@ export default function JobsPage() {
               </td>
               <td>
                 {errorLabel(job)}
-                {job.errorMessage && job.errorCode ? <div className="muted">{job.errorCode}</div> : null}
+                {job.lastError ? <div className="muted">{job.lastError.code}</div> : null}
               </td>
             </tr>
           ))}
