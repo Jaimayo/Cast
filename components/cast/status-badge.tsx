@@ -21,7 +21,7 @@ export function StatusBadge(props: {
   return (
     <span
       className={cn(
-        "inline-flex h-6 w-fit items-center overflow-hidden rounded-full border border-border bg-card text-xs",
+        "inline-flex h-6 w-fit shrink-0 items-center overflow-hidden whitespace-nowrap rounded-full border border-border bg-card text-xs",
         props.className,
       )}
     >
