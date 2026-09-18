@@ -1,4 +1,11 @@
+import {
+  adapterSourceFromProvider,
+  packColumnsForReadyAdapter,
+  readyAdapterFromPersist,
+  type AdapterSource,
+} from "@/lib/adapter-identity";
 import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+import { publicAdapterMeta } from "@/server/providers/train-status";
 import { mediaKey, putObject } from "@/server/storage";
 import type { TrainPackResult } from "@/server/providers/types";
 
@@ -48,12 +55,16 @@ function persistMeta(
   input: AdapterPersistInput,
   extra: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  return {
+  const adapterSource = adapterSourceFromProvider(input.result.provider);
+  return publicAdapterMeta({
     ...(input.result.adapterMeta ?? {}),
     ...extra,
     provider: input.result.provider,
     providerJobId: input.providerJobId,
-  };
+    adapterId: input.providerJobId,
+    adapterSource,
+    stub: adapterSource === "stub",
+  });
 }
 
 function defaultMime(result: AdapterPersistInput["result"]): string {
@@ -145,15 +156,48 @@ export async function fetchAdapterArtifact(
   return { body, mimeType };
 }
 
-export async function persistAdapterPointer(
+export type PersistedAdapterArtifact = {
+  storageKey: string;
+  mimeType: string;
+  meta: Record<string, unknown>;
+  adapterId: string;
+  adapterPath: string;
+  adapterStatus: "ready";
+  adapterSource: AdapterSource;
+};
+
+function toPersistedArtifact(
   input: AdapterPersistInput,
-): Promise<{ storageKey: string; mimeType: string; meta: Record<string, unknown> }> {
+  storageKey: string,
+  mimeType: string,
+  meta: Record<string, unknown>,
+): PersistedAdapterArtifact {
+  const ready = readyAdapterFromPersist({
+    providerJobId: input.providerJobId,
+    provider: input.result.provider,
+    storageKey,
+    mimeType,
+    meta,
+  });
+  const columns = packColumnsForReadyAdapter(ready);
+  return {
+    storageKey: columns.adapterStorageKey,
+    mimeType: columns.adapterMimeType,
+    meta: columns.adapterMeta,
+    adapterId: columns.adapterId,
+    adapterPath: columns.adapterStorageKey,
+    adapterStatus: columns.adapterStatus,
+    adapterSource: columns.adapterSource,
+  };
+}
+
+export async function persistAdapterPointer(input: AdapterPersistInput): Promise<PersistedAdapterArtifact> {
   const plan = planAdapterPersist(input);
   if (plan.action === "fail") {
     throw new JobError({ code: plan.errorCode, retryable: false });
   }
   if (plan.action === "keep-external-key") {
-    return { storageKey: plan.storageKey, mimeType: plan.mimeType, meta: plan.meta };
+    return toPersistedArtifact(input, plan.storageKey, plan.mimeType, plan.meta);
   }
 
   let body: Buffer;
@@ -167,5 +211,5 @@ export async function persistAdapterPointer(
   }
 
   await putObject({ key: plan.storageKey, body, mimeType });
-  return { storageKey: plan.storageKey, mimeType, meta: plan.meta };
+  return toPersistedArtifact(input, plan.storageKey, mimeType, plan.meta);
 }

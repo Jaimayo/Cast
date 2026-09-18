@@ -63,6 +63,34 @@ describe("generateStill Soul ID routing", () => {
     ).not.toBe("venice");
   });
 
+  it("routes RunPod only when the stored adapter identity is ready", () => {
+    expect(
+      resolveGenerateStillRoute({
+        providerMode: "live",
+        generateStillProvider: "venice",
+        adapterStorageKey: "adapters/u/p.lora",
+        adapterStatus: "ready",
+        adapterId: "rp_1",
+      }),
+    ).toBe("runpod");
+    expect(
+      resolveGenerateStillRoute({
+        providerMode: "live",
+        generateStillProvider: "venice",
+        adapterStorageKey: "adapters/u/p.lora",
+        adapterStatus: "failed",
+      }),
+    ).toBe("venice");
+    expect(
+      resolveGenerateStillRoute({
+        providerMode: "live",
+        generateStillProvider: "venice",
+        adapterStorageKey: null,
+        adapterStatus: "none",
+      }),
+    ).toBe("venice");
+  });
+
   it("records RunPod on the job when stub stills will use a stored adapter", () => {
     expect(
       generateStillJobProvider({

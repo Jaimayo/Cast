@@ -2,10 +2,12 @@
  * generateStill routing.
  *
  * Venice is default stills and has no Soul-ID / LoRA API.
- * When a Locked pack stores a trainPack adapter pointer, stills go through
- * the RunPod generate fallback so identity can load.
+ * When a Locked pack stores a ready trainPack adapter identity, stills go
+ * through the RunPod generate fallback so identity can load.
  * PROVIDER_MODE=stub never leaves the stub adapter (no vendor keys).
  */
+
+import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 
 export type GenerateStillRoute = "stub" | "venice" | "runpod" | "sister";
 
@@ -13,17 +15,28 @@ export type GenerateStillRouteInput = {
   providerMode: "stub" | "live";
   generateStillProvider: string;
   adapterStorageKey?: string | null;
+  adapterStatus?: string | null;
+  adapterId?: string | null;
 };
 
-export function hasSoulAdapter(adapterStorageKey?: string | null): boolean {
-  return Boolean(adapterStorageKey && adapterStorageKey.trim());
+export function hasSoulAdapter(
+  adapterStorageKey?: string | null,
+  adapterStatus?: string | null,
+): boolean {
+  return hasReadySoulAdapter({ adapterStorageKey, adapterStatus });
 }
 
 export function resolveGenerateStillRoute(input: GenerateStillRouteInput): GenerateStillRoute {
   if (input.providerMode === "stub") {
     return "stub";
   }
-  if (hasSoulAdapter(input.adapterStorageKey)) {
+  if (
+    hasReadySoulAdapter({
+      adapterStorageKey: input.adapterStorageKey,
+      adapterStatus: input.adapterStatus,
+      adapterId: input.adapterId,
+    })
+  ) {
     return "runpod";
   }
   if (input.generateStillProvider === "runpod") return "runpod";
@@ -40,7 +53,15 @@ export function generateStillJobProvider(
 ): "venice" | "runpod" | "sister" {
   const route = resolveGenerateStillRoute(input);
   if (route === "stub") {
-    if (hasSoulAdapter(input.adapterStorageKey)) return "runpod";
+    if (
+      hasReadySoulAdapter({
+        adapterStorageKey: input.adapterStorageKey,
+        adapterStatus: input.adapterStatus,
+        adapterId: input.adapterId,
+      })
+    ) {
+      return "runpod";
+    }
     if (input.generateStillProvider === "runpod") return "runpod";
     if (input.generateStillProvider === "sister") return "sister";
     return "venice";

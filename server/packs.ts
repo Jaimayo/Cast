@@ -12,6 +12,11 @@ import { isUniqueViolation } from "@/lib/db-errors";
 import { generateStillJobProvider } from "@/lib/generate-route";
 import { JOB_ERROR_CODES, JobError, type JobErrorCode } from "@/lib/job-errors";
 import {
+  readAdapterIdentity,
+  snapshotAdapterIdentity,
+  trainStartTransition,
+} from "@/lib/adapter-identity";
+import {
   attachRefDecision,
   canLockPack,
   generateStarterPackDecision,
@@ -36,13 +41,27 @@ function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex");
 }
 
-function providerForGenerate(adapterStorageKey?: string | null): "venice" | "runpod" | "sister" {
+function generateRouteInput(pack: {
+  adapterStorageKey?: string | null;
+  adapterStatus?: string | null;
+  adapterId?: string | null;
+}) {
   const env = getEnv();
-  return generateStillJobProvider({
+  return {
     providerMode: env.providerMode,
     generateStillProvider: env.generateStillProvider,
-    adapterStorageKey,
-  });
+    adapterStorageKey: pack.adapterStorageKey,
+    adapterStatus: pack.adapterStatus,
+    adapterId: pack.adapterId,
+  };
+}
+
+function providerForGenerate(pack: {
+  adapterStorageKey?: string | null;
+  adapterStatus?: string | null;
+  adapterId?: string | null;
+}): "venice" | "runpod" | "sister" {
+  return generateStillJobProvider(generateRouteInput(pack));
 }
 
 function providerForTrain(): "runpod" | "sister" {
@@ -361,6 +380,7 @@ export async function lockPack(userId: string, packId: string) {
         retryable: false,
       });
     }
+    // Lock without Train leaves adapter_status none — Generate uses Venice.
     return { pack: locked, warning: gate.warning, refCount: refs };
   });
 }
@@ -420,7 +440,7 @@ export async function enqueueGenerateStill(input: {
       userId: input.userId,
       kind: "generate_still",
       status: "queued",
-      provider: providerForGenerate(pack.adapterStorageKey),
+      provider: providerForGenerate(pack),
       characterPackId: pack.id,
       recipeId: recipe.id,
       inputJson: {
@@ -467,7 +487,7 @@ export async function enqueueGenerateStarter(input: {
       userId: input.userId,
       kind: "generate_starter",
       status: "queued",
-      provider: providerForGenerate(pack.adapterStorageKey),
+      provider: providerForGenerate(pack),
       characterPackId: pack.id,
       inputJson: { presetId: preset.id, kind: preset.kind },
     })
@@ -499,9 +519,17 @@ export async function enqueueTrainPack(userId: string, packId: string) {
     const refs = await countRefsOn(tx, locked.id);
     throwPackGate(trainPackDecision(locked.status, refs));
 
+    const start = trainStartTransition({
+      retrain: false,
+      identity: readAdapterIdentity(locked),
+    });
     const updated = await tx
       .update(characterPacks)
-      .set({ status: "training", updatedAt: new Date() })
+      .set({
+        status: start.packStatus,
+        adapterStatus: start.adapterStatus,
+        updatedAt: new Date(),
+      })
       .where(
         and(eq(characterPacks.id, locked.id), inArray(characterPacks.status, ["draft", "failed"])),
       )
@@ -585,9 +613,15 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
+  const identity = readAdapterIdentity(pack);
+  const start = trainStartTransition({ retrain: true, identity });
   await db
     .update(characterPacks)
-    .set({ status: "training", updatedAt: new Date() })
+    .set({
+      status: start.packStatus,
+      adapterStatus: start.adapterStatus,
+      updatedAt: new Date(),
+    })
     .where(eq(characterPacks.id, pack.id));
 
   const jobRows = await db
@@ -601,7 +635,8 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
       inputJson: {
         refCount: refs,
         retrain: true,
-        previousProviderJobId: pack.providerJobId,
+        previousProviderJobId: identity.adapterId ?? pack.providerJobId,
+        previousAdapter: snapshotAdapterIdentity(identity),
       },
     })
     .returning();

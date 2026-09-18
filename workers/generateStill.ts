@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { characterPacks, mediaAssets, recipes } from "@/db/schema";
+import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
@@ -130,7 +131,7 @@ export async function processGenerateStillJob(
       providerMode: getEnv().providerMode,
       attempt: attempt.attempt,
       maxAttempts: attempt.maxAttempts,
-      hasAdapter: Boolean(pack.adapterStorageKey),
+      hasAdapter: hasReadySoulAdapter(pack),
     });
 
     let result;

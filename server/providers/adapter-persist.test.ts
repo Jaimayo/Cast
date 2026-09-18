@@ -28,6 +28,12 @@ describe("planAdapterPersist", () => {
     if (plan.action === "write-bytes") {
       expect(plan.storageKey).toBe("adapters/stub/pack-1.lora");
       expect(plan.body.toString("utf8")).toBe("stub-lora-adapter");
+      expect(plan.meta).toMatchObject({
+        stub: true,
+        adapterSource: "stub",
+        adapterId: "rp_train_1",
+        provider: "stub",
+      });
     }
   });
 
@@ -146,7 +152,47 @@ describe("persistAdapterPointer", () => {
       },
     });
     expect(artifact.storageKey).toMatch(/^adapters\/user-1\/pack-fetch-/);
+    expect(artifact.adapterPath).toBe(artifact.storageKey);
+    expect(artifact.adapterStatus).toBe("ready");
+    expect(artifact.adapterSource).toBe("live");
+    expect(artifact.adapterId).toBe("rp_train_1");
     expect(artifact.meta.sourceUrl).toBe("https://example.invalid/pack.safetensors");
+    expect(artifact.meta.adapterId).toBe("rp_train_1");
+    expect(artifact.meta.adapterSource).toBe("live");
+    expect(JSON.stringify(artifact.meta)).not.toMatch(/prompt|Bearer|at /i);
+  });
+
+  it("persists stub and live pointers with the same identity fields", async () => {
+    const stub = await persistAdapterPointer({
+      ...baseInput,
+      packId: `pack-stub-${Date.now()}`,
+      providerJobId: "stub-train-pack-1",
+      result: {
+        provider: "stub",
+        adapterStorageKey: `adapters/stub/pack-stub.lora`,
+        adapterMimeType: "application/octet-stream",
+        adapterBytesBase64: null,
+        adapterMeta: { stub: true },
+      },
+    });
+    const live = await persistAdapterPointer({
+      ...baseInput,
+      packId: `pack-live-${Date.now()}`,
+      result: {
+        provider: "runpod",
+        adapterStorageKey: "adapters/runpod/pack-live.safetensors",
+        adapterMimeType: "application/octet-stream",
+        adapterBytesBase64: null,
+        adapterMeta: { runpodStatus: "COMPLETED" },
+      },
+    });
+    expect(Object.keys(stub).sort()).toEqual(Object.keys(live).sort());
+    expect(stub.adapterStatus).toBe("ready");
+    expect(live.adapterStatus).toBe("ready");
+    expect(stub.adapterSource).toBe("stub");
+    expect(live.adapterSource).toBe("live");
+    expect(stub.adapterId).toBe("stub-train-pack-1");
+    expect(live.adapterId).toBe("rp_train_1");
   });
 });
 
