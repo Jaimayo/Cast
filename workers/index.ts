@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { JOB_QUEUES } from "@/lib/constants";
 import { jobAttemptFromBullmq, shouldRetryJob, classifyJobError } from "@/lib/job-errors";
 import { jobLog } from "@/lib/job-log";
+import { logWorkerReadiness } from "@/server/health";
 import { persistQueueFailure, recoverStaleJobsSafe } from "@/server/jobs";
 import { enqueueDeadLetterJob } from "@/server/queue";
 import { redisConnection } from "@/server/redis";
@@ -117,3 +118,4 @@ jobLog("workers.online", {
   queues: `${JOB_QUEUES.generateStill},${JOB_QUEUES.trainPack},${JOB_QUEUES.deadLetter}`,
 });
 void recoverStaleJobsSafe();
+void logWorkerReadiness();
