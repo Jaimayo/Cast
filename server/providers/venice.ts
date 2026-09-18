@@ -1,5 +1,7 @@
 import { getEnv } from "@/server/env";
+import { providerFetch } from "@/server/providers/http";
 import {
+  ProviderHttpError,
   ProviderNotConfiguredError,
   type GenerateStillAdapter,
   type GenerateStillInput,
@@ -50,7 +52,7 @@ export const veniceAdapter: GenerateStillAdapter = {
       ...(typeof input.seed === "number" ? { seed: input.seed } : {}),
     };
 
-    const response = await fetch(`${env.baseUrl.replace(/\/$/, "")}/image/generate`, {
+    const response = await providerFetch(`${env.baseUrl.replace(/\/$/, "")}/image/generate`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.apiKey}`,
@@ -61,7 +63,7 @@ export const veniceAdapter: GenerateStillAdapter = {
 
     if (!response.ok) {
       // Do not echo prompt or image payloads.
-      throw new Error(`Venice generateStill failed with HTTP ${response.status}`);
+      throw new ProviderHttpError("venice", response.status);
     }
 
     const payload = (await response.json()) as VeniceGenerateResponse;

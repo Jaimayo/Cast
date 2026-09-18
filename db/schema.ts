@@ -167,6 +167,8 @@ export const generationJobs = pgTable("generation_jobs", {
   inputJson: jsonb("input_json").$type<Record<string, unknown>>().notNull().default({}),
   resultAssetKey: text("result_asset_key"),
   errorCode: text("error_code"),
+  /** User-safe failure copy for Jobs UI. Never a compiled prompt or provider payload. */
+  errorMessage: text("error_message"),
   providerJobId: text("provider_job_id"),
   ...timestamps,
 });

@@ -18,6 +18,7 @@ import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
 import { mediaPreviewPath } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { recoverStaleJobsSafe } from "@/server/jobs";
 import { getGenerateStillQueue, getTrainPackQueue } from "@/server/queue";
 
 function hashPrompt(prompt: string): string {
@@ -38,6 +39,7 @@ function providerForTrain(): "runpod" | "sister" {
 }
 
 export async function listPacks(userId: string) {
+  await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const packs = await db
     .select()
@@ -60,6 +62,7 @@ export async function listPacks(userId: string) {
 }
 
 export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
+  await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
   const rows = await db
     .select()
@@ -422,6 +425,7 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
 }
 
 export async function listJobs(userId: string) {
+  await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const jobs = await db
     .select()
@@ -432,6 +436,7 @@ export async function listJobs(userId: string) {
 }
 
 export async function getJob(userId: string, jobId: string) {
+  await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const rows = await db
     .select()

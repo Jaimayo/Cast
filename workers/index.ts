@@ -1,47 +1,98 @@
 import { Worker } from "bullmq";
 import { JOB_QUEUES } from "@/lib/constants";
+import { jobAttemptFromBullmq, shouldRetryJob, classifyJobError } from "@/lib/job-errors";
+import { jobLog } from "@/lib/job-log";
+import { persistQueueFailure, recoverStaleJobsSafe } from "@/server/jobs";
 import { redisConnection } from "@/server/redis";
 import { processGenerateStillJob } from "@/workers/generateStill";
 import { processTrainPackJob } from "@/workers/trainPack";
 import type { GenerateStillJobData, TrainPackJobData } from "@/server/queue";
 
-function log(message: string, extra?: Record<string, string>) {
-  const payload = extra ? ` ${JSON.stringify(extra)}` : "";
-  console.log(`[cast-worker] ${message}${payload}`);
-}
-
 const generateWorker = new Worker<GenerateStillJobData>(
   JOB_QUEUES.generateStill,
   async (job) => {
-    log("generateStill start", { jobId: job.data.generationJobId });
-    await processGenerateStillJob(job.data.generationJobId);
-    log("generateStill done", { jobId: job.data.generationJobId });
+    const attempt = jobAttemptFromBullmq(job);
+    jobLog("generateStill.queue_active", {
+      jobId: job.data.generationJobId,
+      attempt: attempt.attempt,
+      maxAttempts: attempt.maxAttempts,
+    });
+    await processGenerateStillJob(job.data.generationJobId, attempt);
   },
-  { connection: redisConnection(), concurrency: 2 },
+  {
+    connection: redisConnection(),
+    concurrency: 2,
+    lockDuration: 10 * 60 * 1000,
+    stalledInterval: 30_000,
+    maxStalledCount: 2,
+  },
 );
 
 const trainWorker = new Worker<TrainPackJobData>(
   JOB_QUEUES.trainPack,
   async (job) => {
-    log("trainPack start", { jobId: job.data.generationJobId, packId: job.data.characterPackId });
-    await processTrainPackJob(job.data.generationJobId, job.data.characterPackId, job.data.attempt ?? 0);
-    log("trainPack done", { jobId: job.data.generationJobId });
+    const attempt = jobAttemptFromBullmq(job);
+    jobLog("trainPack.queue_active", {
+      jobId: job.data.generationJobId,
+      packId: job.data.characterPackId,
+      pollAttempt: job.data.attempt ?? 0,
+      attempt: attempt.attempt,
+      maxAttempts: attempt.maxAttempts,
+    });
+    await processTrainPackJob(
+      job.data.generationJobId,
+      job.data.characterPackId,
+      job.data.attempt ?? 0,
+      attempt,
+    );
   },
-  { connection: redisConnection(), concurrency: 1 },
+  {
+    connection: redisConnection(),
+    concurrency: 1,
+    lockDuration: 2 * 60 * 1000,
+    stalledInterval: 30_000,
+    maxStalledCount: 2,
+  },
 );
 
 for (const worker of [generateWorker, trainWorker]) {
+  worker.on("stalled", (jobId) => {
+    jobLog("job.stalled", { queue: worker.name, bullmqJobId: jobId });
+  });
   worker.on("failed", (job, err) => {
-    log("job failed", {
+    const attempt = job ? jobAttemptFromBullmq(job) : { attempt: 1, maxAttempts: 1 };
+    const classified = classifyJobError(err);
+    const unrecoverable = err.name === "UnrecoverableError";
+    const terminal = unrecoverable || !shouldRetryJob(classified, attempt);
+    jobLog("job.failed", {
       queue: worker.name,
       id: job?.id ?? "unknown",
+      jobId:
+        job && "generationJobId" in job.data ? String(job.data.generationJobId) : "unknown",
+      code: classified.code,
+      retryable: classified.retryable,
+      attempt: attempt.attempt,
+      maxAttempts: attempt.maxAttempts,
+      terminal,
       error: err.message,
+    });
+    if (!job || !terminal) {
+      return;
+    }
+    const generationJobId =
+      "generationJobId" in job.data ? String(job.data.generationJobId) : null;
+    if (!generationJobId) return;
+    void persistQueueFailure(generationJobId, err).catch((persistErr) => {
+      jobLog("job.persist_failed", {
+        jobId: generationJobId,
+        error: persistErr instanceof Error ? persistErr.message : "unknown",
+      });
     });
   });
 }
 
 async function shutdown() {
-  log("shutting down");
+  jobLog("workers.shutdown");
   await Promise.all([generateWorker.close(), trainWorker.close()]);
   process.exit(0);
 }
@@ -49,4 +100,7 @@ async function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-log("workers online", { queues: `${JOB_QUEUES.generateStill},${JOB_QUEUES.trainPack}` });
+jobLog("workers.online", {
+  queues: `${JOB_QUEUES.generateStill},${JOB_QUEUES.trainPack}`,
+});
+void recoverStaleJobsSafe();

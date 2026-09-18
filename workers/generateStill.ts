@@ -1,7 +1,18 @@
 import { eq } from "drizzle-orm";
-import { characterPacks, generationJobs, mediaAssets, recipes } from "@/db/schema";
+import { characterPacks, mediaAssets, recipes } from "@/db/schema";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
+import { requireLockedSoulForGenerate } from "@/lib/soul";
+import { jobLog } from "@/lib/job-log";
+import type { JobAttempt } from "@/lib/job-errors";
 import { getDb } from "@/server/db";
+import { getEnv } from "@/server/env";
+import {
+  existingMediaForJob,
+  finalizeWorkerError,
+  loadGenerationJob,
+  markJobRunning,
+  markJobSucceeded,
+} from "@/server/jobs";
 import {
   generateStillFallbackAdapter,
   getGenerateStillAdapterForPack,
@@ -15,18 +26,41 @@ function extFor(mime: string): string {
   return "webp";
 }
 
-export async function processGenerateStillJob(generationJobId: string): Promise<void> {
+export async function processGenerateStillJob(
+  generationJobId: string,
+  attempt: JobAttempt = { attempt: 1, maxAttempts: 1 },
+): Promise<void> {
   const db = getDb();
-  const jobRows = await db.select().from(generationJobs).where(eq(generationJobs.id, generationJobId)).limit(1);
-  const job = jobRows[0];
+  const job = await loadGenerationJob(generationJobId);
   if (!job) {
     throw new Error(`Job ${generationJobId} not found`);
   }
 
-  await db
-    .update(generationJobs)
-    .set({ status: "running", updatedAt: new Date() })
-    .where(eq(generationJobs.id, job.id));
+  if (job.status === "succeeded") {
+    jobLog("generateStill.skip_succeeded", {
+      jobId: job.id,
+      kind: job.kind,
+      attempt: attempt.attempt,
+    });
+    return;
+  }
+
+  const existing = await existingMediaForJob(job.id);
+  if (existing) {
+    await markJobSucceeded({
+      jobId: job.id,
+      resultAssetKey: existing.storageKey,
+      providerJobId: job.providerJobId,
+    });
+    jobLog("generateStill.skip_existing_media", {
+      jobId: job.id,
+      kind: job.kind,
+      attempt: attempt.attempt,
+    });
+    return;
+  }
+
+  await markJobRunning(job.id);
 
   try {
     if (!job.characterPackId) {
@@ -40,6 +74,10 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
     const pack = packRows[0];
     if (!pack) {
       throw new Error("Character pack not found");
+    }
+
+    if (job.kind === "generate_still") {
+      requireLockedSoulForGenerate(pack.status);
     }
 
     let prompt: string;
@@ -86,6 +124,17 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
     }
 
     const adapter = getGenerateStillAdapterForPack(pack);
+    jobLog("generateStill.start", {
+      jobId: job.id,
+      kind: job.kind,
+      packId: pack.id,
+      provider: adapter.name,
+      providerMode: getEnv().providerMode,
+      attempt: attempt.attempt,
+      maxAttempts: attempt.maxAttempts,
+      hasAdapter: Boolean(pack.adapterStorageKey),
+    });
+
     let result;
     try {
       result = await adapter.generateStill({
@@ -105,6 +154,12 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
       if (!fallback || !canFallback) {
         throw err;
       }
+      jobLog("generateStill.fallback", {
+        jobId: job.id,
+        fromProvider: adapter.name,
+        toProvider: fallback.name,
+        attempt: attempt.attempt,
+      });
       result = await fallback.generateStill({
         jobId: job.id,
         prompt,
@@ -123,37 +178,39 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
     });
     await putObject({ key, body: result.imageBytes, mimeType: result.mimeType });
 
-    const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
-    await db.insert(mediaAssets).values({
-      userId: job.userId,
-      kind: mediaKind,
-      storageKey: key,
-      mimeType: result.mimeType,
-      byteSize: result.imageBytes.byteLength,
-      generationJobId: job.id,
-      characterPackId: pack.id,
-    });
+    const alreadyStored = await existingMediaForJob(job.id);
+    if (!alreadyStored) {
+      const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
+      await db.insert(mediaAssets).values({
+        userId: job.userId,
+        kind: mediaKind,
+        storageKey: key,
+        mimeType: result.mimeType,
+        byteSize: result.imageBytes.byteLength,
+        generationJobId: job.id,
+        characterPackId: pack.id,
+      });
+    }
 
-    await db
-      .update(generationJobs)
-      .set({
-        status: "succeeded",
-        resultAssetKey: key,
-        providerJobId: result.providerJobId,
-        errorCode: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(generationJobs.id, job.id));
+    await markJobSucceeded({
+      jobId: job.id,
+      resultAssetKey: key,
+      providerJobId: result.providerJobId,
+    });
+    jobLog("generateStill.succeeded", {
+      jobId: job.id,
+      kind: job.kind,
+      packId: pack.id,
+      provider: result.provider,
+      attempt: attempt.attempt,
+    });
   } catch (err) {
-    const code = err instanceof ProviderNotConfiguredError ? err.code : "GENERATE_STILL_FAILED";
-    await db
-      .update(generationJobs)
-      .set({
-        status: "failed",
-        errorCode: code,
-        updatedAt: new Date(),
-      })
-      .where(eq(generationJobs.id, job.id));
-    throw err;
+    await finalizeWorkerError({
+      jobId: job.id,
+      kind: job.kind,
+      err,
+      attempt,
+      packId: job.characterPackId,
+    });
   }
 }
