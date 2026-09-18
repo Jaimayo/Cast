@@ -12,6 +12,7 @@ import {
   JobError,
   classifyJobError,
   keepLockedAfterTrainFail,
+  retryingJobPatch,
   shouldRetryJob,
   trainPackFailureMessage,
   trainPackStalledMessage,
@@ -21,7 +22,7 @@ import {
 import { jobLog } from "@/lib/job-log";
 import { decideStaleJob, staleScanCutoff } from "@/lib/job-stale";
 import { getDb } from "@/server/db";
-import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
+import { enqueueTrainPackJob } from "@/server/queue";
 
 export function isRetrainJob(inputJson: Record<string, unknown>): boolean {
   return inputJson.retrain === true;
@@ -74,8 +75,6 @@ export async function markJobRunning(jobId: string, attemptsMade?: number): Prom
     .update(generationJobs)
     .set({
       status: "running",
-      errorCode: null,
-      errorMessage: null,
       updatedAt: new Date(),
       ...(attemptsMade != null ? { attemptsMade } : {}),
     })
@@ -200,6 +199,13 @@ export async function finalizeWorkerError(input: {
   });
 
   if (!terminal) {
+    await getDb()
+      .update(generationJobs)
+      .set({
+        ...retryingJobPatch({ ...classified, userMessage }, input.attempt),
+        updatedAt: new Date(),
+      })
+      .where(eq(generationJobs.id, input.jobId));
     throw input.err instanceof Error ? input.err : new Error(classified.userMessage);
   }
 
@@ -317,11 +323,11 @@ export async function recoverStaleJobs(filter?: {
         .update(generationJobs)
         .set({ status: "running", updatedAt: now })
         .where(eq(generationJobs.id, job.id));
-      await getTrainPackQueue().add(
-        "trainPack",
-        { generationJobId: job.id, characterPackId: job.characterPackId, attempt: 0 },
-        TRAIN_PACK_JOB_OPTIONS,
-      );
+      await enqueueTrainPackJob({
+        generationJobId: job.id,
+        characterPackId: job.characterPackId,
+        attempt: 0,
+      });
       jobLog("job.stale_requeue", {
         jobId: job.id,
         kind: job.kind,

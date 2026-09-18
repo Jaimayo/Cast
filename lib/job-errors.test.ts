@@ -3,13 +3,17 @@ import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
 import {
   GENERATE_STILL_MAX_ATTEMPTS,
   JOB_ERROR_CODES,
+  JOB_RETRY_POLICY,
   JobError,
   classifyJobError,
+  generateMissingAdapter,
   httpStatusFromMessage,
   isPermanentCode,
   isRetryableHttpStatus,
   jobAttemptFromBullmq,
+  jobErrorFromTrainPollFail,
   keepLockedAfterTrainFail,
+  retryingJobPatch,
   shouldRetryJob,
   trainPackFailureMessage,
   trainPackStalledMessage,
@@ -126,10 +130,24 @@ describe("classifyJobError", () => {
       code: JOB_ERROR_CODES.NETWORK_ERROR,
       retryable: true,
     });
-    expect(classifyJobError(new Error("RunPod generateStill polling timed out"))).toMatchObject({
+    expect(classifyJobError(new Error("Venice generateStill timed out"))).toMatchObject({
       code: JOB_ERROR_CODES.PROVIDER_TIMEOUT,
       retryable: true,
     });
+  });
+
+  it("treats exhausted generate polls and empty stills as terminal (no second vendor submit)", () => {
+    expect(classifyJobError(new Error("RunPod generateStill polling timed out"))).toMatchObject({
+      code: JOB_ERROR_CODES.GENERATE_TIMEOUT,
+      retryable: false,
+    });
+    expect(classifyJobError(new Error("RunPod generateStill returned no image"))).toMatchObject({
+      code: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+      retryable: false,
+    });
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_TIMEOUT)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_NO_IMAGE)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER)).toBe(true);
   });
 
   it("does not retry 4xx provider rejections (except rate-limit / timeout)", () => {
@@ -245,10 +263,55 @@ describe("idempotent BullMQ ids and train submit", () => {
     expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);
   });
 
+  it("reuses the first-submit job id for stale train poll recovery", () => {
+    expect(trainPackBullJobId("job-stale", 0)).toBe("trainPack:job-stale");
+  });
+
   it("does not resubmit trainPack after the first /run", () => {
     expect(trainSubmitDecision({ providerJobId: "rp_1", submitAttempted: true })).toBe("poll");
     expect(trainSubmitDecision({ providerJobId: null, submitAttempted: false })).toBe("submit");
     expect(trainSubmitDecision({ providerJobId: "  ", submitAttempted: true })).toBe("fail-in-flight");
+  });
+
+  it("documents the shared generate/train retry budget", () => {
+    expect(JOB_RETRY_POLICY.generateStill.maxAttempts).toBe(5);
+    expect(JOB_RETRY_POLICY.trainPack.maxAttempts).toBe(5);
+    expect(JOB_RETRY_POLICY.generateStill.backoff).toBe("exponential");
+    expect(JOB_RETRY_POLICY.trainPack.backoffMs).toBe(3_000);
+  });
+});
+
+describe("terminal train/generate failure helpers", () => {
+  it("maps a provider train fail onto a non-retryable JobError", () => {
+    const err = jobErrorFromTrainPollFail(JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT);
+    expect(err.retryable).toBe(false);
+    expect(err.code).toBe(JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT);
+    expect(err.userMessage).toMatch(/timed out/);
+    expect(jobErrorFromTrainPollFail("NOT_A_CODE").code).toBe(JOB_ERROR_CODES.TRAIN_PACK_FAILED);
+  });
+
+  it("fails Generate closed when a Soul ID job lost its adapter", () => {
+    expect(
+      generateMissingAdapter({ kind: "generate_still", provider: "runpod", hasReadyAdapter: false }),
+    ).toMatchObject({ code: JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER, retryable: false });
+    expect(
+      generateMissingAdapter({ kind: "generate_still", provider: "runpod", hasReadyAdapter: true }),
+    ).toBeNull();
+    expect(
+      generateMissingAdapter({ kind: "generate_still", provider: "venice", hasReadyAdapter: false }),
+    ).toBeNull();
+    expect(
+      generateMissingAdapter({ kind: "generate_starter", provider: "runpod", hasReadyAdapter: false }),
+    ).toBeNull();
+  });
+
+  it("keeps lastError on the job row while retries are in flight", () => {
+    const classified = classifyJobError(new Error("fetch failed"));
+    expect(retryingJobPatch(classified, { attempt: 2, maxAttempts: 5 })).toEqual({
+      errorCode: JOB_ERROR_CODES.NETWORK_ERROR,
+      errorMessage: "Network error talking to the image service. Try again.",
+      attemptsMade: 2,
+    });
   });
 });
 

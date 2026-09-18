@@ -1,4 +1,5 @@
 import { PACK_MIN_REFS, PACK_TARGET_REFS } from "@/lib/constants";
+import { isLockedSoul } from "@/lib/soul";
 
 export const PACK_REFS_TOO_FEW = "PACK_REFS_TOO_FEW";
 export const PACK_REFS_FULL = "PACK_REFS_FULL";
@@ -111,4 +112,27 @@ export function generateStarterPackDecision(
     };
   }
   return { ok: true };
+}
+
+/** Retrain: Locked (or legacy ready) only. Already-training packs reuse the in-flight job. */
+export function retrainPackDecision(status: string, refCount: number): PackActionGate {
+  if (status === "training") {
+    return {
+      ok: false,
+      code: "INVALID_PACK_STATE",
+      message: "Training is already running. Check Jobs — do not start a second train.",
+    };
+  }
+  if (!isLockedSoul(status)) {
+    return {
+      ok: false,
+      code: "INVALID_PACK_STATE",
+      message: "Retrain is available after Soul ID is Locked.",
+    };
+  }
+  const refs = canLockPack(refCount);
+  if (!refs.ok) {
+    return refs;
+  }
+  return { ok: true, warning: lockWarning(refCount), refCount };
 }

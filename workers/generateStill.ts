@@ -4,7 +4,7 @@ import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
-import type { JobAttempt } from "@/lib/job-errors";
+import { generateMissingAdapter, type JobAttempt } from "@/lib/job-errors";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import {
@@ -77,6 +77,15 @@ export async function processGenerateStillJob(
       throw new Error("Character pack not found");
     }
 
+    const missing = generateMissingAdapter({
+      kind: job.kind,
+      provider: job.provider,
+      hasReadyAdapter: hasReadySoulAdapter(pack),
+    });
+    if (missing) {
+      throw missing;
+    }
+
     let prompt: string;
     let negativePrompt: string;
     if (job.kind === "generate_starter") {
@@ -143,6 +152,7 @@ export async function processGenerateStillJob(
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
+        attempt: attempt.attempt,
       });
     } catch (err) {
       const fallback = generateStillFallbackAdapter();
@@ -166,6 +176,7 @@ export async function processGenerateStillJob(
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
+        attempt: attempt.attempt,
       });
     }
 

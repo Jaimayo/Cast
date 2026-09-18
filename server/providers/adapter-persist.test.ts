@@ -107,6 +107,23 @@ describe("planAdapterPersist", () => {
       message: "Train pack finished without a LoRA / adapter pointer",
     });
   });
+
+  it("fails closed when stub omitAdapter is set (STUB_JOB_SCENARIO=no-adapter)", () => {
+    const plan = planAdapterPersist({
+      ...baseInput,
+      result: {
+        provider: "stub",
+        adapterStorageKey: null,
+        adapterMimeType: null,
+        adapterBytesBase64: null,
+        adapterMeta: { stub: true, omitAdapter: true },
+      },
+    });
+    expect(plan.action).toBe("fail");
+    if (plan.action === "fail") {
+      expect(plan.errorCode).toBe(JOB_ERROR_CODES.TRAIN_NO_ADAPTER);
+    }
+  });
 });
 
 describe("persistAdapterPointer", () => {

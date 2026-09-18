@@ -1,5 +1,6 @@
 import { loadLocalEnv } from "@/lib/load-env";
 import { roleForEmail } from "@/lib/auth-guards";
+import { parseStubJobScenario } from "@/lib/stub-job-scenario";
 
 loadLocalEnv();
 
@@ -35,6 +36,7 @@ export function getEnv() {
     databaseUrl: required("DATABASE_URL"),
     redisUrl: read("REDIS_URL") ?? "redis://localhost:6379",
     providerMode,
+    stubJobScenario: parseStubJobScenario(read("STUB_JOB_SCENARIO")),
     generateStillProvider: read("GENERATE_STILL_PROVIDER") ?? "venice",
     trainPackProvider: read("TRAIN_PACK_PROVIDER") ?? "runpod",
     venice: {

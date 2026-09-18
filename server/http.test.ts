@@ -98,6 +98,20 @@ describe("jsonError media failures", () => {
     const full = jsonError(new JobError({ code: JOB_ERROR_CODES.PACK_REFS_FULL, retryable: false }));
     expect(full.status).toBe(400);
     expect(await bodyOf(full)).toMatchObject({ code: JOB_ERROR_CODES.PACK_REFS_FULL });
+
+    const timeout = jsonError(new JobError({ code: JOB_ERROR_CODES.GENERATE_TIMEOUT, retryable: false }));
+    expect(await bodyOf(timeout)).toEqual({
+      error: "Still generation took too long. Try Generate again.",
+      code: JOB_ERROR_CODES.GENERATE_TIMEOUT,
+    });
+    const missing = jsonError(
+      new JobError({ code: JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER, retryable: false }),
+    );
+    const missingPayload = await bodyOf(missing);
+    expect(missingPayload).toMatchObject({
+      code: JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER,
+    });
+    expect(JSON.stringify(missingPayload)).not.toMatch(/lora|prompt|Bearer/i);
   });
 
   it("redacts filesystem and bucket errors", async () => {

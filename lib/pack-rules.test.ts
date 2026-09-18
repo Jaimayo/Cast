@@ -10,6 +10,7 @@ import {
   lockWarning,
   packRefsFullMessage,
   packRefsTooFewMessage,
+  retrainPackDecision,
   trainPackDecision,
 } from "@/lib/pack-rules";
 
@@ -52,6 +53,24 @@ describe("pack lock rules", () => {
       ok: false,
       code: "INVALID_PACK_STATE",
     });
+  });
+
+  it("refuses a second Retrain while training is already running", () => {
+    expect(retrainPackDecision("locked", 12).ok).toBe(true);
+    expect(retrainPackDecision("ready", 20).ok).toBe(true);
+    expect(retrainPackDecision("training", 20)).toMatchObject({
+      ok: false,
+      code: "INVALID_PACK_STATE",
+    });
+    const training = retrainPackDecision("training", 20);
+    if (!training.ok) {
+      expect(training.message).toMatch(/already running/);
+    }
+    expect(retrainPackDecision("draft", 20)).toMatchObject({
+      ok: false,
+      code: "INVALID_PACK_STATE",
+    });
+    expect(retrainPackDecision("locked", 4)).toMatchObject({ ok: false, code: PACK_REFS_TOO_FEW });
   });
 });
 

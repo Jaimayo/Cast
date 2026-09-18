@@ -1,4 +1,5 @@
 import { soulAdapterSourceUrl } from "@/lib/generate-route";
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import workflowPlaceholder from "@/server/providers/comfy/train-pack-workflow.json";
 import { getEnv } from "@/server/env";
 import {
@@ -142,7 +143,10 @@ async function waitForGenerateResult(
   while (shouldKeepPollingGenerate(payload.status)) {
     attempts += 1;
     if (generateStillTimedOut(attempts)) {
-      throw new Error("RunPod generateStill polling timed out");
+      throw new JobError({
+        code: JOB_ERROR_CODES.GENERATE_TIMEOUT,
+        retryable: false,
+      });
     }
     await new Promise((resolve) => setTimeout(resolve, GENERATE_POLL_DELAY_MS));
     payload = await runpodStatus(endpointId, providerJobId);
@@ -161,7 +165,10 @@ async function imageBytesFromPointer(pointer: GenerateImagePointer): Promise<Buf
     }
     return Buffer.from(await response.arrayBuffer());
   }
-  throw new Error("RunPod generateStill returned no image");
+  throw new JobError({
+    code: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+    retryable: false,
+  });
 }
 
 /** generateStill fallback when Venice is unavailable, and Soul ID path when a LoRA pointer exists. */
@@ -193,7 +200,10 @@ export const runpodGenerateAdapter: GenerateStillAdapter = {
 
     const pointer = extractGenerateImage(result.output);
     if (!pointer) {
-      throw new Error("RunPod generateStill returned no image");
+      throw new JobError({
+        code: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+        retryable: false,
+      });
     }
 
     return {

@@ -9,8 +9,8 @@ import {
   JobError,
   JOB_ERROR_CODES,
   isSubmitAttempted,
+  jobErrorFromTrainPollFail,
   keepLockedAfterTrainFail,
-  trainPackFailureMessage,
   trainSubmitDecision,
   withSubmitAttempted,
   type JobAttempt,
@@ -27,7 +27,6 @@ import {
   persistProviderJobId,
   previousAdapterFromJob,
   previousTrainProviderJobId,
-  restorePackAfterTrainFailure,
 } from "@/server/jobs";
 import { persistAdapterPointer } from "@/server/providers/adapter-persist";
 import { getTrainPackAdapter } from "@/server/providers/registry";
@@ -54,6 +53,7 @@ export async function processTrainPackJob(
 
   const retrain = isRetrainJob(job.inputJson);
   let keepLockedOnFail = false;
+  let providerJobId = job.providerJobId;
 
   await markJobRunning(job.id, attempt.attempt);
 
@@ -133,10 +133,16 @@ export async function processTrainPackJob(
         characterPackId: pack.id,
         name: pack.name,
         referenceKeys: refs.map((row) => row.storageKey),
+        attempt: attempt.attempt,
       });
       if (result.providerJobId) {
         await persistProviderJobId(job.id, result.providerJobId);
+        providerJobId = result.providerJobId;
       }
+    }
+
+    if (result.providerJobId) {
+      providerJobId = result.providerJobId;
     }
 
     const shouldPoll = trainPollDecision({
@@ -145,34 +151,7 @@ export async function processTrainPackJob(
     });
 
     if (shouldPoll.action === "fail") {
-      const errorCode = result.errorCode ?? JOB_ERROR_CODES.TRAIN_PACK_FAILED;
-      await db
-        .update(generationJobs)
-        .set({
-          status: "failed",
-          providerJobId: result.providerJobId,
-          errorCode,
-          errorMessage: trainPackFailureMessage(keepLockedOnFail),
-          attemptsMade: attempt.attempt,
-          updatedAt: new Date(),
-        })
-        .where(eq(generationJobs.id, job.id));
-      await restorePackAfterTrainFailure({
-        packId: pack.id,
-        keepLocked: keepLockedOnFail,
-        previousProviderJobId: previousTrainProviderJobId(job.inputJson),
-        failedProviderJobId: result.providerJobId,
-        previousAdapter: previousAdapterFromJob(job.inputJson),
-      });
-      jobLog("trainPack.provider_failed", {
-        jobId: job.id,
-        packId: pack.id,
-        provider: result.provider,
-        providerJobId: result.providerJobId,
-        keepLocked: keepLockedOnFail,
-        code: errorCode,
-      });
-      return;
+      throw jobErrorFromTrainPollFail(result.errorCode ?? JOB_ERROR_CODES.TRAIN_PACK_FAILED);
     }
 
     if (shouldPoll.action === "timeout") {
@@ -267,7 +246,7 @@ export async function processTrainPackJob(
       keepLockedOnFail,
       previousProviderJobId: previousTrainProviderJobId(job.inputJson),
       previousAdapter: previousAdapterFromJob(job.inputJson),
-      providerJobId: job.providerJobId,
+      providerJobId,
     });
   }
 }

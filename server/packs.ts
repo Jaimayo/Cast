@@ -18,15 +18,15 @@ import {
 } from "@/lib/adapter-identity";
 import {
   attachRefDecision,
-  canLockPack,
   generateStarterPackDecision,
   lockPackDecision,
+  retrainPackDecision,
   trainPackDecision,
 } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
-import { canRetrainPack, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
+import { TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
@@ -601,49 +601,62 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
-  if (!canRetrainPack(pack.status)) {
-    throw new JobError({
-      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
-      userMessage: "Retrain is available after Soul ID is Locked.",
-      retryable: false,
-    });
-  }
-  const refs = await countRefs(pack.id);
-  throwPackGate(canLockPack(refs));
+  throwPackGate(retrainPackDecision(pack.status, await countRefs(pack.id)));
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
-  const identity = readAdapterIdentity(pack);
-  const start = trainStartTransition({ retrain: true, identity });
-  await db
-    .update(characterPacks)
-    .set({
-      status: start.packStatus,
-      adapterStatus: start.adapterStatus,
-      updatedAt: new Date(),
-    })
-    .where(eq(characterPacks.id, pack.id));
+  const job = await db.transaction(async (tx) => {
+    const locked = await loadOwnedPackForUpdate(tx, userId, packId);
+    const refs = await countRefsOn(tx, locked.id);
+    throwPackGate(retrainPackDecision(locked.status, refs));
 
-  const jobRows = await db
-    .insert(generationJobs)
-    .values({
-      userId,
-      kind: "train_pack",
-      status: "queued",
-      provider: providerForTrain(),
-      characterPackId: pack.id,
-      inputJson: {
-        refCount: refs,
-        retrain: true,
-        previousProviderJobId: identity.adapterId ?? pack.providerJobId,
-        previousAdapter: snapshotAdapterIdentity(identity),
-      },
-    })
-    .returning();
-  const job = jobRows[0];
-  if (!job) {
-    throw new Error("Failed to create retrain job");
-  }
+    const identity = readAdapterIdentity(locked);
+    const start = trainStartTransition({ retrain: true, identity });
+    const updated = await tx
+      .update(characterPacks)
+      .set({
+        status: start.packStatus,
+        adapterStatus: start.adapterStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(characterPacks.id, locked.id), inArray(characterPacks.status, ["locked", "ready"])),
+      )
+      .returning();
+    if (!updated[0]) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+        userMessage: "Training is already running. Check Jobs — do not start a second train.",
+        retryable: false,
+      });
+    }
+
+    const jobRows = await tx
+      .insert(generationJobs)
+      .values({
+        userId,
+        kind: "train_pack",
+        status: "queued",
+        provider: providerForTrain(),
+        characterPackId: locked.id,
+        inputJson: {
+          refCount: refs,
+          retrain: true,
+          previousProviderJobId: identity.adapterId ?? locked.providerJobId,
+          previousAdapter: snapshotAdapterIdentity(identity),
+        },
+      })
+      .returning();
+    const created = jobRows[0];
+    if (!created) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: "Could not queue Retrain. Try again.",
+        retryable: true,
+      });
+    }
+    return created;
+  });
 
   await enqueueTrainPackJob({
     generationJobId: job.id,
