@@ -174,6 +174,8 @@ export const generationJobs = pgTable("generation_jobs", {
   errorCode: text("error_code"),
   /** User-safe failure copy for Jobs UI. Never a compiled prompt or provider payload. */
   errorMessage: text("error_message"),
+  /** 1-based BullMQ worker try. 0 = queued and not yet started. */
+  attemptsMade: integer("attempts_made").notNull().default(0),
   providerJobId: text("provider_job_id"),
   ...timestamps,
 });

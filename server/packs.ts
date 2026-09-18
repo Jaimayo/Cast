@@ -495,7 +495,7 @@ export async function getJob(userId: string, jobId: string) {
 async function attachJobPreviews<T extends { id: string; kind: string; resultAssetKey?: string | null }>(
   userId: string,
   jobs: T[],
-): Promise<Array<Omit<T, "resultAssetKey"> & { previewUrl: string | null }>> {
+) {
   if (jobs.length === 0) {
     return [];
   }

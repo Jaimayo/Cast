@@ -49,7 +49,7 @@ export async function processTrainPackJob(
   const retrain = isRetrainJob(job.inputJson);
   let keepLockedOnFail = false;
 
-  await markJobRunning(job.id);
+  await markJobRunning(job.id, attempt.attempt);
 
   try {
     const packRows = await db
@@ -145,6 +145,7 @@ export async function processTrainPackJob(
           providerJobId: result.providerJobId,
           errorCode,
           errorMessage: trainPackFailureMessage(keepLockedOnFail),
+          attemptsMade: attempt.attempt,
           updatedAt: new Date(),
         })
         .where(eq(generationJobs.id, job.id));

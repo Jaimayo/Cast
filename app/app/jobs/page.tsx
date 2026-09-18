@@ -11,6 +11,10 @@ type Job = {
   provider: string;
   errorCode: string | null;
   errorMessage: string | null;
+  lastErrorCode?: string | null;
+  lastError?: string | null;
+  ageSeconds?: number;
+  attemptCount?: number;
   previewUrl?: string | null;
 };
 
@@ -23,8 +27,29 @@ function statusLabel(status: string): string {
   return status;
 }
 
+function formatJobAge(ageSeconds: number | undefined): string | null {
+  if (ageSeconds == null || ageSeconds < 0 || !Number.isFinite(ageSeconds)) return null;
+  if (ageSeconds < 60) return `${ageSeconds}s`;
+  if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)}m`;
+  if (ageSeconds < 86400) return `${Math.floor(ageSeconds / 3600)}h`;
+  return `${Math.floor(ageSeconds / 86400)}d`;
+}
+
+function statusMeta(job: Job): string | null {
+  const age = formatJobAge(job.ageSeconds);
+  const tries = job.attemptCount && job.attemptCount > 0 ? `try ${job.attemptCount}` : null;
+  const parts = [age, tries].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 function errorLabel(job: Job): string {
-  return job.errorMessage || job.errorCode || "—";
+  return job.lastError || job.errorMessage || job.lastErrorCode || job.errorCode || "—";
+}
+
+function errorCodeLabel(job: Job): string | null {
+  const code = job.lastErrorCode || job.errorCode;
+  const message = job.lastError || job.errorMessage;
+  return message && code ? code : null;
 }
 
 export default function JobsPage() {
@@ -74,24 +99,31 @@ export default function JobsPage() {
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => (
-            <tr key={job.id}>
-              <td>{job.kind}</td>
-              <td>{statusLabel(job.status)}</td>
-              <td>{job.provider}</td>
-              <td>
-                {job.previewUrl ? (
-                  <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td>
-                {errorLabel(job)}
-                {job.errorMessage && job.errorCode ? <div className="muted">{job.errorCode}</div> : null}
-              </td>
-            </tr>
-          ))}
+          {jobs.map((job) => {
+            const meta = statusMeta(job);
+            const code = errorCodeLabel(job);
+            return (
+              <tr key={job.id}>
+                <td>{job.kind}</td>
+                <td>
+                  {statusLabel(job.status)}
+                  {meta ? <div className="muted">{meta}</div> : null}
+                </td>
+                <td>{job.provider}</td>
+                <td>
+                  {job.previewUrl ? (
+                    <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {errorLabel(job)}
+                  {code ? <div className="muted">{code}</div> : null}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>

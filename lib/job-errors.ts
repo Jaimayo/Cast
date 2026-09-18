@@ -163,6 +163,46 @@ export function trainPackStalledMessage(keepLocked: boolean): string {
   return USER_JOB_MESSAGES.JOB_STALLED;
 }
 
+const GENERIC_USER_JOB_FAILURE = "This job failed. Try again.";
+
+function looksUnsafeJobMessage(message: string): boolean {
+  if (message.includes("\n    at ")) return true;
+  return /compiled prompt|negativePrompt|Authorization:|Bearer\s+\S/i.test(message);
+}
+
+/**
+ * Jobs API `lastError`: persisted user-safe copy, or catalog text for a known code.
+ * Never returns a stack / prompt / auth header even if a writer slipped.
+ */
+export function userSafeLastError(
+  errorCode?: string | null,
+  errorMessage?: string | null,
+): string | null {
+  const message = errorMessage?.trim();
+  if (message && !looksUnsafeJobMessage(message)) {
+    return message;
+  }
+  if (!errorCode) {
+    return message && looksUnsafeJobMessage(message) ? GENERIC_USER_JOB_FAILURE : null;
+  }
+  if (errorCode in USER_JOB_MESSAGES) {
+    return USER_JOB_MESSAGES[errorCode as JobErrorCode];
+  }
+  return GENERIC_USER_JOB_FAILURE;
+}
+
+export function jobAgeSeconds(createdAt: Date | string | null | undefined, now: Date = new Date()): number {
+  if (!createdAt) return 0;
+  const createdMs = new Date(createdAt).getTime();
+  if (!Number.isFinite(createdMs)) return 0;
+  return Math.max(0, Math.floor((now.getTime() - createdMs) / 1000));
+}
+
+export function jobAttemptCount(attemptsMade?: number | null): number {
+  if (attemptsMade == null || !Number.isFinite(attemptsMade)) return 0;
+  return Math.max(0, Math.floor(attemptsMade));
+}
+
 function classified(
   code: JobErrorCode,
   retryable: boolean,

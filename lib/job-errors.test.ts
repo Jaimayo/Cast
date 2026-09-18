@@ -18,6 +18,9 @@ import {
   trainPackBullJobId,
   isDuplicateBullJobError,
   trainSubmitDecision,
+  userSafeLastError,
+  jobAgeSeconds,
+  jobAttemptCount,
 } from "@/lib/job-errors";
 
 describe("HTTP retry classification", () => {
@@ -220,5 +223,37 @@ describe("idempotent BullMQ ids and train submit", () => {
     expect(trainSubmitDecision({ providerJobId: "rp_1", submitAttempted: true })).toBe("poll");
     expect(trainSubmitDecision({ providerJobId: null, submitAttempted: false })).toBe("submit");
     expect(trainSubmitDecision({ providerJobId: "  ", submitAttempted: true })).toBe("fail-in-flight");
+  });
+});
+
+describe("jobs observability helpers", () => {
+  it("maps lastError to user-safe copy, never stacks or prompts", () => {
+    expect(userSafeLastError("NETWORK_ERROR", "Network error talking to the image service. Try again.")).toBe(
+      "Network error talking to the image service. Try again.",
+    );
+    expect(userSafeLastError("TRAIN_PACK_FAILED", null)).toBe("Training failed. You can try Train & lock again.");
+    expect(userSafeLastError("NOT_A_REAL_CODE", null)).toBe("This job failed. Try again.");
+    expect(userSafeLastError(null, null)).toBeNull();
+    expect(
+      userSafeLastError(
+        "GENERATE_STILL_FAILED",
+        "Error: boom\n    at Worker.process (node_modules/bullmq/dist/cjs/worker.js:1)",
+      ),
+    ).toBe("Still generation failed. Try again from Create.");
+    expect(userSafeLastError("GENERATE_STILL_FAILED", "compiled prompt: a woman in pose x")).toBe(
+      "Still generation failed. Try again from Create.",
+    );
+  });
+
+  it("counts job age from createdAt and clamps attempts", () => {
+    const now = new Date("2026-09-18T09:00:00.000Z");
+    expect(jobAgeSeconds(new Date("2026-09-18T08:59:10.000Z"), now)).toBe(50);
+    expect(jobAgeSeconds("2026-09-18T08:00:00.000Z", now)).toBe(3600);
+    expect(jobAgeSeconds(null, now)).toBe(0);
+    expect(jobAgeSeconds(new Date("2026-09-18T10:00:00.000Z"), now)).toBe(0);
+    expect(jobAttemptCount(3)).toBe(3);
+    expect(jobAttemptCount(0)).toBe(0);
+    expect(jobAttemptCount(-2)).toBe(0);
+    expect(jobAttemptCount(undefined)).toBe(0);
   });
 });
