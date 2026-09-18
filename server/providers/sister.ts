@@ -1,5 +1,7 @@
 import { getEnv } from "@/server/env";
+import { providerFetch } from "@/server/providers/http";
 import {
+  ProviderHttpError,
   ProviderNotConfiguredError,
   type GenerateStillAdapter,
   type GenerateStillInput,
@@ -25,7 +27,7 @@ async function sisterFetch(path: string, body: unknown): Promise<Response> {
   if (!env.apiKey || !env.baseUrl) {
     throw new ProviderNotConfiguredError("sister");
   }
-  return fetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
+  return providerFetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
     method: "POST",
     headers: sisterHeaders(env.apiKey),
     body: JSON.stringify(body),
@@ -37,7 +39,7 @@ async function sisterGet(path: string): Promise<Response> {
   if (!env.apiKey || !env.baseUrl) {
     throw new ProviderNotConfiguredError("sister");
   }
-  return fetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
+  return providerFetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
     method: "GET",
     headers: sisterHeaders(env.apiKey),
   });
@@ -53,7 +55,7 @@ export const sisterGenerateAdapter: GenerateStillAdapter = {
       characterPackId: input.characterPackId,
     });
     if (!response.ok) {
-      throw new Error(`Sister generateStill failed with HTTP ${response.status}`);
+      throw new ProviderHttpError("sister", response.status);
     }
     const payload = (await response.json()) as { id: string; image_base64: string };
     return {
@@ -74,7 +76,7 @@ export const sisterTrainAdapter: TrainPackAdapter = {
       referenceKeys: input.referenceKeys,
     });
     if (!response.ok) {
-      throw new Error(`Sister trainPack failed with HTTP ${response.status}`);
+      throw new ProviderHttpError("sister", response.status);
     }
     const payload = (await response.json()) as { id: string; status?: string };
     return { provider: "sister", providerJobId: payload.id, status: "queued" };
@@ -82,7 +84,7 @@ export const sisterTrainAdapter: TrainPackAdapter = {
   async getTrainStatus(providerJobId: string): Promise<TrainPackResult> {
     const response = await sisterGet(`/v1/packs/train/${encodeURIComponent(providerJobId)}`);
     if (!response.ok) {
-      throw new Error(`Sister train status failed with HTTP ${response.status}`);
+      throw new ProviderHttpError("sister", response.status);
     }
     const payload = (await response.json()) as {
       id?: string;

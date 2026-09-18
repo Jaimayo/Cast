@@ -13,7 +13,9 @@ import {
   mapRunPodJobStatus,
   publicAdapterMeta,
 } from "@/server/providers/train-status";
+import { providerFetch } from "@/server/providers/http";
 import {
+  ProviderHttpError,
   ProviderNotConfiguredError,
   type GenerateStillAdapter,
   type GenerateStillInput,
@@ -43,14 +45,14 @@ async function runpodPost(endpointId: string, input: Record<string, unknown>): P
     throw new ProviderNotConfiguredError("runpod");
   }
 
-  const response = await fetch(`${env.baseUrl.replace(/\/$/, "")}/${endpointId}/run`, {
+  const response = await providerFetch(`${env.baseUrl.replace(/\/$/, "")}/${endpointId}/run`, {
     method: "POST",
     headers: runpodHeaders(env.apiKey),
     body: JSON.stringify({ input }),
   });
 
   if (!response.ok) {
-    throw new Error(`RunPod request failed with HTTP ${response.status}`);
+    throw new ProviderHttpError("runpod", response.status);
   }
 
   return (await response.json()) as RunPodRunResponse;
@@ -62,7 +64,7 @@ async function runpodStatus(endpointId: string, providerJobId: string): Promise<
     throw new ProviderNotConfiguredError("runpod");
   }
 
-  const response = await fetch(
+  const response = await providerFetch(
     `${env.baseUrl.replace(/\/$/, "")}/${endpointId}/status/${encodeURIComponent(providerJobId)}`,
     {
       method: "GET",
@@ -71,7 +73,7 @@ async function runpodStatus(endpointId: string, providerJobId: string): Promise<
   );
 
   if (!response.ok) {
-    throw new Error(`RunPod status failed with HTTP ${response.status}`);
+    throw new ProviderHttpError("runpod", response.status);
   }
 
   return (await response.json()) as RunPodRunResponse;
@@ -95,7 +97,7 @@ function toTrainResult(payload: RunPodRunResponse, fallbackJobId: string): Train
     adapterMimeType: pointer?.mimeType ?? (pointer ? "application/octet-stream" : null),
     adapterMeta: Object.keys(meta).length > 0 ? meta : null,
     adapterBytesBase64: pointer?.bytesBase64 ?? null,
-    errorCode: status === "failed" ? payload.error ?? "TRAIN_PACK_FAILED" : null,
+    errorCode: status === "failed" ? "TRAIN_PACK_FAILED" : null,
   };
 }
 
@@ -152,9 +154,9 @@ async function imageBytesFromPointer(pointer: GenerateImagePointer): Promise<Buf
     return Buffer.from(pointer.bytesBase64, "base64");
   }
   if (pointer.sourceUrl) {
-    const response = await fetch(pointer.sourceUrl);
+    const response = await providerFetch(pointer.sourceUrl);
     if (!response.ok) {
-      throw new Error(`RunPod generate image fetch failed with HTTP ${response.status}`);
+      throw new ProviderHttpError("runpod", response.status);
     }
     return Buffer.from(await response.arrayBuffer());
   }

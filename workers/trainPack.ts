@@ -1,24 +1,28 @@
 import { eq } from "drizzle-orm";
 import { characterPacks, generationJobs, mediaAssets, trainingSetAssets } from "@/db/schema";
+import { JobError, JOB_ERROR_CODES, keepLockedAfterTrainFail, trainPackFailureMessage, type JobAttempt } from "@/lib/job-errors";
+import { jobLog } from "@/lib/job-log";
 import { getDb } from "@/server/db";
+import { getEnv } from "@/server/env";
+import {
+  finalizeWorkerError,
+  isRetrainJob,
+  loadGenerationJob,
+  markJobRunning,
+  markJobSucceeded,
+  persistProviderJobId,
+  previousTrainProviderJobId,
+  restorePackAfterTrainFailure,
+} from "@/server/jobs";
 import { getTrainPackAdapter } from "@/server/providers/registry";
 import {
   shouldContinuePolling,
   TRAIN_POLL_MAX_ATTEMPTS,
   trainPollDelayMs,
 } from "@/server/providers/train-status";
-import { ProviderNotConfiguredError, type TrainPackResult } from "@/server/providers/types";
-import { getTrainPackQueue } from "@/server/queue";
+import { type TrainPackResult } from "@/server/providers/types";
+import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
 import { mediaKey, putObject } from "@/server/storage";
-
-function isRetrainJob(inputJson: Record<string, unknown>): boolean {
-  return inputJson.retrain === true;
-}
-
-function previousTrainProviderJobId(inputJson: Record<string, unknown>): string | null {
-  const value = inputJson.previousProviderJobId;
-  return typeof value === "string" && value.trim() ? value : null;
-}
 
 async function persistAdapterPointer(input: {
   packUserId: string;
@@ -77,22 +81,24 @@ async function persistAdapterPointer(input: {
 export async function processTrainPackJob(
   generationJobId: string,
   characterPackId: string,
-  attempt = 0,
+  pollAttempt = 0,
+  attempt: JobAttempt = { attempt: 1, maxAttempts: 1 },
 ): Promise<void> {
   const db = getDb();
-  const jobRows = await db.select().from(generationJobs).where(eq(generationJobs.id, generationJobId)).limit(1);
-  const job = jobRows[0];
+  const job = await loadGenerationJob(generationJobId);
   if (!job) {
     throw new Error(`Job ${generationJobId} not found`);
+  }
+
+  if (job.status === "succeeded") {
+    jobLog("trainPack.skip_succeeded", { jobId: job.id, packId: characterPackId });
+    return;
   }
 
   const retrain = isRetrainJob(job.inputJson);
   let keepLockedOnFail = false;
 
-  await db
-    .update(generationJobs)
-    .set({ status: "running", updatedAt: new Date() })
-    .where(eq(generationJobs.id, job.id));
+  await markJobRunning(job.id);
 
   try {
     const packRows = await db
@@ -104,7 +110,29 @@ export async function processTrainPackJob(
     if (!pack) {
       throw new Error("Character pack not found");
     }
-    keepLockedOnFail = retrain && Boolean(pack.adapterStorageKey);
+    keepLockedOnFail = keepLockedAfterTrainFail({
+      retrain,
+      adapterStorageKey: pack.adapterStorageKey,
+    });
+
+    if (
+      pack.status === "locked" &&
+      job.providerJobId &&
+      pack.providerJobId === job.providerJobId &&
+      pack.adapterStorageKey
+    ) {
+      await markJobSucceeded({
+        jobId: job.id,
+        resultAssetKey: pack.adapterStorageKey,
+        providerJobId: job.providerJobId,
+      });
+      jobLog("trainPack.skip_already_locked", {
+        jobId: job.id,
+        packId: pack.id,
+        providerJobId: job.providerJobId,
+      });
+      return;
+    }
 
     const refs = await db
       .select({ storageKey: mediaAssets.storageKey })
@@ -113,6 +141,18 @@ export async function processTrainPackJob(
       .where(eq(trainingSetAssets.characterPackId, pack.id));
 
     const adapter = getTrainPackAdapter();
+    jobLog("trainPack.start", {
+      jobId: job.id,
+      packId: pack.id,
+      provider: adapter.name,
+      providerMode: getEnv().providerMode,
+      pollAttempt,
+      attempt: attempt.attempt,
+      maxAttempts: attempt.maxAttempts,
+      retrain,
+      hasProviderJobId: Boolean(job.providerJobId),
+    });
+
     // Resume this job only — never reuse a prior pack train id (Retrain starts a new RunPod job).
     const existingProviderJobId = job.providerJobId;
     let result: TrainPackResult;
@@ -125,6 +165,9 @@ export async function processTrainPackJob(
         name: pack.name,
         referenceKeys: refs.map((row) => row.storageKey),
       });
+      if (result.providerJobId) {
+        await persistProviderJobId(job.id, result.providerJobId);
+      }
     }
 
     if (result.status === "failed") {
@@ -133,25 +176,34 @@ export async function processTrainPackJob(
         .set({
           status: "failed",
           providerJobId: result.providerJobId,
-          errorCode: result.errorCode ?? "TRAIN_PACK_FAILED",
+          errorCode: JOB_ERROR_CODES.TRAIN_PACK_FAILED,
+          errorMessage: trainPackFailureMessage(keepLockedOnFail),
           updatedAt: new Date(),
         })
         .where(eq(generationJobs.id, job.id));
-      await db
-        .update(characterPacks)
-        .set({
-          status: keepLockedOnFail ? "locked" : "failed",
-          providerJobId: keepLockedOnFail ? previousTrainProviderJobId(job.inputJson) : result.providerJobId,
-          updatedAt: new Date(),
-        })
-        .where(eq(characterPacks.id, pack.id));
+      await restorePackAfterTrainFailure({
+        packId: pack.id,
+        keepLocked: keepLockedOnFail,
+        previousProviderJobId: previousTrainProviderJobId(job.inputJson),
+        failedProviderJobId: result.providerJobId,
+      });
+      jobLog("trainPack.provider_failed", {
+        jobId: job.id,
+        packId: pack.id,
+        provider: result.provider,
+        providerJobId: result.providerJobId,
+        keepLocked: keepLockedOnFail,
+      });
       return;
     }
 
     if (shouldContinuePolling(result.status)) {
-      const nextAttempt = attempt + 1;
+      const nextAttempt = pollAttempt + 1;
       if (nextAttempt > TRAIN_POLL_MAX_ATTEMPTS) {
-        throw new Error("Train pack polling timed out");
+        throw new JobError({
+          code: JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT,
+          retryable: false,
+        });
       }
       await db
         .update(generationJobs)
@@ -159,6 +211,7 @@ export async function processTrainPackJob(
           status: "running",
           providerJobId: result.providerJobId,
           errorCode: null,
+          errorMessage: null,
           updatedAt: new Date(),
         })
         .where(eq(generationJobs.id, job.id));
@@ -173,8 +226,15 @@ export async function processTrainPackJob(
       await getTrainPackQueue().add(
         "trainPack",
         { generationJobId: job.id, characterPackId: pack.id, attempt: nextAttempt },
-        { delay: trainPollDelayMs(nextAttempt) },
+        { ...TRAIN_PACK_JOB_OPTIONS, delay: trainPollDelayMs(nextAttempt) },
       );
+      jobLog("trainPack.poll_scheduled", {
+        jobId: job.id,
+        packId: pack.id,
+        providerJobId: result.providerJobId,
+        pollAttempt: nextAttempt,
+        delayMs: trainPollDelayMs(nextAttempt),
+      });
       return;
     }
 
@@ -199,30 +259,27 @@ export async function processTrainPackJob(
       })
       .where(eq(characterPacks.id, pack.id));
 
-    await db
-      .update(generationJobs)
-      .set({
-        status: "succeeded",
-        providerJobId: result.providerJobId,
-        resultAssetKey: artifact.storageKey,
-        errorCode: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(generationJobs.id, job.id));
+    await markJobSucceeded({
+      jobId: job.id,
+      providerJobId: result.providerJobId,
+      resultAssetKey: artifact.storageKey,
+    });
+    jobLog("trainPack.succeeded", {
+      jobId: job.id,
+      packId: pack.id,
+      provider: result.provider,
+      providerJobId: result.providerJobId,
+    });
   } catch (err) {
-    const code = err instanceof ProviderNotConfiguredError ? err.code : "TRAIN_PACK_FAILED";
-    await db
-      .update(generationJobs)
-      .set({ status: "failed", errorCode: code, updatedAt: new Date() })
-      .where(eq(generationJobs.id, job.id));
-    await db
-      .update(characterPacks)
-      .set({
-        status: keepLockedOnFail ? "locked" : "failed",
-        ...(keepLockedOnFail ? { providerJobId: previousTrainProviderJobId(job.inputJson) } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(characterPacks.id, characterPackId));
-    throw err;
+    await finalizeWorkerError({
+      jobId: job.id,
+      kind: "train_pack",
+      err,
+      attempt,
+      packId: characterPackId,
+      keepLockedOnFail,
+      previousProviderJobId: previousTrainProviderJobId(job.inputJson),
+      providerJobId: job.providerJobId,
+    });
   }
 }

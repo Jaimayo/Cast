@@ -64,3 +64,33 @@ export class ProviderCapabilityError extends Error {
     this.name = "ProviderCapabilityError";
   }
 }
+
+export class ProviderHttpError extends Error {
+  readonly code = "PROVIDER_HTTP_ERROR";
+  constructor(
+    readonly provider: string,
+    readonly status: number,
+  ) {
+    super(`${provider} failed with HTTP ${status}`);
+    this.name = "ProviderHttpError";
+  }
+}
+
+export class ProviderTimeoutError extends Error {
+  readonly code = "PROVIDER_TIMEOUT";
+  constructor(message = "Provider request timed out") {
+    super(message);
+    this.name = "ProviderTimeoutError";
+  }
+}
+
+export class ProviderNetworkError extends Error {
+  readonly code = "NETWORK_ERROR";
+  constructor(cause?: unknown) {
+    super(cause instanceof Error ? cause.message : "Provider network error");
+    this.name = "ProviderNetworkError";
+    if (cause instanceof Error) {
+      this.cause = cause;
+    }
+  }
+}

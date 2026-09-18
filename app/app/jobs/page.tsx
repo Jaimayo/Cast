@@ -9,8 +9,22 @@ type Job = {
   status: string;
   provider: string;
   errorCode: string | null;
+  errorMessage: string | null;
   previewUrl?: string | null;
 };
+
+function statusLabel(status: string): string {
+  if (status === "queued") return "Queued";
+  if (status === "running") return "Running";
+  if (status === "succeeded") return "Succeeded";
+  if (status === "failed") return "Failed";
+  if (status === "canceled") return "Canceled";
+  return status;
+}
+
+function errorLabel(job: Job): string {
+  return job.errorMessage || job.errorCode || "—";
+}
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -42,6 +56,11 @@ export default function JobsPage() {
         generateStill uses Venice unless the pack has a locked Soul ID adapter — then RunPod. trainPack is
         RunPod. Stub mode never calls vendors.
       </p>
+      <p className="muted">
+        Failed stills: generate again from Create. Failed starters: generate the vibe again. Failed training:
+        open the character and Train & lock or Retrain. Retrain keeps the previous Locked Soul ID if the new
+        train fails.
+      </p>
       {error ? <p className="error">{error}</p> : null}
       <table className="table">
         <thead>
@@ -57,7 +76,7 @@ export default function JobsPage() {
           {jobs.map((job) => (
             <tr key={job.id}>
               <td>{job.kind}</td>
-              <td>{job.status}</td>
+              <td>{statusLabel(job.status)}</td>
               <td>{job.provider}</td>
               <td>
                 {job.previewUrl ? (
@@ -67,7 +86,10 @@ export default function JobsPage() {
                   "—"
                 )}
               </td>
-              <td>{job.errorCode ?? "—"}</td>
+              <td>
+                {errorLabel(job)}
+                {job.errorMessage && job.errorCode ? <div className="muted">{job.errorCode}</div> : null}
+              </td>
             </tr>
           ))}
         </tbody>
