@@ -16,7 +16,7 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
-    consumeInviteRedeemLimit({
+    await consumeInviteRedeemLimit({
       email: body.email,
       ip: clientIpFromHeaders(request.headers),
     });

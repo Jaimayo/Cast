@@ -3,16 +3,24 @@ import {
   RATE_LIMIT_POLICIES,
   RateLimitError,
   assertInFlightCap,
-  consumeAllKeys,
-  consumeSlidingWindow,
   inviteRedeemKeys,
+  memoryRateLimitBackend,
   rateLimitCodeForAction,
+  shouldUseRedisRateLimits,
   userActionKey,
   type HitStore,
   type RateLimitAction,
+  type RateLimitBackend,
 } from "@/lib/rate-limit";
+import { redisBackendWithMemoryFallback, redisRateLimitBackend } from "@/lib/rate-limit-redis";
+import { jobLog } from "@/lib/job-log";
+import { getEnv } from "@/server/env";
+import { getRateLimitRedis } from "@/server/redis";
 
 const memoryHits: HitStore = new Map();
+const memoryBackend = memoryRateLimitBackend(memoryHits);
+
+let injectedBackend: RateLimitBackend | null = null;
 
 export function memoryRateLimitStore(): HitStore {
   return memoryHits;
@@ -22,10 +30,37 @@ export function resetMemoryRateLimits(): void {
   memoryHits.clear();
 }
 
-export function consumeInviteRedeemLimit(input: { email: string; ip: string; now?: number }): void {
+/** Test seam: inject a fake Redis/memory backend. Pass null to restore selection. */
+export function setRateLimitBackendForTests(backend: RateLimitBackend | null): void {
+  injectedBackend = backend;
+}
+
+function liveRedisBackend(): RateLimitBackend {
+  const redis = getRateLimitRedis();
+  return redisRateLimitBackend(async (script, numKeys, ...args) => redis.eval(script, numKeys, ...args));
+}
+
+function selectedBackend(): RateLimitBackend {
+  if (injectedBackend) return injectedBackend;
+  const env = getEnv();
+  if (
+    !shouldUseRedisRateLimits({
+      providerMode: env.providerMode,
+      nodeEnv: env.nodeEnv,
+    })
+  ) {
+    return memoryBackend;
+  }
+  return redisBackendWithMemoryFallback(liveRedisBackend(), memoryBackend, (err) => {
+    jobLog("rate_limit.redis_fallback", {
+      error: err instanceof Error ? err.message : "unknown",
+    });
+  });
+}
+
+export async function consumeInviteRedeemLimit(input: { email: string; ip: string; now?: number }): Promise<void> {
   const now = input.now ?? Date.now();
-  const result = consumeAllKeys({
-    store: memoryHits,
+  const result = await selectedBackend().consume({
     keys: inviteRedeemKeys(input),
     now,
     policy: RATE_LIMIT_POLICIES.inviteRedeem,
@@ -35,19 +70,17 @@ export function consumeInviteRedeemLimit(input: { email: string; ip: string; now
   }
 }
 
-export function consumeUserActionLimit(
+export async function consumeUserActionLimit(
   action: Exclude<RateLimitAction, "inviteRedeem">,
   userId: string,
   cost = 1,
   now = Date.now(),
-): void {
+): Promise<void> {
   const policy = RATE_LIMIT_POLICIES[action];
-  const result = consumeSlidingWindow({
-    store: memoryHits,
-    key: userActionKey(action, userId),
+  const result = await selectedBackend().consume({
+    keys: [userActionKey(action, userId)],
     now,
-    limit: policy.limit,
-    windowMs: policy.windowMs,
+    policy,
     cost,
   });
   if (!result.allowed) {
