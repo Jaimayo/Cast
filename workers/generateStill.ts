@@ -4,6 +4,7 @@ import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compil
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
 import type { JobAttempt } from "@/lib/job-errors";
+import { persistedJobAttempt } from "@/lib/job-view";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import {
@@ -60,7 +61,7 @@ export async function processGenerateStillJob(
     return;
   }
 
-  await markJobRunning(job.id);
+  await markJobRunning(job.id, persistedJobAttempt({ workerAttempt: attempt.attempt }));
 
   try {
     if (!job.characterPackId) {

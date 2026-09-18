@@ -68,13 +68,7 @@ export function publicPack<T extends { adapterStorageKey?: string | null; adapte
   return { ...rest, hasAdapter: Boolean(adapterStorageKey && adapterStorageKey.trim()) };
 }
 
-export function publicJob<T extends { resultAssetKey?: string | null; previewUrl?: string | null }>(
-  job: T,
-): Omit<T, "resultAssetKey"> & { previewUrl: string | null } {
-  const { resultAssetKey, ...rest } = job;
-  void resultAssetKey;
-  return { ...rest, previewUrl: job.previewUrl ?? null };
-}
+export { publicJob, type PublicJob } from "@/lib/job-view";
 
 export function publicMediaAsset<T extends { id: string; storageKey?: string }>(
   asset: T,

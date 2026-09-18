@@ -6,6 +6,7 @@ import { ContactSheet } from "@/components/contact-sheet";
 import { RefCountMeter } from "@/components/ref-count-meter";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
+import type { PublicJob } from "@/lib/job-view";
 import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
 
@@ -26,6 +27,7 @@ export function PackWizard(props: { initialPackId?: string }) {
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [selectedLibrary, setSelectedLibrary] = useState<Set<string>>(new Set());
   const [refCount, setRefCount] = useState(0);
+  const [lastTrainJob, setLastTrainJob] = useState<PublicJob | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -38,6 +40,7 @@ export function PackWizard(props: { initialPackId?: string }) {
       starters: Starter[];
       library: LibraryItem[];
       refs: Ref[];
+      lastTrainJob?: PublicJob | null;
     }>(`/api/packs/${id}`);
     setPack(data.pack);
     setName(data.pack.name);
@@ -45,6 +48,7 @@ export function PackWizard(props: { initialPackId?: string }) {
     setStarters(data.starters);
     setLibrary(data.library);
     setSelectedLibrary(new Set(data.refs.map((ref) => ref.mediaAssetId)));
+    setLastTrainJob(data.lastTrainJob ?? null);
     return data.pack;
   }
 
@@ -149,6 +153,7 @@ export function PackWizard(props: { initialPackId?: string }) {
 
   const status = pack ? soulStatusLabel(pack.status) : "Draft";
   const training = pack?.status === "training";
+  const trainError = pack?.status === "failed" ? lastTrainJob?.lastError : null;
   const canTrain =
     Boolean(pack) &&
     refCount >= PACK_MIN_REFS &&
@@ -283,6 +288,12 @@ export function PackWizard(props: { initialPackId?: string }) {
 
       <RefCountMeter count={refCount} />
       {training ? <p className="ok">Training Soul ID… this page updates when it locks.</p> : null}
+      {trainError ? (
+        <p className="error">
+          Training failed: {trainError.message}
+          {trainError.code ? <span className="muted"> ({trainError.code})</span> : null}
+        </p>
+      ) : null}
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>

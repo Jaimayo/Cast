@@ -16,6 +16,7 @@ import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { canRetrainPack, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
+import type { PublicJob } from "@/lib/job-view";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -492,10 +493,43 @@ export async function getJob(userId: string, jobId: string) {
   return withPreview ?? publicJob({ ...job, previewUrl: null });
 }
 
-async function attachJobPreviews<T extends { id: string; kind: string; resultAssetKey?: string | null }>(
+export async function lastTrainJobForPack(userId: string, packId: string): Promise<PublicJob | null> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(generationJobs)
+    .where(
+      and(
+        eq(generationJobs.userId, userId),
+        eq(generationJobs.characterPackId, packId),
+        eq(generationJobs.kind, "train_pack"),
+      ),
+    )
+    .orderBy(desc(generationJobs.createdAt))
+    .limit(1);
+  const job = rows[0];
+  if (!job) {
+    return null;
+  }
+  return publicJob({ ...job, previewUrl: null });
+}
+
+async function attachJobPreviews(
   userId: string,
-  jobs: T[],
-): Promise<Array<Omit<T, "resultAssetKey"> & { previewUrl: string | null }>> {
+  jobs: Array<{
+    id: string;
+    kind: string;
+    status: string;
+    provider: string;
+    characterPackId?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    attempt?: number | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    resultAssetKey?: string | null;
+  }>,
+): Promise<PublicJob[]> {
   if (jobs.length === 0) {
     return [];
   }

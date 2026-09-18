@@ -10,6 +10,7 @@ import {
   withSubmitAttempted,
   type JobAttempt,
 } from "@/lib/job-errors";
+import { persistedJobAttempt } from "@/lib/job-view";
 import { jobLog } from "@/lib/job-log";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -49,7 +50,10 @@ export async function processTrainPackJob(
   const retrain = isRetrainJob(job.inputJson);
   let keepLockedOnFail = false;
 
-  await markJobRunning(job.id);
+  await markJobRunning(
+    job.id,
+    persistedJobAttempt({ workerAttempt: attempt.attempt, pollAttempt }),
+  );
 
   try {
     const packRows = await db

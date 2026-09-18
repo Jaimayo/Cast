@@ -5,6 +5,7 @@ import { jsonError } from "@/server/http";
 import {
   countRefs,
   getPack,
+  lastTrainJobForPack,
   listLibraryStills,
   listRefs,
   listStarterSheet,
@@ -20,13 +21,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (!pack) {
       return NextResponse.json({ error: "Pack not found" }, { status: 404 });
     }
-    const [refs, refCount, starters, library] = await Promise.all([
+    const [refs, refCount, starters, library, lastTrainJob] = await Promise.all([
       listRefs(user.id, pack.id),
       countRefs(pack.id),
       listStarterSheet(user.id, pack.id),
       listLibraryStills(user.id),
+      lastTrainJobForPack(user.id, pack.id),
     ]);
-    return NextResponse.json({ pack: publicPack(pack), refs, refCount, starters, library });
+    return NextResponse.json({ pack: publicPack(pack), refs, refCount, starters, library, lastTrainJob });
   } catch (err) {
     return jsonError(err);
   }

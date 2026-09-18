@@ -104,10 +104,13 @@ describe("public preview DTOs", () => {
       id: "job-1",
       kind: "generate_still",
       status: "succeeded",
+      provider: "venice",
       resultAssetKey: "still/u1/job-1.webp",
       previewUrl: mediaPreviewPath("asset-1"),
     });
     expect(job.previewUrl).toBe("/api/media/asset-1");
+    expect(job.lastError).toBeNull();
+    expect(job.attempt).toBe(0);
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey/);
 
     const media = publicMediaAsset({
