@@ -1,8 +1,10 @@
 "use client";
 
-import { ChipSelect } from "@/components/chip-select";
+import { ChipPicker } from "@/components/chip-picker";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { isLockedSoul } from "@/lib/soul";
+import { packSwatch } from "@/lib/chip-visuals";
+import { cn } from "@/lib/utils";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
@@ -28,33 +30,79 @@ export function ChipRail(props: {
   const lockedPacks = props.packs.filter((pack) => isLockedSoul(pack.status));
 
   return (
-    <aside className="chip-rail">
-      <div className="chip-family">
-        <h4>Character *</h4>
+    <aside className="flex flex-col gap-6 bg-muted/40 p-4 md:min-h-full md:border-r md:border-border">
+      <div>
+        <h4 className="mb-2 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+          Character <span className="text-primary">*</span>
+        </h4>
         {lockedPacks.length === 0 ? (
           <LockSoulIdFirstCta packId={props.lockPackId} training={props.training} variant="link" />
         ) : (
-          <select value={props.characterPackId} onChange={(event) => props.onCharacter(event.target.value)}>
-            <option value="">Select a Locked pack…</option>
-            {lockedPacks.map((pack) => (
-              <option key={pack.id} value={pack.id}>
-                {pack.name}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-2 gap-2">
+            {lockedPacks.map((pack) => {
+              const selected = props.characterPackId === pack.id;
+              const swatch = packSwatch(pack.id);
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  className="flex flex-col gap-1.5 text-left"
+                  onClick={() => props.onCharacter(pack.id)}
+                >
+                  <span
+                    className={cn(
+                      "aspect-square rounded-md ring-1 ring-border",
+                      selected && "ring-2 ring-primary",
+                    )}
+                    style={{ background: `linear-gradient(152deg, ${swatch.from}, ${swatch.to})` }}
+                  />
+                  <span className="truncate text-[11px] text-muted-foreground">{pack.name}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
-      <ChipSelect title="Pose" required chips={props.chips.pose} value={props.poseChipId} onChange={props.onPose} />
-      <ChipSelect title="Outfit" optional chips={props.chips.outfit} value={props.outfitChipId} onChange={props.onOutfit} />
-      <ChipSelect title="Scene" optional chips={props.chips.scene} value={props.sceneChipId} onChange={props.onScene} />
-      <ChipSelect
+      <ChipPicker
+        family="pose"
+        title="Pose"
+        required
+        chips={props.chips.pose}
+        value={props.poseChipId}
+        onChange={props.onPose}
+      />
+      <ChipPicker
+        family="outfit"
+        title="Outfit"
+        optional
+        chips={props.chips.outfit}
+        value={props.outfitChipId}
+        onChange={props.onOutfit}
+      />
+      <ChipPicker
+        family="scene"
+        title="Scene"
+        optional
+        chips={props.chips.scene}
+        value={props.sceneChipId}
+        onChange={props.onScene}
+      />
+      <ChipPicker
+        family="lighting"
         title="Lighting"
         optional
         chips={props.chips.lighting}
         value={props.lightingChipId}
         onChange={props.onLighting}
       />
-      <ChipSelect title="Body" optional chips={props.chips.body} value={props.bodyChipId} onChange={props.onBody} />
+      <ChipPicker
+        family="body"
+        title="Body"
+        optional
+        chips={props.chips.body}
+        value={props.bodyChipId}
+        onChange={props.onBody}
+      />
     </aside>
   );
 }

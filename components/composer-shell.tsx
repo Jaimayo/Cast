@@ -5,6 +5,7 @@ import { ChipRail } from "@/components/chip-rail";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
+import { CreditsLater, PrivacyBadge } from "@/components/privacy-badge";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
@@ -98,7 +99,6 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const training = focus?.status === "training" || selected?.status === "training";
   const canGenerate = locked && Boolean(poseChipId);
   const disabledReason = !locked ? LOCK_SOUL_ID_FIRST : !poseChipId ? "Pick a Pose" : undefined;
-
   const characterName = selected?.name;
 
   async function watchJob(jobId: string) {
@@ -154,16 +154,26 @@ export function ComposerShell(props: { initialPackId?: string }) {
   );
 
   if (!chips) {
-    return <p className="muted">Loading composer…</p>;
+    return <p className="p-8 text-sm text-muted-foreground">Loading composer…</p>;
   }
 
   return (
-    <div>
-      <div className="app-header">
-        <SoulBadge name={characterName} locked={locked} />
-        <span className="muted">Private · credits later</span>
+    <div className="flex min-h-[calc(100svh-1px)] flex-col">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 lg:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <a href="/app/characters" className="font-heading text-xl tracking-tight">
+            Cast
+          </a>
+          <SoulBadge name={characterName} locked={locked} />
+          {characterName ? <span className="truncate text-sm text-muted-foreground">{characterName}</span> : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <PrivacyBadge />
+          <CreditsLater />
+        </div>
       </div>
-      <div className="composer-shell">
+
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[16.5rem_minmax(0,1fr)_11rem]">
         <ChipRail
           packs={packs}
           chips={chips}
@@ -182,7 +192,8 @@ export function ComposerShell(props: { initialPackId?: string }) {
           onLighting={setLightingChipId}
           onBody={setBodyChipId}
         />
-        <div className="hero-canvas">
+
+        <div className="flex flex-col items-center gap-5 px-4 py-6 lg:px-8">
           <HeroCanvas
             locked={locked}
             message={message}
@@ -190,30 +201,39 @@ export function ComposerShell(props: { initialPackId?: string }) {
             packId={focus?.id}
             training={training}
           />
-          {error ? <p className="error">{error}</p> : null}
-          <div className="actions" style={{ marginTop: 0 }}>
-            <GenerateButton
-              disabled={!canGenerate}
-              pending={pending}
-              disabledReason={disabledReason}
-              onClick={() => void generate()}
-            />
-            <TeaserAnimateLater />
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <div className="sticky bottom-0 z-20 flex w-full max-w-[420px] flex-col items-center gap-3 bg-background/85 py-3 backdrop-blur-sm md:static md:bg-transparent md:py-0 md:backdrop-blur-none">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <GenerateButton
+                disabled={!canGenerate}
+                pending={pending}
+                disabledReason={disabledReason}
+                onClick={() => void generate()}
+              />
+              <TeaserAnimateLater />
+            </div>
           </div>
           {!locked ? <LockSoulIdFirstCta packId={focus?.id} training={false} variant="link" /> : null}
-          <p className="hidden-note">
+          <p className="max-w-[46ch] text-center text-xs text-muted-foreground italic">
             Generate needs a Locked Soul ID and a Pose. No prompt textarea. No camera. No Advanced.
             Starters live in the Pack wizard only. Animate later is Phase 1.5.
           </p>
         </div>
-        <aside className="history-rail">
-          <h4>History</h4>
+
+        <aside className="border-t border-border p-4 text-sm text-muted-foreground lg:border-t-0 lg:border-l">
+          <h4 className="mb-3 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+            History
+          </h4>
           {history.length === 0 ? <p>Session stills will land here.</p> : null}
           {history.map((job) => (
-            <div key={job.id} className="history-item">
+            <div key={job.id} className="mb-3">
               {job.previewUrl ? (
-                <button type="button" className="history-thumb" onClick={() => setHeroUrl(job.previewUrl ?? null)}>
-                  <StillPreview src={job.previewUrl} alt="Still" />
+                <button
+                  type="button"
+                  className="block w-full overflow-hidden rounded-md ring-1 ring-border"
+                  onClick={() => setHeroUrl(job.previewUrl ?? null)}
+                >
+                  <StillPreview src={job.previewUrl} alt="Still" className="aspect-[3/4] w-full object-cover" />
                 </button>
               ) : (
                 <p>
@@ -221,7 +241,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
                   {job.status === "failed" && job.lastError ? (
                     <>
                       <br />
-                      <span className="error">{job.lastError}</span>
+                      <span className="text-destructive">{job.lastError}</span>
                     </>
                   ) : null}
                 </p>

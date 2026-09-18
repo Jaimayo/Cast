@@ -1,22 +1,24 @@
 import { LOCK_SOUL_ID_FIRST, packDetailPath } from "@/lib/soul";
+import { Button } from "@/components/ui/button";
 
 export function LockSoulIdFirstCta(props: {
   packId?: string | null;
   training?: boolean;
-  /** Button (hero) vs inline text link (next to disabled Generate). */
   variant?: "button" | "link";
 }) {
   const href = packDetailPath(props.packId);
   const label = LOCK_SOUL_ID_FIRST;
   return (
-    <div className="lock-soul-cta">
-      {props.training ? <p className="ok">Training Soul ID…</p> : null}
+    <div className="flex flex-col items-start gap-2">
+      {props.training ? <p className="text-sm text-success">Training Soul ID…</p> : null}
       {props.variant === "link" ? (
-        <a href={href}>{label}</a>
-      ) : (
-        <a className="btn" href={href}>
+        <a href={href} className="text-sm text-primary underline-offset-4 hover:underline">
           {label}
         </a>
+      ) : (
+        <Button asChild className="h-11 rounded-full px-5">
+          <a href={href}>{label}</a>
+        </Button>
       )}
     </div>
   );

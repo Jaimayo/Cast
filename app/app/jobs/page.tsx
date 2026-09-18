@@ -75,57 +75,59 @@ export default function JobsPage() {
   }, []);
 
   return (
-    <section>
-      <div className="kicker">Queue</div>
-      <h1>Jobs</h1>
-      <p className="muted">
+    <section className="space-y-5">
+      <p className="text-[11px] tracking-[0.16em] text-primary uppercase">Queue</p>
+      <h1 className="font-heading text-3xl">Jobs</h1>
+      <p className="max-w-3xl text-sm text-muted-foreground">
         generateStill uses Venice unless the pack has a locked Soul ID adapter — then RunPod. trainPack is
         RunPod. Stub mode never calls vendors.
       </p>
-      <p className="muted">
+      <p className="max-w-3xl text-sm text-muted-foreground">
         Failed stills: generate again from Create. Failed starters: generate the vibe again. Failed training:
         open the character and Train & lock or Retrain. Retrain keeps the previous Locked Soul ID if the new
         train fails.
       </p>
-      {error ? <p className="error">{error}</p> : null}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Kind</th>
-            <th>Status</th>
-            <th>Provider</th>
-            <th>Preview</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => {
-            const meta = statusMeta(job);
-            const code = errorCodeLabel(job);
-            return (
-              <tr key={job.id}>
-                <td>{job.kind}</td>
-                <td>
-                  {statusLabel(job.status)}
-                  {meta ? <div className="muted">{meta}</div> : null}
-                </td>
-                <td>{job.provider}</td>
-                <td>
-                  {job.previewUrl ? (
-                    <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  {errorLabel(job)}
-                  {code ? <div className="muted">{code}</div> : null}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="overflow-x-auto rounded-xl ring-1 ring-border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Kind</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Provider</th>
+              <th className="px-3 py-2 font-medium">Preview</th>
+              <th className="px-3 py-2 font-medium">Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.map((job) => {
+              const meta = statusMeta(job);
+              const code = errorCodeLabel(job);
+              return (
+                <tr key={job.id} className="border-t border-border">
+                  <td className="px-3 py-2 font-mono text-xs">{job.kind}</td>
+                  <td className="px-3 py-2">
+                    {statusLabel(job.status)}
+                    {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{job.provider}</td>
+                  <td className="px-3 py-2">
+                    {job.previewUrl ? (
+                      <StillPreview src={job.previewUrl} alt="" className="h-16 w-12 rounded-md object-cover" />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {errorLabel(job)}
+                    {code ? <div className="font-mono text-xs text-muted-foreground">{code}</div> : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

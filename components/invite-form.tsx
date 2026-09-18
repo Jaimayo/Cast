@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function InviteForm() {
   const params = useSearchParams();
@@ -44,57 +48,75 @@ export function InviteForm() {
   }
 
   return (
-    <main className="panel card">
-      <div className="kicker">Gated access</div>
-      <h1>{title}</h1>
-      <p className="muted">Enter your invite code. Invalid, used, or expired codes cannot continue.</p>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          autoComplete={mode === "invite" ? "new-password" : "current-password"}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          minLength={mode === "invite" ? 10 : 1}
-          required
-        />
-        {mode === "invite" ? (
-          <>
-            <label htmlFor="invite">Invite code</label>
-            <input
-              id="invite"
-              value={inviteCode}
-              onChange={(event) => setInviteCode(event.target.value)}
-              required
-            />
-          </>
-        ) : null}
-        {error ? <p className="error">{error}</p> : null}
-        <button className="btn" type="submit" disabled={pending}>
-          {pending ? "Working…" : "Continue"}
-        </button>
-      </form>
-      <p className="muted">
-        {mode === "invite" ? (
-          <button className="btn secondary" type="button" onClick={() => setMode("signin")}>
-            Already have an account
-          </button>
-        ) : (
-          <button className="btn secondary" type="button" onClick={() => setMode("invite")}>
-            Have an invite code
-          </button>
-        )}
-      </p>
+    <main className="mx-auto flex w-full max-w-md px-5 pb-24 pt-6">
+      <Card className="cast-surface w-full rounded-xl py-6 ring-border">
+        <CardHeader className="gap-2">
+          <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">Gated access</p>
+          <CardTitle className="font-heading text-3xl">{title}</CardTitle>
+          <CardDescription>
+            Enter your invite code. Invalid, used, or expired codes cannot continue.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email" className="text-muted-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                className="h-11 rounded-xl bg-muted/50"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password" className="text-muted-foreground">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete={mode === "invite" ? "new-password" : "current-password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={mode === "invite" ? 10 : 1}
+                required
+                className="h-11 rounded-xl bg-muted/50"
+              />
+            </div>
+            {mode === "invite" ? (
+              <div className="grid gap-2">
+                <Label htmlFor="invite" className="text-muted-foreground">
+                  Invite code
+                </Label>
+                <Input
+                  id="invite"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  required
+                  className="h-11 rounded-xl bg-muted/50 font-mono tracking-wide"
+                />
+              </div>
+            ) : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <Button type="submit" disabled={pending} className="h-11 w-full rounded-full">
+              {pending ? "Working…" : "Continue"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => setMode(mode === "invite" ? "signin" : "invite")}
+            >
+              {mode === "invite" ? "Already have an account" : "Have an invite code"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }

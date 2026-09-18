@@ -1,8 +1,9 @@
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { GateHeader } from "@/components/gate-header";
 import { InviteForm } from "@/components/invite-form";
+import { VoidAtmosphere } from "@/components/void-atmosphere";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,15 @@ export default async function InviteRoute() {
   }
 
   return (
-    <>
+    <VoidAtmosphere>
       <GateHeader />
-      <Suspense fallback={<main className="panel card">Loading…</main>}>
+      <Suspense
+        fallback={
+          <main className="mx-auto max-w-md px-5 py-10 text-sm text-muted-foreground">Loading…</main>
+        }
+      >
         <InviteForm />
       </Suspense>
-    </>
+    </VoidAtmosphere>
   );
 }

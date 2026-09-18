@@ -1,15 +1,5 @@
 import { StillPreview } from "@/components/still-preview";
-import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
-
-export function CharacterRequiredEmpty(props: { packId?: string | null; training?: boolean }) {
-  return (
-    <div className="hero-frame">
-      <div>
-        <LockSoulIdFirstCta packId={props.packId} training={props.training} />
-      </div>
-    </div>
-  );
-}
+import { CharacterRequiredEmpty } from "@/components/character-required-empty";
 
 export function HeroCanvas(props: {
   locked: boolean;
@@ -22,11 +12,13 @@ export function HeroCanvas(props: {
     return <CharacterRequiredEmpty packId={props.packId} training={props.training} />;
   }
   return (
-    <div className="hero-frame">
+    <div className="cast-vignette flex aspect-[3/4] w-full max-w-[420px] items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
       {props.previewUrl ? (
-        <StillPreview src={props.previewUrl} alt="Generated still" />
+        <StillPreview src={props.previewUrl} alt="Generated still" className="size-full object-cover" />
       ) : (
-        <span>{props.message ?? "Hero Frame still. Generate to fill this canvas."}</span>
+        <span className="px-8 text-center text-sm text-muted-foreground">
+          {props.message ?? "Hero Frame still. Generate to fill this canvas."}
+        </span>
       )}
     </div>
   );

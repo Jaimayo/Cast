@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { mediaPreviewRefreshPath } from "@/lib/media";
+import { cn } from "@/lib/utils";
 
 function mediaIdFromPreviewSrc(src: string): string | null {
   try {
@@ -31,10 +32,10 @@ export function StillPreview(props: {
 
   if (!src || failed) {
     return (
-      <div className="still-fallback">
-        <strong>{props.alt}</strong>
-        {props.label ? <div className="muted">{props.label}</div> : null}
-        {failed ? <div className="muted">Preview unavailable</div> : null}
+      <div className={cn("flex min-h-20 flex-col items-center justify-center gap-1 bg-muted p-3 text-center", props.className)}>
+        <strong className="text-xs font-medium text-foreground">{props.alt}</strong>
+        {props.label ? <div className="text-[11px] text-muted-foreground">{props.label}</div> : null}
+        {failed ? <div className="text-[11px] text-muted-foreground">Preview unavailable</div> : null}
       </div>
     );
   }
@@ -42,7 +43,7 @@ export function StillPreview(props: {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={props.className ?? "still-thumb"}
+      className={cn("block object-cover", props.className)}
       src={src}
       alt={props.alt}
       onError={() => {
