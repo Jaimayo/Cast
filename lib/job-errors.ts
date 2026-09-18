@@ -1,4 +1,5 @@
 import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 
 /** BullMQ attempts for generateStill / generate_starter. */
 export const GENERATE_STILL_MAX_ATTEMPTS = 5;
@@ -144,8 +145,10 @@ export function jobAttemptFromBullmq(job: { attemptsMade: number; opts: { attemp
 export function keepLockedAfterTrainFail(input: {
   retrain: boolean;
   adapterStorageKey?: string | null;
+  adapterStatus?: string | null;
+  adapterId?: string | null;
 }): boolean {
-  return input.retrain && Boolean(input.adapterStorageKey);
+  return input.retrain && hasReadySoulAdapter(input);
 }
 
 export function trainPackFailureMessage(keepLocked: boolean): string {

@@ -97,8 +97,17 @@ describe("public preview DTOs", () => {
       adapterMeta: { sourceUrl: "https://bucket.example/adapters/u1/pack-1.lora" },
       providerJobId: "rp-1",
     });
-    expect(pack).toMatchObject({ id: "pack-1", name: "Mara", status: "locked", hasAdapter: true });
-    expect(JSON.stringify(pack)).not.toMatch(/adapters|bucket\.example|lora/i);
+    expect(pack).toMatchObject({
+      id: "pack-1",
+      name: "Mara",
+      status: "locked",
+      hasAdapter: true,
+      adapterStatus: "ready",
+      adapterSource: "live",
+    });
+    expect("adapterId" in pack).toBe(false);
+    expect("adapterStorageKey" in pack).toBe(false);
+    expect(JSON.stringify(pack)).not.toMatch(/adapters|bucket\.example|lora|rp-1/i);
 
     const job = publicJob({
       id: "job-1",

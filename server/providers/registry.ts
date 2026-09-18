@@ -28,15 +28,19 @@ export function getGenerateStillAdapter(): GenerateStillAdapter {
   return getGenerateStillAdapterForPack({ adapterStorageKey: null });
 }
 
-/** Venice default; RunPod when the pack has a stored Soul ID adapter. Stub stays stub. */
+/** Venice default; RunPod when the pack has a ready Soul ID adapter. Stub stays stub. */
 export function getGenerateStillAdapterForPack(pack: {
   adapterStorageKey?: string | null;
+  adapterStatus?: string | null;
+  adapterId?: string | null;
 }): GenerateStillAdapter {
   const env = getEnv();
   const route = resolveGenerateStillRoute({
     providerMode: env.providerMode,
     generateStillProvider: env.generateStillProvider,
     adapterStorageKey: pack.adapterStorageKey,
+    adapterStatus: pack.adapterStatus,
+    adapterId: pack.adapterId,
   });
   if (route === "stub") return providerRegistry.generateStill.stub;
   if (route === "runpod") return providerRegistry.generateStill.runpod;

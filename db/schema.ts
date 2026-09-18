@@ -91,9 +91,18 @@ export const characterPacks = pgTable("character_packs", {
   lockedAt: timestamp("locked_at", { withTimezone: true }),
   trainedAt: timestamp("trained_at", { withTimezone: true }),
   providerJobId: text("provider_job_id"),
+  /**
+   * Locked Soul ID adapter identity. Generate reads these — not adapter_meta.
+   * adapter_id = persisted train job id; adapter_storage_key = object path;
+   * adapter_status = none | pending | ready | failed;
+   * adapter_source = stub | live.
+   */
+  adapterId: text("adapter_id"),
   /** Object-storage key for the trained LoRA / IP-Adapter when RunPod finishes. */
   adapterStorageKey: text("adapter_storage_key"),
   adapterMimeType: text("adapter_mime_type"),
+  adapterStatus: text("adapter_status").notNull().default("none"),
+  adapterSource: text("adapter_source"),
   adapterMeta: jsonb("adapter_meta").$type<Record<string, unknown>>(),
   ...timestamps,
 });

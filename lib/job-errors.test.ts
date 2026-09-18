@@ -216,6 +216,20 @@ describe("train failure copy", () => {
     expect(keepLockedAfterTrainFail({ retrain: true, adapterStorageKey: "adapters/u/p.lora" })).toBe(true);
     expect(keepLockedAfterTrainFail({ retrain: true, adapterStorageKey: null })).toBe(false);
     expect(keepLockedAfterTrainFail({ retrain: false, adapterStorageKey: "adapters/u/p.lora" })).toBe(false);
+    expect(
+      keepLockedAfterTrainFail({
+        retrain: true,
+        adapterStorageKey: "adapters/u/p.lora",
+        adapterStatus: "ready",
+      }),
+    ).toBe(true);
+    expect(
+      keepLockedAfterTrainFail({
+        retrain: true,
+        adapterStorageKey: "adapters/u/p.lora",
+        adapterStatus: "pending",
+      }),
+    ).toBe(false);
     expect(trainPackFailureMessage(true)).toMatch(/previous Locked Soul ID is unchanged/);
     expect(trainPackFailureMessage(false)).toMatch(/Train & lock again/);
     expect(trainPackTimeoutMessage(true)).toMatch(/previous Locked Soul ID is unchanged/);

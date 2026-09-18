@@ -2,6 +2,12 @@ import { UnrecoverableError } from "bullmq";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import { characterPacks, generationJobs, mediaAssets, type CharacterPack, type GenerationJob } from "@/db/schema";
 import {
+  packAlreadyHasThisAdapter,
+  packUpdateForTrainFailure,
+  previousAdapterSnapshot,
+  type AdapterIdentitySnapshot,
+} from "@/lib/adapter-identity";
+import {
   JOB_ERROR_CODES,
   JobError,
   classifyJobError,
@@ -24,6 +30,24 @@ export function isRetrainJob(inputJson: Record<string, unknown>): boolean {
 export function previousTrainProviderJobId(inputJson: Record<string, unknown>): string | null {
   const value = inputJson.previousProviderJobId;
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+export function previousAdapterFromJob(
+  inputJson: Record<string, unknown>,
+): AdapterIdentitySnapshot | null {
+  return previousAdapterSnapshot(inputJson);
+}
+
+function keepLockedFromPack(
+  job: Pick<GenerationJob, "inputJson">,
+  pack: CharacterPack | null,
+): boolean {
+  return keepLockedAfterTrainFail({
+    retrain: isRetrainJob(job.inputJson),
+    adapterStorageKey: pack?.adapterStorageKey,
+    adapterStatus: pack?.adapterStatus,
+    adapterId: pack?.adapterId,
+  });
 }
 
 export async function loadGenerationJob(jobId: string): Promise<GenerationJob | null> {
@@ -113,18 +137,23 @@ export async function restorePackAfterTrainFailure(input: {
   keepLocked: boolean;
   previousProviderJobId: string | null;
   failedProviderJobId?: string | null;
+  previousAdapter?: AdapterIdentitySnapshot | null;
 }): Promise<void> {
   const pack = await loadPack(input.packId);
   if (!pack || pack.status !== "training") {
     return;
   }
+  const update = packUpdateForTrainFailure({
+    keepLocked: input.keepLocked,
+    previousProviderJobId: input.previousProviderJobId,
+    failedProviderJobId: input.failedProviderJobId,
+    currentProviderJobId: pack.providerJobId,
+    previousAdapter: input.previousAdapter ?? null,
+  });
   await getDb()
     .update(characterPacks)
     .set({
-      status: input.keepLocked ? "locked" : "failed",
-      providerJobId: input.keepLocked
-        ? input.previousProviderJobId
-        : (input.failedProviderJobId ?? pack.providerJobId),
+      ...update,
       updatedAt: new Date(),
     })
     .where(eq(characterPacks.id, input.packId));
@@ -148,6 +177,7 @@ export async function finalizeWorkerError(input: {
   packId?: string | null;
   keepLockedOnFail?: boolean;
   previousProviderJobId?: string | null;
+  previousAdapter?: AdapterIdentitySnapshot | null;
   providerJobId?: string | null;
 }): Promise<never> {
   const classified = classifyJobError(input.err);
@@ -187,6 +217,7 @@ export async function finalizeWorkerError(input: {
       keepLocked,
       previousProviderJobId: input.previousProviderJobId ?? null,
       failedProviderJobId: input.providerJobId ?? null,
+      previousAdapter: input.previousAdapter ?? null,
     });
   }
 
@@ -206,10 +237,7 @@ export async function persistQueueFailure(
   const classified = classifyJobError(err ?? new JobError({ code: JOB_ERROR_CODES.JOB_STALLED }));
   const code = classified.code;
   const pack = job.characterPackId ? await loadPack(job.characterPackId) : null;
-  const keepLocked = keepLockedAfterTrainFail({
-    retrain: isRetrainJob(job.inputJson),
-    adapterStorageKey: pack?.adapterStorageKey,
-  });
+  const keepLocked = keepLockedFromPack(job, pack);
   const userMessage =
     job.kind === "train_pack"
       ? userMessageForTrainFail(code, keepLocked, classified.userMessage)
@@ -227,6 +255,7 @@ export async function persistQueueFailure(
       packId: job.characterPackId,
       keepLocked,
       previousProviderJobId: previousTrainProviderJobId(job.inputJson),
+      previousAdapter: previousAdapterFromJob(job.inputJson),
     });
   }
 
@@ -272,13 +301,7 @@ export async function recoverStaleJobs(filter?: {
 
     if (job.kind === "train_pack" && job.characterPackId) {
       const pack = await loadPack(job.characterPackId);
-      if (
-        pack &&
-        pack.status === "locked" &&
-        job.providerJobId &&
-        pack.providerJobId === job.providerJobId &&
-        pack.adapterStorageKey
-      ) {
+      if (pack && packAlreadyHasThisAdapter(pack, job.providerJobId)) {
         await markJobSucceeded({
           jobId: job.id,
           resultAssetKey: pack.adapterStorageKey,
@@ -310,10 +333,7 @@ export async function recoverStaleJobs(filter?: {
     }
 
     const pack = job.characterPackId ? await loadPack(job.characterPackId) : null;
-    const keepLocked = keepLockedAfterTrainFail({
-      retrain: isRetrainJob(job.inputJson),
-      adapterStorageKey: pack?.adapterStorageKey,
-    });
+    const keepLocked = keepLockedFromPack(job, pack);
     const message =
       job.kind === "train_pack"
         ? trainPackStalledMessage(keepLocked)
@@ -329,6 +349,7 @@ export async function recoverStaleJobs(filter?: {
         packId: job.characterPackId,
         keepLocked,
         previousProviderJobId: previousTrainProviderJobId(job.inputJson),
+        previousAdapter: previousAdapterFromJob(job.inputJson),
       });
     }
     if (changed) {

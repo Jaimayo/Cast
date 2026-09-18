@@ -1,3 +1,4 @@
+import { publicAdapterFields, readAdapterIdentity, type AdapterSource, type AdapterStatus } from "@/lib/adapter-identity";
 import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
 import { jobAgeSeconds, jobAttemptCount, userSafeLastError } from "@/lib/job-errors";
 
@@ -57,16 +58,55 @@ export function canAccessMedia(input: {
   return false;
 }
 
-export function publicPack<T extends { adapterStorageKey?: string | null; adapterMimeType?: string | null; adapterMeta?: unknown; providerJobId?: string | null }>(
+export function publicPack<
+  T extends {
+    adapterStorageKey?: string | null;
+    adapterMimeType?: string | null;
+    adapterMeta?: unknown;
+    providerJobId?: string | null;
+    adapterId?: string | null;
+    adapterStatus?: string | null;
+    adapterSource?: string | null;
+  },
+>(
   pack: T,
-): Omit<T, "adapterStorageKey" | "adapterMimeType" | "adapterMeta" | "providerJobId"> & {
+): Omit<
+  T,
+  | "adapterStorageKey"
+  | "adapterMimeType"
+  | "adapterMeta"
+  | "providerJobId"
+  | "adapterId"
+  | "adapterStatus"
+  | "adapterSource"
+> & {
   hasAdapter: boolean;
+  adapterStatus: AdapterStatus;
+  adapterSource: AdapterSource | null;
 } {
-  const { adapterStorageKey, adapterMimeType, adapterMeta, providerJobId, ...rest } = pack;
-  void adapterMimeType;
-  void adapterMeta;
-  void providerJobId;
-  return { ...rest, hasAdapter: Boolean(adapterStorageKey && adapterStorageKey.trim()) };
+  const {
+    adapterStorageKey,
+    adapterMimeType,
+    adapterMeta,
+    providerJobId,
+    adapterId,
+    adapterStatus,
+    adapterSource,
+    ...rest
+  } = pack;
+  const identity = readAdapterIdentity({
+    adapterId,
+    adapterStorageKey,
+    adapterStatus,
+    adapterSource,
+    adapterMimeType,
+    adapterMeta:
+      adapterMeta && typeof adapterMeta === "object" && !Array.isArray(adapterMeta)
+        ? (adapterMeta as Record<string, unknown>)
+        : null,
+    providerJobId,
+  });
+  return { ...rest, ...publicAdapterFields(identity) };
 }
 
 export type PublicJobFields = {
