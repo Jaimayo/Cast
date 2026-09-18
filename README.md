@@ -35,13 +35,13 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/app/create` | Composer chip shell |
 | `app/app/library` | Own stills only |
 | `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` |
-| `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs) |
+| `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
 | `lib/prompt-compiler.ts` | Chips → hidden prompt (unit tested) |
 | `lib/chips.ts` | Composer families only |
 | `lib/starters.ts` | Face/body vibe catalog (separate from composer) |
 | `server/providers/venice.ts` | `generateStill` HTTP client against native `/image/generate` |
-| `server/providers/runpod.ts` | `trainPack` enqueue + generateStill fallback |
+| `server/providers/runpod.ts` | `trainPack` enqueue + generateStill (Soul ID adapter path + Venice fallback) |
 | `server/providers/sister.ts` | Future sister private-AI company adapter slot |
 | `server/providers/registry.ts` | Provider registry + stub mode |
 | `server/providers/comfy/train-pack-workflow.json` | Comfy placeholder |
@@ -105,9 +105,11 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 
 `PROVIDER_MODE=live`:
 
-- `GENERATE_STILL_PROVIDER=venice` calls `POST {VENICE_API_BASE_URL}/image/generate` with `Authorization: Bearer $VENICE_API_KEY`. `safe_mode` comes from `VENICE_SAFE_MODE` (default `false` for this gated adult product). Prompt bodies are not written to application logs.
-- If Venice is unset/fails, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set.
+- `GENERATE_STILL_PROVIDER=venice` calls `POST {VENICE_API_BASE_URL}/image/generate` with `Authorization: Bearer $VENICE_API_KEY`. `safe_mode` comes from `VENICE_SAFE_MODE` (default `false` for this gated adult product). Prompt bodies are not written to application logs. Venice has **no** Soul-ID / train API — do not send LoRAs to Venice.
+- When a Locked Character Pack has a stored trainPack adapter (LoRA pointer), `generateStill` uses the RunPod generate adapter instead, passing `adapterStorageKey` / source URL so identity can load. No adapter (or `PROVIDER_MODE=stub`) keeps Venice / stub as today.
+- If Venice is unset/fails **and** there is no Soul ID adapter, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set. RunPod generate polls `GET .../status/{id}` for image bytes.
 - `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys and the Comfy placeholder, then polls `GET .../status/{id}` until complete. On success the worker stores LoRA/adapter object-key pointers on the Character Pack. Venice **cannot** be selected for trainPack.
+- Locked pack detail: **Test grid** queues a small set of Composer stills (same `generateStill` path). **Retrain** re-queues `trainPack` with the existing refs.
 - `sister` adapters implement the same interfaces and are selected only when `GENERATE_STILL_PROVIDER` / `TRAIN_PACK_PROVIDER` is `sister`.
 
 Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews use a short-lived presigned GET (R2) or `/api/media/:id` (local).
@@ -127,8 +129,6 @@ Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are em
 - Output/input policy gateway and prompt log denylist audits
 - Credit ledger / adult-approved payments
 - Sister-company adapter implementation once that API exists
-- Test grid / Retrain on pack detail
-- Poll RunPod generateStill fallback for output image bytes (trainPack polling is in)
 
 ## License
 

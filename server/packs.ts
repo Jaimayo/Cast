@@ -9,10 +9,12 @@ import {
   type CharacterPack,
 } from "@/db/schema";
 import { PACK_TARGET_REFS } from "@/lib/constants";
+import { generateStillJobProvider } from "@/lib/generate-route";
 import { canLockPack, lockWarning } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
+import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
 import { mediaPreviewPath } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -22,10 +24,13 @@ function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex");
 }
 
-function providerForGenerate(): "venice" | "runpod" | "sister" {
-  const name = getEnv().generateStillProvider;
-  if (name === "runpod" || name === "sister") return name;
-  return "venice";
+function providerForGenerate(adapterStorageKey?: string | null): "venice" | "runpod" | "sister" {
+  const env = getEnv();
+  return generateStillJobProvider({
+    providerMode: env.providerMode,
+    generateStillProvider: env.generateStillProvider,
+    adapterStorageKey,
+  });
 }
 
 function providerForTrain(): "runpod" | "sister" {
@@ -197,6 +202,7 @@ export async function enqueueGenerateStill(input: {
   sceneChipId?: string | null;
   lightingChipId?: string | null;
   bodyChipId?: string | null;
+  source?: "composer" | "test_grid";
 }) {
   const pack = await getPack(input.userId, input.characterPackId);
   if (!pack) {
@@ -239,7 +245,7 @@ export async function enqueueGenerateStill(input: {
       userId: input.userId,
       kind: "generate_still",
       status: "queued",
-      provider: providerForGenerate(),
+      provider: providerForGenerate(pack.adapterStorageKey),
       characterPackId: pack.id,
       recipeId: recipe.id,
       inputJson: {
@@ -248,6 +254,7 @@ export async function enqueueGenerateStill(input: {
         sceneChipId: input.sceneChipId ?? null,
         lightingChipId: input.lightingChipId ?? null,
         bodyChipId: input.bodyChipId ?? null,
+        source: input.source ?? "composer",
       },
     })
     .returning();
@@ -287,7 +294,7 @@ export async function enqueueGenerateStarter(input: {
       userId: input.userId,
       kind: "generate_starter",
       status: "queued",
-      provider: providerForGenerate(),
+      provider: providerForGenerate(pack.adapterStorageKey),
       characterPackId: pack.id,
       inputJson: { presetId: preset.id, kind: preset.kind },
     })
@@ -335,6 +342,76 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   const job = jobRows[0];
   if (!job) {
     throw new Error("Failed to create train job");
+  }
+
+  await getTrainPackQueue().add("trainPack", {
+    generationJobId: job.id,
+    characterPackId: pack.id,
+  });
+  return job;
+}
+
+export async function enqueueTestGrid(userId: string, packId: string) {
+  const pack = await getPack(userId, packId);
+  if (!pack) {
+    throw new Error("Pack not found");
+  }
+  requireLockedSoulForGenerate(pack.status);
+
+  const jobs = [];
+  for (const selection of TEST_GRID_SELECTIONS) {
+    const result = await enqueueGenerateStill({
+      userId,
+      characterPackId: pack.id,
+      poseChipId: selection.poseChipId,
+      outfitChipId: selection.outfitChipId,
+      sceneChipId: selection.sceneChipId,
+      lightingChipId: selection.lightingChipId,
+      source: "test_grid",
+    });
+    jobs.push(result.job);
+  }
+  return { jobs, count: jobs.length };
+}
+
+export async function enqueueRetrainPack(userId: string, packId: string) {
+  const pack = await getPack(userId, packId);
+  if (!pack) {
+    throw new Error("Pack not found");
+  }
+  if (!canRetrainPack(pack.status)) {
+    throw new Error("Retrain is available after Soul ID is Locked.");
+  }
+  const refs = await countRefs(pack.id);
+  const gate = canLockPack(refs);
+  if (!gate.ok) {
+    throw new Error(gate.message);
+  }
+
+  const db = getDb();
+  await db
+    .update(characterPacks)
+    .set({ status: "training", updatedAt: new Date() })
+    .where(eq(characterPacks.id, pack.id));
+
+  const jobRows = await db
+    .insert(generationJobs)
+    .values({
+      userId,
+      kind: "train_pack",
+      status: "queued",
+      provider: providerForTrain(),
+      characterPackId: pack.id,
+      inputJson: {
+        refCount: refs,
+        retrain: true,
+        previousProviderJobId: pack.providerJobId,
+      },
+    })
+    .returning();
+  const job = jobRows[0];
+  if (!job) {
+    throw new Error("Failed to create retrain job");
   }
 
   await getTrainPackQueue().add("trainPack", {

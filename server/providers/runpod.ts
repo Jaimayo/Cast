@@ -1,5 +1,13 @@
+import { soulAdapterSourceUrl } from "@/lib/generate-route";
 import workflowPlaceholder from "@/server/providers/comfy/train-pack-workflow.json";
 import { getEnv } from "@/server/env";
+import {
+  extractGenerateImage,
+  GENERATE_POLL_DELAY_MS,
+  generateStillTimedOut,
+  shouldKeepPollingGenerate,
+  type GenerateImagePointer,
+} from "@/server/providers/generate-output";
 import {
   extractAdapterPointer,
   mapRunPodJobStatus,
@@ -120,7 +128,40 @@ export const runpodTrainAdapter: TrainPackAdapter = {
   },
 };
 
-/** generateStill fallback when Venice is unavailable. */
+async function waitForGenerateResult(
+  endpointId: string,
+  initial: RunPodRunResponse,
+  fallbackJobId: string,
+): Promise<RunPodRunResponse> {
+  let payload = initial;
+  let attempts = 0;
+  const providerJobId = payload.id ?? fallbackJobId;
+  while (shouldKeepPollingGenerate(payload.status)) {
+    attempts += 1;
+    if (generateStillTimedOut(attempts)) {
+      throw new Error("RunPod generateStill polling timed out");
+    }
+    await new Promise((resolve) => setTimeout(resolve, GENERATE_POLL_DELAY_MS));
+    payload = await runpodStatus(endpointId, providerJobId);
+  }
+  return payload;
+}
+
+async function imageBytesFromPointer(pointer: GenerateImagePointer): Promise<Buffer> {
+  if (pointer.bytesBase64) {
+    return Buffer.from(pointer.bytesBase64, "base64");
+  }
+  if (pointer.sourceUrl) {
+    const response = await fetch(pointer.sourceUrl);
+    if (!response.ok) {
+      throw new Error(`RunPod generate image fetch failed with HTTP ${response.status}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+  throw new Error("RunPod generateStill returned no image");
+}
+
+/** generateStill fallback when Venice is unavailable, and Soul ID path when a LoRA pointer exists. */
 export const runpodGenerateAdapter: GenerateStillAdapter = {
   name: "runpod",
   async generateStill(input: GenerateStillInput): Promise<GenerateStillResult> {
@@ -129,22 +170,34 @@ export const runpodGenerateAdapter: GenerateStillAdapter = {
       throw new ProviderNotConfiguredError("runpod");
     }
 
-    const result = await runpodPost(env.generateEndpointId, {
+    const posted = await runpodPost(env.generateEndpointId, {
       jobId: input.jobId,
       prompt: input.prompt,
       negativePrompt: input.negativePrompt,
       characterPackId: input.characterPackId,
       adapterStorageKey: input.adapterStorageKey ?? null,
+      adapterSourceUrl: soulAdapterSourceUrl(input.adapterMeta),
+      adapterMeta: input.adapterMeta ?? null,
       width: input.width ?? 1024,
       height: input.height ?? 1024,
     });
 
+    const result = await waitForGenerateResult(env.generateEndpointId, posted, posted.id ?? input.jobId);
+    const status = mapRunPodJobStatus(result.status);
+    if (status === "failed") {
+      throw new Error(result.error ?? "GENERATE_STILL_FAILED");
+    }
+
+    const pointer = extractGenerateImage(result.output);
+    if (!pointer) {
+      throw new Error("RunPod generateStill returned no image");
+    }
+
     return {
       provider: "runpod",
       providerJobId: result.id ?? input.jobId,
-      mimeType: "image/webp",
-      // TODO(Build): poll RunPod /status and fetch output image bytes for generate fallback.
-      imageBytes: Buffer.from("runpod-pending"),
+      mimeType: pointer.mimeType,
+      imageBytes: await imageBytesFromPointer(pointer),
     };
   },
 };

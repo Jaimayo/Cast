@@ -134,6 +134,10 @@ h3 {
   cursor: not-allowed;
 }
 
+.muted a {
+  color: var(--gold);
+}
+
 .grid-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
