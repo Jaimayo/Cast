@@ -38,6 +38,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
 | `lib/prompt-compiler.ts` | Chips → hidden prompt (unit tested) |
+| `lib/policy-preflight.ts` | Required-chip codes + substring denylist stub (hash-only logs) |
 | `lib/rate-limit.ts` | Per-user enqueue / invite redeem 429 guards (Redis in live; in-memory for stub/tests) |
 | `lib/chips.ts` | Composer families only |
 | `lib/starters.ts` | Face/body vibe catalog (separate from composer) |
@@ -114,6 +115,7 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 - Enqueue abuse: invite redeem, Generate, Train & lock, and generate-starters are per-user (invite also per IP) sliding-window rate limited. Live mode stores the window in **Redis** so multiple app instances share the same caps. Too many queued/running jobs return **429** with a distinct `code` (`GENERATE_STILL_RATE_LIMIT`, `TRAIN_PACK_BUSY`, …) plus `Retry-After`. `PROVIDER_MODE=stub` and unit tests keep the in-memory limiter (no Redis required). If Redis is unreachable in live mode, the limiter falls back to in-memory so the request still succeeds, with caps local to that instance.
 - Jobs list/get (and enqueue 202 bodies) include `ageSeconds`, `attemptCount`, `lastErrorCode`, and `lastError` (user-safe copy — never a prompt or provider payload). Create uses `lastError` when Generate fails.
 - Character Pack refs: attaching a starter or library still to `training_set_assets` is atomic (pack row lock + unique pack+media). Duplicate attach is a no-op; a 21st ref is rejected (`PACK_REFS_FULL`). Lock / Train & lock re-count inside the same transaction and refuse below 12 (`PACK_REFS_TOO_FEW`, with the current count). `/api/generate-starters` returns user-safe `code`s (`INVALID_STARTER`, `PACK_NOT_FOUND`, `INVALID_PACK_STATE`) — never a hidden vibe fragment.
+- Policy preflight (Generate, generate-starters, Train & lock): empty Pose → `POSE_REQUIRED`; bad/missing vibe → `INVALID_STARTER`; unknown chip → `INVALID_CHIP`. After compile, a conservative substring denylist (minors / real-person / upload language) blocks the request with `POLICY_DENIED`. Hits log SHA-256 of the compiled prompt only — the prompt is never stored. Override the list with `POLICY_DENYLIST` (comma-separated). This is not a classifier and does not touch credits.
 - `sister` adapters implement the same interfaces and are selected only when `GENERATE_STILL_PROVIDER` / `TRAIN_PACK_PROVIDER` is `sister`.
 
 Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews use a short-lived presigned GET (R2) or `/api/media/:id` (local).
@@ -130,7 +132,7 @@ Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are em
 ## Build TODOs
 
 - Replace self-attest with a highly effective age-assurance vendor where legally required
-- Output/input policy gateway and prompt log denylist audits
+- Full policy classifier / C2PA (Stage 1 ships a substring denylist stub + required-chip preflight only)
 - Credit ledger / adult-approved payments
 - Sister-company adapter implementation once that API exists
 

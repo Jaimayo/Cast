@@ -11,6 +11,7 @@ import {
   type JobAttempt,
 } from "@/lib/job-errors";
 import { jobLog } from "@/lib/job-log";
+import { preflightTrainPack } from "@/lib/policy-preflight";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import {
@@ -118,6 +119,7 @@ export async function processTrainPackJob(
       }
       result = await adapter.getTrainStatus(job.providerJobId);
     } else {
+      preflightTrainPack({ characterPackName: pack.name, characterPackId: pack.id });
       await db
         .update(generationJobs)
         .set({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { FICTIONAL_ADULT_CONSTRAINT } from "@/lib/constants";
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 
 const required = {
   characterPackName: "Mara",
@@ -55,9 +56,15 @@ describe("compileComposerPrompt", () => {
     expect(() => compileComposerPrompt({ ...required, poseChipId: "" })).toThrow(/Pose is required/);
   });
 
-  it("rejects unknown chips and cross-family ids", () => {
-    expect(() => compileComposerPrompt({ ...required, poseChipId: "not-a-chip" })).toThrow(/Unknown chip/);
-    expect(() => compileComposerPrompt({ ...required, poseChipId: "softbox" })).toThrow(/expected pose/);
+  it("rejects unknown chips and cross-family ids with INVALID_CHIP", () => {
+    expect(() => compileComposerPrompt({ ...required, poseChipId: "not-a-chip" })).toThrow(JobError);
+    expect(() => compileComposerPrompt({ ...required, poseChipId: "softbox" })).toThrow(JobError);
+    try {
+      compileComposerPrompt({ ...required, poseChipId: "not-a-chip" });
+    } catch (err) {
+      expect((err as JobError).code).toBe(JOB_ERROR_CODES.INVALID_CHIP);
+      expect((err as JobError).userMessage).not.toMatch(/fragment|not-a-chip/i);
+    }
   });
 
   it("always includes a negative prompt that blocks minors and real-person likeness", () => {

@@ -15,7 +15,20 @@ describe("generateStill Locked + Pose server gate", () => {
   it("requires a real pose chip", () => {
     expect(() => requirePoseForGenerate("standing-neutral")).not.toThrow();
     expect(() => requirePoseForGenerate("")).toThrow(JobError);
-    expect(() => requirePoseForGenerate("softbox")).toThrow(/expected pose/);
+    try {
+      requirePoseForGenerate("");
+      throw new Error("expected throw");
+    } catch (err) {
+      expect((err as JobError).code).toBe(JOB_ERROR_CODES.POSE_REQUIRED);
+    }
+    try {
+      requirePoseForGenerate("softbox");
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(JobError);
+      expect((err as JobError).code).toBe(JOB_ERROR_CODES.INVALID_CHIP);
+      expect((err as JobError).userMessage).not.toMatch(/expected pose|softbox/i);
+    }
   });
 
   it("enforces both Locked and Pose together", () => {

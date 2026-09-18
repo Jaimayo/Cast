@@ -31,16 +31,24 @@ const NEGATIVE =
 function assertName(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) {
-    throw new Error("Character pack is required");
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: "Character pack is required",
+      retryable: false,
+    });
   }
   if (trimmed.length > 80) {
-    throw new Error("Character pack name is too long");
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: "Character pack name is too long",
+      retryable: false,
+    });
   }
   return trimmed;
 }
 
 function optionalChip(id: string | null | undefined, family: Chip["family"]): Chip | undefined {
-  if (!id) {
+  if (!id?.trim()) {
     return undefined;
   }
   return requireChip(id, family);
@@ -54,7 +62,11 @@ function optionalChip(id: string | null | undefined, family: Chip["family"]): Ch
 export function compileComposerPrompt(input: ComposerSelectionInput): CompiledPrompt {
   const name = assertName(input.characterPackName);
   if (!input.characterPackId.trim()) {
-    throw new Error("Character pack is required");
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: "Character pack is required",
+      retryable: false,
+    });
   }
   if (!input.poseChipId?.trim()) {
     throw new JobError({ code: JOB_ERROR_CODES.POSE_REQUIRED, retryable: false });

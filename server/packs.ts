@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   characterPacks,
@@ -18,7 +17,7 @@ import {
   lockPackDecision,
   trainPackDecision,
 } from "@/lib/pack-rules";
-import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
+import { hashPrompt, preflightComposerPrompt, preflightStarterPrompt, preflightTrainPack } from "@/lib/policy-preflight";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { canRetrainPack, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
@@ -31,10 +30,6 @@ import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
 
 type PackDb = Pick<ReturnType<typeof getDb>, "select" | "insert" | "update" | "delete">;
-
-function hashPrompt(prompt: string): string {
-  return createHash("sha256").update(prompt).digest("hex");
-}
 
 function providerForGenerate(adapterStorageKey?: string | null): "venice" | "runpod" | "sister" {
   const env = getEnv();
@@ -381,11 +376,7 @@ export async function enqueueGenerateStill(input: {
     throw new Error("Character pack is required");
   }
   assertGenerateStillAllowed({ packStatus: pack.status, poseChipId: input.poseChipId });
-  if (!input.skipAbuseGuard) {
-    await guardJobEnqueue(input.userId, "generateStill");
-  }
-
-  const compiled = compileComposerPrompt({
+  const compiled = preflightComposerPrompt({
     characterPackName: pack.name,
     characterPackId: pack.id,
     poseChipId: input.poseChipId,
@@ -394,6 +385,9 @@ export async function enqueueGenerateStill(input: {
     lightingChipId: input.lightingChipId,
     bodyChipId: input.bodyChipId,
   });
+  if (!input.skipAbuseGuard) {
+    await guardJobEnqueue(input.userId, "generateStill");
+  }
 
   const db = getDb();
   const recipeRows = await db
@@ -453,7 +447,7 @@ export async function enqueueGenerateStarter(input: {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
   throwPackGate(generateStarterPackDecision(pack.status));
-  compileStarterPrompt({
+  preflightStarterPrompt({
     characterPackName: pack.name,
     characterPackId: pack.id,
     presetId: preset.id,
@@ -491,6 +485,7 @@ export async function enqueueTrainPack(userId: string, packId: string) {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
   throwPackGate(trainPackDecision(pack.status, await countRefs(pack.id)));
+  preflightTrainPack({ characterPackName: pack.name, characterPackId: pack.id });
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
@@ -582,6 +577,7 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   }
   const refs = await countRefs(pack.id);
   throwPackGate(canLockPack(refs));
+  preflightTrainPack({ characterPackName: pack.name, characterPackId: pack.id });
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();

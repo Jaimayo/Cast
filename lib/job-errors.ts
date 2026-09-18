@@ -31,6 +31,7 @@ export const JOB_ERROR_CODES = {
   TRAIN_PACK_CANCELED: "TRAIN_PACK_CANCELED",
   GENERATE_NO_IMAGE: "GENERATE_NO_IMAGE",
   POSE_REQUIRED: "POSE_REQUIRED",
+  POLICY_DENIED: "POLICY_DENIED",
   JOB_STALLED: "JOB_STALLED",
   PACK_REFS_TOO_FEW: "PACK_REFS_TOO_FEW",
   PACK_REFS_FULL: "PACK_REFS_FULL",
@@ -61,6 +62,8 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   TRAIN_PACK_CANCELED: "Training was canceled. You can try Train & lock again.",
   GENERATE_NO_IMAGE: "The image service returned no still. Try again.",
   POSE_REQUIRED: "Pose is required",
+  POLICY_DENIED:
+    "This request doesn't meet Cast's content policy. Fictional adults only — no minors, real people, or uploaded likeness.",
   JOB_STALLED: "This job stopped unexpectedly. Try again.",
   PACK_REFS_TOO_FEW: "Need at least 12 training refs to lock Soul ID.",
   PACK_REFS_FULL: "This pack already has 20 training refs. Remove one to add another.",
@@ -114,6 +117,7 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT ||
     code === JOB_ERROR_CODES.TRAIN_PACK_CANCELED ||
     code === JOB_ERROR_CODES.POSE_REQUIRED ||
+    code === JOB_ERROR_CODES.POLICY_DENIED ||
     code === JOB_ERROR_CODES.JOB_STALLED ||
     code === JOB_ERROR_CODES.PACK_REFS_TOO_FEW ||
     code === JOB_ERROR_CODES.PACK_REFS_FULL
@@ -301,7 +305,10 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
   if (message === LOCK_SOUL_ID_FIRST || /lock soul id first/i.test(message)) {
     return classified(JOB_ERROR_CODES.PACK_NOT_LOCKED, false);
   }
-  if (/unknown chip|expected pose|expected outfit|expected scene|expected lighting|expected body|pose is required/i.test(message)) {
+  if (/^pose is required$/i.test(message)) {
+    return classified(JOB_ERROR_CODES.POSE_REQUIRED, false);
+  }
+  if (/unknown chip|expected pose|expected outfit|expected scene|expected lighting|expected body/i.test(message)) {
     return classified(JOB_ERROR_CODES.INVALID_CHIP, false);
   }
   if (
@@ -319,6 +326,9 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
     /PACK_REFS_FULL/i.test(message)
   ) {
     return classified(JOB_ERROR_CODES.PACK_REFS_FULL, false, message);
+  }
+  if (/content policy|POLICY_DENIED/i.test(message)) {
+    return classified(JOB_ERROR_CODES.POLICY_DENIED, false);
   }
   if (/character pack name is too long|character pack is required/i.test(message)) {
     return classified(JOB_ERROR_CODES.INVALID_INPUT, false);

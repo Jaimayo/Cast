@@ -8,10 +8,16 @@ function isPlainScalar(value: unknown): value is string | number | boolean | nul
 /**
  * Structured log fields for workers. Drops compiled prompts, secrets, and payloads.
  */
+function shouldRedactKey(key: string): boolean {
+  // Keep SHA-256 fields (promptHash / compiledPromptHash). Never keep the prompt itself.
+  if (/hash$/i.test(key)) return false;
+  return REDACT_KEY.test(key);
+}
+
 export function publicJobLogFields(fields: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (REDACT_KEY.test(key)) continue;
+    if (shouldRedactKey(key)) continue;
     if (!isPlainScalar(value)) continue;
     if (typeof value === "string" && value.length > 240) {
       out[key] = `${value.slice(0, 80)}…`;

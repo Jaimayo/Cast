@@ -53,6 +53,8 @@ export function getEnv() {
       apiKey: read("SISTER_API_KEY"),
       baseUrl: read("SISTER_API_BASE_URL"),
     },
+    /** Comma-separated denylist. Unset = conservative Stage 1 defaults in `lib/policy-preflight.ts`. */
+    policyDenylist: read("POLICY_DENYLIST"),
     s3: {
       endpoint: read("S3_ENDPOINT"),
       region: read("S3_REGION") ?? "auto",

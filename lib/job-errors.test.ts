@@ -56,7 +56,7 @@ describe("classifyJobError", () => {
       retryable: false,
     });
     expect(classifyJobError(new Error("Pose is required"))).toMatchObject({
-      code: JOB_ERROR_CODES.INVALID_CHIP,
+      code: JOB_ERROR_CODES.POSE_REQUIRED,
       retryable: false,
     });
     expect(classifyJobError(new Error("Unknown starter preset: nope"))).toMatchObject({
@@ -90,6 +90,16 @@ describe("classifyJobError", () => {
     });
     expect(isPermanentCode(JOB_ERROR_CODES.INVALID_CHIP)).toBe(true);
     expect(isPermanentCode(JOB_ERROR_CODES.PACK_NOT_LOCKED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.POSE_REQUIRED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.POLICY_DENIED)).toBe(true);
+    expect(
+      classifyJobError(
+        new JobError({ code: JOB_ERROR_CODES.POLICY_DENIED, retryable: false }),
+      ),
+    ).toMatchObject({
+      code: JOB_ERROR_CODES.POLICY_DENIED,
+      retryable: false,
+    });
   });
 
   it("does not retry missing provider config or capability errors", () => {
