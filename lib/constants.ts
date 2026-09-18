@@ -17,6 +17,7 @@ export const MEDIA_PRESIGN_TTL_SECONDS = 120;
 export const JOB_QUEUES = {
   generateStill: "generateStill",
   trainPack: "trainPack",
+  deadLetter: "castDeadLetter",
 } as const;
 
 export const FICTIONAL_ADULT_CONSTRAINT =

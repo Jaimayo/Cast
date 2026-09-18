@@ -1,4 +1,5 @@
 import { getEnv } from "@/server/env";
+import { extractAdapterPointer } from "@/server/providers/train-status";
 import { providerFetch } from "@/server/providers/http";
 import {
   ProviderHttpError,
@@ -90,14 +91,18 @@ export const sisterTrainAdapter: TrainPackAdapter = {
       id?: string;
       status?: "queued" | "running" | "succeeded" | "failed";
       adapterStorageKey?: string;
+      output?: unknown;
     };
+    const pointer = extractAdapterPointer(payload.output ?? payload);
     const status = payload.status ?? "running";
     return {
       provider: "sister",
       providerJobId: payload.id ?? providerJobId,
       status,
-      adapterStorageKey: payload.adapterStorageKey ?? null,
-      adapterMimeType: payload.adapterStorageKey ? "application/octet-stream" : null,
+      adapterStorageKey: pointer?.storageKey ?? payload.adapterStorageKey ?? null,
+      adapterMimeType: pointer?.mimeType ?? (pointer || payload.adapterStorageKey ? "application/octet-stream" : null),
+      adapterBytesBase64: pointer?.bytesBase64 ?? null,
+      adapterMeta: pointer?.sourceUrl ? { sourceUrl: pointer.sourceUrl } : null,
     };
   },
 };

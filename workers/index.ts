@@ -3,6 +3,7 @@ import { JOB_QUEUES } from "@/lib/constants";
 import { jobAttemptFromBullmq, shouldRetryJob, classifyJobError } from "@/lib/job-errors";
 import { jobLog } from "@/lib/job-log";
 import { persistQueueFailure, recoverStaleJobsSafe } from "@/server/jobs";
+import { enqueueDeadLetterJob } from "@/server/queue";
 import { redisConnection } from "@/server/redis";
 import { processGenerateStillJob } from "@/workers/generateStill";
 import { processTrainPackJob } from "@/workers/trainPack";
@@ -82,12 +83,24 @@ for (const worker of [generateWorker, trainWorker]) {
     const generationJobId =
       "generationJobId" in job.data ? String(job.data.generationJobId) : null;
     if (!generationJobId) return;
-    void persistQueueFailure(generationJobId, err).catch((persistErr) => {
-      jobLog("job.persist_failed", {
-        jobId: generationJobId,
-        error: persistErr instanceof Error ? persistErr.message : "unknown",
+    void persistQueueFailure(generationJobId, err)
+      .then(() =>
+        enqueueDeadLetterJob({
+          sourceQueue: worker.name,
+          generationJobId,
+          characterPackId:
+            job && "characterPackId" in job.data ? String(job.data.characterPackId) : undefined,
+          errorCode: classified.code,
+          errorMessage: classified.userMessage,
+          attemptsMade: attempt.attempt,
+        }),
+      )
+      .catch((persistErr) => {
+        jobLog("job.persist_failed", {
+          jobId: generationJobId,
+          error: persistErr instanceof Error ? persistErr.message : "unknown",
+        });
       });
-    });
   });
 }
 
@@ -101,6 +114,6 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 jobLog("workers.online", {
-  queues: `${JOB_QUEUES.generateStill},${JOB_QUEUES.trainPack}`,
+  queues: `${JOB_QUEUES.generateStill},${JOB_QUEUES.trainPack},${JOB_QUEUES.deadLetter}`,
 });
 void recoverStaleJobsSafe();

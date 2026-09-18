@@ -24,6 +24,13 @@ export const JOB_ERROR_CODES = {
   GENERATE_STILL_FAILED: "GENERATE_STILL_FAILED",
   TRAIN_PACK_FAILED: "TRAIN_PACK_FAILED",
   TRAIN_POLL_TIMEOUT: "TRAIN_POLL_TIMEOUT",
+  TRAIN_NO_ADAPTER: "TRAIN_NO_ADAPTER",
+  TRAIN_ADAPTER_FETCH_FAILED: "TRAIN_ADAPTER_FETCH_FAILED",
+  TRAIN_SUBMIT_IN_FLIGHT: "TRAIN_SUBMIT_IN_FLIGHT",
+  TRAIN_PACK_TIMEOUT: "TRAIN_PACK_TIMEOUT",
+  TRAIN_PACK_CANCELED: "TRAIN_PACK_CANCELED",
+  GENERATE_NO_IMAGE: "GENERATE_NO_IMAGE",
+  POSE_REQUIRED: "POSE_REQUIRED",
   JOB_STALLED: "JOB_STALLED",
 } as const;
 
@@ -45,6 +52,13 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   GENERATE_STILL_FAILED: "Still generation failed. Try again from Create.",
   TRAIN_PACK_FAILED: "Training failed. You can try Train & lock again.",
   TRAIN_POLL_TIMEOUT: "Training took too long. You can try Train & lock again.",
+  TRAIN_NO_ADAPTER: "Training finished without a Soul ID adapter. Try Train & lock again.",
+  TRAIN_ADAPTER_FETCH_FAILED: "Could not download the trained Soul ID adapter. Try again.",
+  TRAIN_SUBMIT_IN_FLIGHT: "Training was already submitted. Check Jobs — do not start a second train.",
+  TRAIN_PACK_TIMEOUT: "The training service timed out. You can try Train & lock again.",
+  TRAIN_PACK_CANCELED: "Training was canceled. You can try Train & lock again.",
+  GENERATE_NO_IMAGE: "The image service returned no still. Try again.",
+  POSE_REQUIRED: "Pose is required",
   JOB_STALLED: "This job stopped unexpectedly. Try again.",
 };
 
@@ -91,6 +105,11 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED ||
     code === JOB_ERROR_CODES.PROVIDER_CAPABILITY ||
     code === JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT ||
+    code === JOB_ERROR_CODES.TRAIN_NO_ADAPTER ||
+    code === JOB_ERROR_CODES.TRAIN_SUBMIT_IN_FLIGHT ||
+    code === JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT ||
+    code === JOB_ERROR_CODES.TRAIN_PACK_CANCELED ||
+    code === JOB_ERROR_CODES.POSE_REQUIRED ||
     code === JOB_ERROR_CODES.JOB_STALLED
   );
 }
@@ -264,8 +283,47 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
     return classified(JOB_ERROR_CODES.INVALID_PACK_STATE, false);
   }
 
+  if (/without a (lora|soul id)?\s*adapter|train pack finished without/i.test(message)) {
+    return classified(JOB_ERROR_CODES.TRAIN_NO_ADAPTER, false);
+  }
   if (/train/i.test(message)) {
     return classified(JOB_ERROR_CODES.TRAIN_PACK_FAILED, true);
   }
   return classified(JOB_ERROR_CODES.GENERATE_STILL_FAILED, true);
+}
+
+export function generateStillBullJobId(generationJobId: string): string {
+  return `generateStill:${generationJobId}`;
+}
+
+export function trainPackBullJobId(generationJobId: string, attempt = 0): string {
+  return attempt <= 0 ? `trainPack:${generationJobId}` : `trainPack:${generationJobId}:poll:${attempt}`;
+}
+
+export function deadLetterBullJobId(sourceQueue: string, generationJobId: string): string {
+  return `deadLetter:${sourceQueue}:${generationJobId}`;
+}
+
+export function isDuplicateBullJobError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /already exists/i.test(message);
+}
+
+export type TrainSubmitDecision = "poll" | "submit" | "fail-in-flight";
+
+export function trainSubmitDecision(input: {
+  providerJobId?: string | null;
+  submitAttempted: boolean;
+}): TrainSubmitDecision {
+  if (input.providerJobId && input.providerJobId.trim()) return "poll";
+  if (input.submitAttempted) return "fail-in-flight";
+  return "submit";
+}
+
+export function isSubmitAttempted(inputJson: Record<string, unknown> | null | undefined): boolean {
+  return inputJson?.submitAttempted === true;
+}
+
+export function withSubmitAttempted(inputJson: Record<string, unknown>): Record<string, unknown> {
+  return { ...inputJson, submitAttempted: true };
 }

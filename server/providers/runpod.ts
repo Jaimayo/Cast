@@ -12,6 +12,7 @@ import {
   extractAdapterPointer,
   mapRunPodJobStatus,
   publicAdapterMeta,
+  runPodTrainErrorCode,
 } from "@/server/providers/train-status";
 import { providerFetch } from "@/server/providers/http";
 import {
@@ -97,7 +98,7 @@ function toTrainResult(payload: RunPodRunResponse, fallbackJobId: string): Train
     adapterMimeType: pointer?.mimeType ?? (pointer ? "application/octet-stream" : null),
     adapterMeta: Object.keys(meta).length > 0 ? meta : null,
     adapterBytesBase64: pointer?.bytesBase64 ?? null,
-    errorCode: status === "failed" ? "TRAIN_PACK_FAILED" : null,
+    errorCode: runPodTrainErrorCode(payload.status, payload.error),
   };
 }
 

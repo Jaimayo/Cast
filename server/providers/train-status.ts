@@ -1,3 +1,5 @@
+import { JOB_ERROR_CODES } from "@/lib/job-errors";
+
 export type NormalizedTrainStatus = "queued" | "running" | "succeeded" | "failed";
 
 export type AdapterPointer = {
@@ -39,6 +41,43 @@ export function trainPollDelayMs(attempt: number): number {
 
 export const TRAIN_POLL_MAX_ATTEMPTS = 80;
 
+export type TrainPollDecision =
+  | { action: "persist" }
+  | { action: "fail"; errorCode: string }
+  | { action: "poll"; nextAttempt: number }
+  | { action: "timeout"; errorCode: typeof JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT };
+
+export function trainPollDecision(input: {
+  status: NormalizedTrainStatus;
+  attempt: number;
+  maxAttempts?: number;
+}): TrainPollDecision {
+  if (input.status === "failed") {
+    return { action: "fail", errorCode: JOB_ERROR_CODES.TRAIN_PACK_FAILED };
+  }
+  if (input.status === "succeeded") {
+    return { action: "persist" };
+  }
+  const nextAttempt = input.attempt + 1;
+  const maxAttempts = input.maxAttempts ?? TRAIN_POLL_MAX_ATTEMPTS;
+  if (nextAttempt > maxAttempts) {
+    return { action: "timeout", errorCode: JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT };
+  }
+  return { action: "poll", nextAttempt };
+}
+
+/** Map live RunPod status strings onto stored generation_jobs.error_code values. */
+export function runPodTrainErrorCode(status: string | undefined, payloadError?: string | null): string | null {
+  const mapped = mapRunPodJobStatus(status);
+  if (mapped !== "failed") return null;
+  const value = (status ?? "").toUpperCase();
+  if (value === "TIMED_OUT" || value === "TIMEOUT") return JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT;
+  if (value === "CANCELLED" || value === "CANCELED") return JOB_ERROR_CODES.TRAIN_PACK_CANCELED;
+  const code = payloadError?.trim();
+  if (code && /^[A-Z][A-Z0-9_]{2,64}$/.test(code)) return code;
+  return JOB_ERROR_CODES.TRAIN_PACK_FAILED;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -60,14 +99,20 @@ function looksLikeUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
+function unwrapWorkerPayload(output: unknown): Record<string, unknown> | null {
+  const root = asRecord(output);
+  if (!root) return null;
+  const nested = asRecord(root.output) ?? asRecord(root.artifacts);
+  if (!nested) return root;
+  return asRecord(nested.output) ?? asRecord(nested.artifacts) ?? nested;
+}
+
 /** Pull LoRA / adapter pointers from a RunPod (or sister) worker output payload. */
 export function extractAdapterPointer(output: unknown): AdapterPointer | null {
-  const root = asRecord(output);
-  if (!root) {
+  const nested = unwrapWorkerPayload(output);
+  if (!nested) {
     return null;
   }
-
-  const nested = asRecord(root.output) ?? asRecord(root.artifacts) ?? root;
   const pointer: AdapterPointer = {
     storageKey: stringField(
       nested,

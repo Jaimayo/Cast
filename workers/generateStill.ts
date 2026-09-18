@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { characterPacks, mediaAssets, recipes } from "@/db/schema";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
-import { requireLockedSoulForGenerate } from "@/lib/soul";
+import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
 import type { JobAttempt } from "@/lib/job-errors";
 import { getDb } from "@/server/db";
@@ -76,10 +76,6 @@ export async function processGenerateStillJob(
       throw new Error("Character pack not found");
     }
 
-    if (job.kind === "generate_still") {
-      requireLockedSoulForGenerate(pack.status);
-    }
-
     let prompt: string;
     let negativePrompt: string;
     if (job.kind === "generate_starter") {
@@ -109,6 +105,8 @@ export async function processGenerateStillJob(
           bodyChipId = recipe.bodyChipId;
         }
       }
+
+      assertGenerateStillAllowed({ packStatus: pack.status, poseChipId });
 
       const compiled = compileComposerPrompt({
         characterPackName: pack.name,
