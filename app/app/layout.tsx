@@ -1,22 +1,18 @@
 import { redirect } from "next/navigation";
+import { PrivacyStrip } from "@/components/privacy-strip";
 import { getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudioLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let user;
   try {
     user = await getCurrentUser();
   } catch {
     redirect("/invite");
   }
-
-  if (!user) {
-    redirect("/invite");
-  }
-  if (!user.ageAttestedAt) {
-    redirect("/age");
-  }
+  if (!user) redirect("/invite");
+  if (!user.ageAttestedAt) redirect("/age");
 
   return (
     <div className="studio">
@@ -24,18 +20,17 @@ export default async function StudioLayout({ children }: { children: React.React
         <div className="kicker">Studio</div>
         <div className="wordmark">Cast</div>
         <nav>
-          <a href="/studio">Home</a>
-          <a href="/studio/composer">Create</a>
-          <a href="/studio/packs">Characters</a>
-          <a href="/studio/starters">Starters</a>
-          <a href="/studio/jobs">Jobs</a>
+          <a href="/app/characters">Characters</a>
+          <a href="/app/create">Create</a>
+          <a href="/app/library">Library</a>
+          <a href="/app/jobs">Jobs</a>
           {user.role === "admin" ? <a href="/admin/invites">Admin</a> : null}
         </nav>
         <p className="muted">{user.email}</p>
       </aside>
       <div>
+        <PrivacyStrip />
         <div className="canvas">{children}</div>
-        <div className="job-bar">Jobs run in the worker process · Redis + BullMQ · stills only</div>
       </div>
     </div>
   );

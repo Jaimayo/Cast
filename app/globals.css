@@ -298,13 +298,188 @@ input[type="checkbox"] {
   font-style: italic;
 }
 
-@media (max-width: 860px) {
-  .grid-3,
-  .studio {
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.fictional-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.soul-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--gold);
+  background: rgba(226, 182, 87, 0.12);
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  background: transparent;
+  color: var(--ink-dim);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--gold);
+}
+
+.meter {
+  margin: 8px 0 16px;
+}
+
+.meter-track {
+  height: 6px;
+  background: var(--bg-soft);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: var(--gold);
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.roster-card {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.contact-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.sheet-tile {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  border-radius: 12px;
+  min-height: 110px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+}
+
+.sheet-tile.selected {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.composer-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 200px;
+  min-height: calc(100vh - 52px);
+}
+
+.chip-rail,
+.history-rail {
+  padding: 20px 16px;
+}
+
+.chip-rail {
+  border-right: 1px solid var(--line);
+}
+
+.history-rail {
+  border-left: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.hero-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 20px;
+  min-height: 420px;
+}
+
+.hero-frame {
+  width: min(420px, 100%);
+  aspect-ratio: 3 / 4;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  text-align: center;
+  padding: 24px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.privacy-strip {
+  margin: 0 22px 12px;
+}
+
+.chip-family {
+  margin-bottom: 16px;
+}
+
+.chip-family h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  font-family: var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 960px) {
+  .composer-shell {
     grid-template-columns: 1fr;
   }
-  .rail {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+  .chip-rail,
+  .history-rail {
+    border: 0;
   }
 }

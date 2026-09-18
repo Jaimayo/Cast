@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   characterPacks,
   generationJobs,
@@ -8,10 +8,11 @@ import {
   trainingSetAssets,
   type CharacterPack,
 } from "@/db/schema";
-import { PACK_MIN_REFS, PACK_TARGET_REFS } from "@/lib/constants";
+import { PACK_TARGET_REFS } from "@/lib/constants";
 import { canLockPack, lockWarning } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
+import { isLockedSoul } from "@/lib/soul";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { getGenerateStillQueue, getTrainPackQueue } from "@/server/queue";
@@ -32,11 +33,24 @@ function providerForTrain(): "runpod" | "sister" {
 
 export async function listPacks(userId: string) {
   const db = getDb();
-  return db
+  const packs = await db
     .select()
     .from(characterPacks)
     .where(eq(characterPacks.userId, userId))
     .orderBy(desc(characterPacks.createdAt));
+  if (packs.length === 0) {
+    return [];
+  }
+  const counts = await db
+    .select({
+      packId: trainingSetAssets.characterPackId,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(trainingSetAssets)
+    .where(eq(trainingSetAssets.userId, userId))
+    .groupBy(trainingSetAssets.characterPackId);
+  const byPack = new Map(counts.map((row) => [row.packId, Number(row.n)]));
+  return packs.map((pack) => ({ ...pack, refCount: byPack.get(pack.id) ?? 0 }));
 }
 
 export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
@@ -84,10 +98,11 @@ export async function countRefs(packId: string): Promise<number> {
   return rows.length;
 }
 
-export async function attachRef(input: {
+export async function setRefSelected(input: {
   userId: string;
   packId: string;
   mediaAssetId: string;
+  selected: boolean;
   kind: "face_ref" | "body_ref" | "still" | "starter_face" | "starter_body";
   source: "in_app_still" | "generate_starter";
   starterPresetId?: string;
@@ -96,16 +111,37 @@ export async function attachRef(input: {
   if (!pack) {
     throw new Error("Pack not found");
   }
-  if (pack.status !== "draft") {
-    throw new Error("Refs can only be attached to a draft pack");
+  if (pack.status !== "draft" && pack.status !== "failed") {
+    throw new Error("Refs can only be changed on a draft pack");
+  }
+
+  const db = getDb();
+  const existing = await db
+    .select()
+    .from(trainingSetAssets)
+    .where(
+      and(
+        eq(trainingSetAssets.characterPackId, pack.id),
+        eq(trainingSetAssets.mediaAssetId, input.mediaAssetId),
+      ),
+    )
+    .limit(1);
+
+  if (!input.selected) {
+    if (existing[0]) {
+      await db.delete(trainingSetAssets).where(eq(trainingSetAssets.id, existing[0].id));
+    }
+    return { selected: false, refCount: await countRefs(pack.id) };
   }
 
   const current = await countRefs(pack.id);
+  if (existing[0]) {
+    return { selected: true, ref: existing[0], refCount: current };
+  }
   if (current >= PACK_TARGET_REFS) {
     throw new Error(`Pack already has the target of ${PACK_TARGET_REFS} refs`);
   }
 
-  const db = getDb();
   const media = await db
     .select()
     .from(mediaAssets)
@@ -126,7 +162,7 @@ export async function attachRef(input: {
       starterPresetId: input.starterPresetId ?? null,
     })
     .returning();
-  return rows[0];
+  return { selected: true, ref: rows[0], refCount: current + 1 };
 }
 
 export async function lockPack(userId: string, packId: string) {
@@ -156,14 +192,17 @@ export async function enqueueGenerateStill(input: {
   userId: string;
   characterPackId: string;
   poseChipId: string;
-  outfitChipId: string;
-  sceneChipId: string;
-  lightingChipId: string;
+  outfitChipId?: string | null;
+  sceneChipId?: string | null;
+  lightingChipId?: string | null;
   bodyChipId?: string | null;
 }) {
   const pack = await getPack(input.userId, input.characterPackId);
   if (!pack) {
     throw new Error("Character pack is required");
+  }
+  if (!isLockedSoul(pack.status)) {
+    throw new Error("Lock a Character Pack (Soul ID) before generating");
   }
 
   const compiled = compileComposerPrompt({
@@ -183,9 +222,9 @@ export async function enqueueGenerateStill(input: {
       userId: input.userId,
       characterPackId: pack.id,
       poseChipId: input.poseChipId,
-      outfitChipId: input.outfitChipId,
-      sceneChipId: input.sceneChipId,
-      lightingChipId: input.lightingChipId,
+      outfitChipId: input.outfitChipId ?? null,
+      sceneChipId: input.sceneChipId ?? null,
+      lightingChipId: input.lightingChipId ?? null,
       bodyChipId: input.bodyChipId ?? null,
       compiledPromptHash: hashPrompt(compiled.prompt),
     })
@@ -206,9 +245,9 @@ export async function enqueueGenerateStill(input: {
       recipeId: recipe.id,
       inputJson: {
         poseChipId: input.poseChipId,
-        outfitChipId: input.outfitChipId,
-        sceneChipId: input.sceneChipId,
-        lightingChipId: input.lightingChipId,
+        outfitChipId: input.outfitChipId ?? null,
+        sceneChipId: input.sceneChipId ?? null,
+        lightingChipId: input.lightingChipId ?? null,
         bodyChipId: input.bodyChipId ?? null,
       },
     })
@@ -268,12 +307,13 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new Error("Pack not found");
   }
-  if (pack.status !== "locked" && pack.status !== "failed") {
-    throw new Error("Lock the pack before training");
+  if (pack.status !== "draft" && pack.status !== "failed") {
+    throw new Error("Train & lock is available on draft packs");
   }
   const refs = await countRefs(pack.id);
-  if (refs < PACK_MIN_REFS) {
-    throw new Error(`Training requires at least ${PACK_MIN_REFS} refs`);
+  const gate = canLockPack(refs);
+  if (!gate.ok) {
+    throw new Error(gate.message);
   }
 
   const db = getDb();
@@ -339,6 +379,48 @@ export async function listRefs(userId: string, packId: string) {
     .from(trainingSetAssets)
     .innerJoin(mediaAssets, eq(mediaAssets.id, trainingSetAssets.mediaAssetId))
     .where(and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.userId, userId)));
+}
+
+export async function listStarterSheet(userId: string, packId: string) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: mediaAssets.id,
+      kind: mediaAssets.kind,
+      storageKey: mediaAssets.storageKey,
+      generationJobId: mediaAssets.generationJobId,
+      createdAt: mediaAssets.createdAt,
+      inputJson: generationJobs.inputJson,
+    })
+    .from(mediaAssets)
+    .leftJoin(generationJobs, eq(generationJobs.id, mediaAssets.generationJobId))
+    .where(
+      and(
+        eq(mediaAssets.userId, userId),
+        eq(mediaAssets.characterPackId, packId),
+        eq(mediaAssets.kind, "starter"),
+      ),
+    )
+    .orderBy(desc(mediaAssets.createdAt));
+
+  const selected = await db
+    .select({ mediaAssetId: trainingSetAssets.mediaAssetId })
+    .from(trainingSetAssets)
+    .where(eq(trainingSetAssets.characterPackId, packId));
+  const selectedIds = new Set(selected.map((row) => row.mediaAssetId));
+
+  return rows.map((row) => {
+    const presetId = typeof row.inputJson?.presetId === "string" ? row.inputJson.presetId : null;
+    const vibeKind = row.inputJson?.kind === "body" ? "body" : "face";
+    return {
+      id: row.id,
+      storageKey: row.storageKey,
+      createdAt: row.createdAt,
+      presetId,
+      vibeKind,
+      selected: selectedIds.has(row.id),
+    };
+  });
 }
 
 export async function listLibraryStills(userId: string) {

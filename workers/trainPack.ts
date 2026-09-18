@@ -42,11 +42,12 @@ export async function processTrainPackJob(generationJobId: string, characterPack
       referenceKeys: refs.map((row) => row.storageKey),
     });
 
-    const packStatus = result.status === "succeeded" ? "ready" : "training";
+    const packStatus = result.status === "succeeded" ? "locked" : "training";
     await db
       .update(characterPacks)
       .set({
         status: packStatus,
+        lockedAt: result.status === "succeeded" ? new Date() : pack.lockedAt,
         trainedAt: result.status === "succeeded" ? new Date() : pack.trainedAt,
         providerJobId: result.providerJobId,
         updatedAt: new Date(),

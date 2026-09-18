@@ -2,18 +2,20 @@ import { describe, expect, it } from "vitest";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { FICTIONAL_ADULT_CONSTRAINT } from "@/lib/constants";
 
-const base = {
+const required = {
   characterPackName: "Mara",
   characterPackId: "pack_123",
   poseChipId: "standing-neutral",
-  outfitChipId: "tailored-black",
-  sceneChipId: "cyc-studio",
-  lightingChipId: "softbox",
 };
 
 describe("compileComposerPrompt", () => {
-  it("maps chips to a hidden prompt with fictional-adult lock and character identity", () => {
-    const compiled = compileComposerPrompt(base);
+  it("maps required character + pose and optional chips to a hidden prompt", () => {
+    const compiled = compileComposerPrompt({
+      ...required,
+      outfitChipId: "tailored-black",
+      sceneChipId: "cyc-studio",
+      lightingChipId: "softbox",
+    });
 
     expect(compiled.prompt).toContain(FICTIONAL_ADULT_CONSTRAINT);
     expect(compiled.prompt).toContain('consistent synthetic character "Mara" (pack pack_123)');
@@ -27,32 +29,39 @@ describe("compileComposerPrompt", () => {
     expect(compiled.chips.pose.id).toBe("standing-neutral");
   });
 
-  it("includes optional body lock and omits it when unset", () => {
-    const withBody = compileComposerPrompt({ ...base, bodyChipId: "athletic" });
-    expect(withBody.prompt).toContain("body lock: athletic adult build");
-    expect(withBody.chips.body?.id).toBe("athletic");
-
-    const without = compileComposerPrompt({ ...base, bodyChipId: null });
-    expect(without.prompt).not.toContain("body lock:");
-    expect(without.chips.body).toBeUndefined();
+  it("allows outfit, scene, lighting, and body to be omitted", () => {
+    const compiled = compileComposerPrompt(required);
+    expect(compiled.prompt).toContain("pose: standing upright");
+    expect(compiled.prompt).not.toContain("wardrobe:");
+    expect(compiled.prompt).not.toContain("scene:");
+    expect(compiled.prompt).not.toContain("lighting:");
+    expect(compiled.prompt).not.toContain("body lock:");
+    expect(compiled.chips.outfit).toBeUndefined();
   });
 
-  it("rejects a missing character pack", () => {
-    expect(() => compileComposerPrompt({ ...base, characterPackName: "  " })).toThrow(
+  it("includes optional body lock when set", () => {
+    const withBody = compileComposerPrompt({ ...required, bodyChipId: "athletic" });
+    expect(withBody.prompt).toContain("body lock: athletic adult build");
+    expect(withBody.chips.body?.id).toBe("athletic");
+  });
+
+  it("rejects a missing character pack or pose", () => {
+    expect(() => compileComposerPrompt({ ...required, characterPackName: "  " })).toThrow(
       /Character pack is required/,
     );
-    expect(() => compileComposerPrompt({ ...base, characterPackId: "" })).toThrow(
+    expect(() => compileComposerPrompt({ ...required, characterPackId: "" })).toThrow(
       /Character pack is required/,
     );
+    expect(() => compileComposerPrompt({ ...required, poseChipId: "" })).toThrow(/Pose is required/);
   });
 
   it("rejects unknown chips and cross-family ids", () => {
-    expect(() => compileComposerPrompt({ ...base, poseChipId: "not-a-chip" })).toThrow(/Unknown chip/);
-    expect(() => compileComposerPrompt({ ...base, poseChipId: "softbox" })).toThrow(/expected pose/);
+    expect(() => compileComposerPrompt({ ...required, poseChipId: "not-a-chip" })).toThrow(/Unknown chip/);
+    expect(() => compileComposerPrompt({ ...required, poseChipId: "softbox" })).toThrow(/expected pose/);
   });
 
   it("always includes a negative prompt that blocks minors and real-person likeness", () => {
-    const compiled = compileComposerPrompt(base);
+    const compiled = compileComposerPrompt(required);
     expect(compiled.negativePrompt).toMatch(/child/i);
     expect(compiled.negativePrompt).toMatch(/celebrity/i);
     expect(compiled.negativePrompt).toMatch(/deepfake/i);

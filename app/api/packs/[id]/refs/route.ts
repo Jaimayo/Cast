@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
-import { attachRef, listLibraryStills, listRefs } from "@/server/packs";
+import { listLibraryStills, listRefs, setRefSelected } from "@/server/packs";
 
 export const dynamic = "force-dynamic";
 
-const attachSchema = z.object({
+const bodySchema = z.object({
   mediaAssetId: z.string().uuid(),
-  kind: z.enum(["face_ref", "body_ref", "still"]).default("still"),
+  selected: z.boolean().default(true),
+  kind: z.enum(["face_ref", "body_ref", "still", "starter_face", "starter_body"]).default("still"),
+  source: z.enum(["in_app_still", "generate_starter"]).default("in_app_still"),
+  starterPresetId: z.string().optional(),
 });
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -27,15 +30,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const user = await requireAttestedUser();
     const { id } = await context.params;
-    const body = attachSchema.parse(await request.json());
-    const ref = await attachRef({
+    const body = bodySchema.parse(await request.json());
+    const result = await setRefSelected({
       userId: user.id,
       packId: id,
       mediaAssetId: body.mediaAssetId,
+      selected: body.selected,
       kind: body.kind,
-      source: "in_app_still",
+      source: body.source,
+      starterPresetId: body.starterPresetId,
     });
-    return NextResponse.json({ ref }, { status: 201 });
+    return NextResponse.json(result);
   } catch (err) {
     return jsonError(err);
   }

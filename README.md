@@ -10,7 +10,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 - Age self-attest stored as `users.age_attested_at`; no studio until set
 - Stills first; ~5s clip is Phase 1.5 — UI shows **Animate later**, generation is not implemented
 - Character Pack (Soul ID): generate-then-lock **or** library-train from **in-app** stills; min 12 / target ~20 refs
-- Composer: Character required + pose | outfit | scene | lighting (+ optional body). **No camera. No Advanced panel.**
+- Composer: Character required + Pose required for Generate; Outfit/Scene/Lighting/Body optional. **No camera. No Advanced panel.**
 - Path 1 face/body vibes = `/api/generate-starters` → `training_set_assets` (not Composer templates)
 - Providers: Venice = `generateStill` only; RunPod+Comfy = `trainPack` (+ gen fallback). Sister-company adapter slot is reserved and unwired as a default. Venice has no Soul-ID/train API.
 - Legal boundary: gated access; do not build real-likeness NSFW paths
@@ -29,10 +29,12 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 
 | Path | Stage 1 role |
 | --- | --- |
-| `app/page.tsx` | Non-explicit marketing/landing |
-| `app/invite`, `app/age` | Invite redeem / sign-in, age attest gate |
-| `app/studio/*` | Empty studio shell, composer, packs, starters, jobs |
-| `app/admin/invites` | Admin invite codes v1 (create / list / revoke) |
+| `app/page.tsx` | Non-explicit landing · CTA “Enter with invite” |
+| `app/invite`, `app/age` | Invite redeem / sign-in; age+policy (18+ copy locked) |
+| `app/app/characters*` | Roster, New wizard (Starters \| From library), pack detail |
+| `app/app/create` | Composer chip shell |
+| `app/app/library` | Own stills only |
+| `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` |
 | `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
 | `lib/prompt-compiler.ts` | Chips → hidden prompt (unit tested) |
@@ -79,7 +81,7 @@ pnpm dev
 pnpm worker
 ```
 
-Open http://localhost:3000 — landing is non-explicit. Redeem the invite, attest age, then use studio.
+Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` → `/age` → `/app/characters`.
 
 ### Commands
 

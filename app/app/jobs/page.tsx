@@ -9,7 +9,6 @@ type Job = {
   status: string;
   provider: string;
   errorCode: string | null;
-  createdAt: string;
 };
 
 export default function JobsPage() {
@@ -26,7 +25,7 @@ export default function JobsPage() {
     <section>
       <div className="kicker">Queue</div>
       <h1>Jobs</h1>
-      <p className="muted">generateStill and trainPack workers read Redis via BullMQ.</p>
+      <p className="muted">generateStill (Venice) and trainPack (RunPod) workers.</p>
       {error ? <p className="error">{error}</p> : null}
       <table className="table">
         <thead>

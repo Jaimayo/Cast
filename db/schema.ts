@@ -135,9 +135,9 @@ export const recipes = pgTable("recipes", {
     .notNull()
     .references(() => characterPacks.id, { onDelete: "restrict" }),
   poseChipId: text("pose_chip_id").notNull(),
-  outfitChipId: text("outfit_chip_id").notNull(),
-  sceneChipId: text("scene_chip_id").notNull(),
-  lightingChipId: text("lighting_chip_id").notNull(),
+  outfitChipId: text("outfit_chip_id"),
+  sceneChipId: text("scene_chip_id"),
+  lightingChipId: text("lighting_chip_id"),
   bodyChipId: text("body_chip_id"),
   /** SHA-256 of the compiled prompt. The prompt string itself is not stored. */
   compiledPromptHash: text("compiled_prompt_hash").notNull(),

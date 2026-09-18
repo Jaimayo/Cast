@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
 
-export default function InviteForm() {
+export function InviteForm() {
   const params = useSearchParams();
   const router = useRouter();
   const initialMode = params.get("mode") === "signin" ? "signin" : "invite";
@@ -15,10 +15,7 @@ export default function InviteForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const title = useMemo(
-    () => (mode === "invite" ? "Redeem an invite" : "Sign in"),
-    [mode],
-  );
+  const title = useMemo(() => (mode === "invite" ? "Invite" : "Sign in"), [mode]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -36,7 +33,7 @@ export default function InviteForm() {
           method: "POST",
           body: JSON.stringify({ email, password }),
         });
-        router.push(data.user.ageAttestedAt ? "/studio" : "/age");
+        router.push(data.user.ageAttestedAt ? "/app" : "/age");
       }
       router.refresh();
     } catch (err) {
@@ -50,9 +47,7 @@ export default function InviteForm() {
     <main className="panel card">
       <div className="kicker">Gated access</div>
       <h1>{title}</h1>
-      <p className="muted">
-        Cast is invite-only. After sign-in you must attest your age before the studio unlocks.
-      </p>
+      <p className="muted">Enter your invite code. Invalid, used, or expired codes cannot continue.</p>
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Email</label>
         <input
@@ -86,7 +81,7 @@ export default function InviteForm() {
         ) : null}
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={pending}>
-          {pending ? "Working…" : mode === "invite" ? "Create account" : "Sign in"}
+          {pending ? "Working…" : "Continue"}
         </button>
       </form>
       <p className="muted">

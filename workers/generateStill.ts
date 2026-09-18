@@ -1,11 +1,5 @@
 import { eq } from "drizzle-orm";
-import {
-  characterPacks,
-  generationJobs,
-  mediaAssets,
-  recipes,
-  trainingSetAssets,
-} from "@/db/schema";
+import { characterPacks, generationJobs, mediaAssets, recipes } from "@/db/schema";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { getDb } from "@/server/db";
 import {
@@ -71,9 +65,9 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         const recipe = recipeRows[0];
         if (recipe) {
           poseChipId = recipe.poseChipId;
-          outfitChipId = recipe.outfitChipId;
-          sceneChipId = recipe.sceneChipId;
-          lightingChipId = recipe.lightingChipId;
+          outfitChipId = recipe.outfitChipId ?? "";
+          sceneChipId = recipe.sceneChipId ?? "";
+          lightingChipId = recipe.lightingChipId ?? "";
           bodyChipId = recipe.bodyChipId;
         }
       }
@@ -82,9 +76,9 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         characterPackName: pack.name,
         characterPackId: pack.id,
         poseChipId,
-        outfitChipId,
-        sceneChipId,
-        lightingChipId,
+        outfitChipId: outfitChipId || null,
+        sceneChipId: sceneChipId || null,
+        lightingChipId: lightingChipId || null,
         bodyChipId,
       });
       prompt = compiled.prompt;
@@ -126,41 +120,15 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
     await putObject({ key, body: result.imageBytes, mimeType: result.mimeType });
 
     const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
-    const mediaRows = await db
-      .insert(mediaAssets)
-      .values({
-        userId: job.userId,
-        kind: mediaKind,
-        storageKey: key,
-        mimeType: result.mimeType,
-        byteSize: result.imageBytes.byteLength,
-        generationJobId: job.id,
-        characterPackId: pack.id,
-      })
-      .returning();
-    const media = mediaRows[0];
-
-    if (media && job.kind === "generate_starter") {
-      const kind = job.inputJson.kind === "body" ? "starter_body" : "starter_face";
-      await db.insert(trainingSetAssets).values({
-        characterPackId: pack.id,
-        userId: job.userId,
-        mediaAssetId: media.id,
-        kind,
-        source: "generate_starter",
-        starterPresetId: String(job.inputJson.presetId ?? ""),
-      });
-    }
-
-    if (media && job.kind === "generate_still" && pack.status === "draft") {
-      await db.insert(trainingSetAssets).values({
-        characterPackId: pack.id,
-        userId: job.userId,
-        mediaAssetId: media.id,
-        kind: "still",
-        source: "in_app_still",
-      });
-    }
+    await db.insert(mediaAssets).values({
+      userId: job.userId,
+      kind: mediaKind,
+      storageKey: key,
+      mimeType: result.mimeType,
+      byteSize: result.imageBytes.byteLength,
+      generationJobId: job.id,
+      characterPackId: pack.id,
+    });
 
     await db
       .update(generationJobs)

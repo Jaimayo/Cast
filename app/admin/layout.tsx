@@ -12,6 +12,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   if (!user) redirect("/invite");
   if (!user.ageAttestedAt) redirect("/age");
-  if (user.role !== "admin") redirect("/studio");
+  if (user.role !== "admin") redirect("/app");
   return <main className="wrap" style={{ padding: "40px 0 80px" }}>{children}</main>;
 }

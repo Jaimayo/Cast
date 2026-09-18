@@ -3,10 +3,10 @@
   "dialect": "postgresql",
   "entries": [
     {
-      "idx": 0,
+      "idx": 1,
       "version": "7",
-      "when": 1758170000000,
-      "tag": "0000_stage1_init",
+      "when": 1758174000000,
+      "tag": "0001_optional_composer_chips",
       "breakpoints": true
     }
   ]

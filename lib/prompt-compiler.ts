@@ -4,12 +4,11 @@ import { requireStarterPreset } from "@/lib/starters";
 
 export type ComposerSelectionInput = {
   characterPackName: string;
-  /** Opaque pack id included so identity is bound, not described as a real person. */
   characterPackId: string;
   poseChipId: string;
-  outfitChipId: string;
-  sceneChipId: string;
-  lightingChipId: string;
+  outfitChipId?: string | null;
+  sceneChipId?: string | null;
+  lightingChipId?: string | null;
   bodyChipId?: string | null;
 };
 
@@ -18,9 +17,9 @@ export type CompiledPrompt = {
   negativePrompt: string;
   chips: {
     pose: Chip;
-    outfit: Chip;
-    scene: Chip;
-    lighting: Chip;
+    outfit?: Chip;
+    scene?: Chip;
+    lighting?: Chip;
     body?: Chip;
   };
 };
@@ -39,41 +38,54 @@ function assertName(name: string): string {
   return trimmed;
 }
 
+function optionalChip(id: string | null | undefined, family: Chip["family"]): Chip | undefined {
+  if (!id) {
+    return undefined;
+  }
+  return requireChip(id, family);
+}
+
 /**
  * Maps Composer chips → hidden prompt. The UI must never expose this string.
- * No camera family is accepted; there is no Advanced panel input.
+ * Character + Pose required. Outfit/Scene/Lighting/Body optional.
+ * No camera family; no Advanced panel input.
  */
 export function compileComposerPrompt(input: ComposerSelectionInput): CompiledPrompt {
   const name = assertName(input.characterPackName);
   if (!input.characterPackId.trim()) {
     throw new Error("Character pack is required");
   }
+  if (!input.poseChipId?.trim()) {
+    throw new Error("Pose is required");
+  }
 
   const pose = requireChip(input.poseChipId, "pose");
-  const outfit = requireChip(input.outfitChipId, "outfit");
-  const scene = requireChip(input.sceneChipId, "scene");
-  const lighting = requireChip(input.lightingChipId, "lighting");
-  const body = input.bodyChipId ? requireChip(input.bodyChipId, "body") : undefined;
+  const outfit = optionalChip(input.outfitChipId, "outfit");
+  const scene = optionalChip(input.sceneChipId, "scene");
+  const lighting = optionalChip(input.lightingChipId, "lighting");
+  const body = optionalChip(input.bodyChipId, "body");
 
   const parts = [
     FICTIONAL_ADULT_CONSTRAINT,
     `consistent synthetic character "${name}" (pack ${input.characterPackId})`,
     `pose: ${pose.fragment}`,
-    `wardrobe: ${outfit.fragment}`,
-    `scene: ${scene.fragment}`,
-    `lighting: ${lighting.fragment}`,
   ];
-
-  if (body) {
-    parts.push(`body lock: ${body.fragment}`);
-  }
-
+  if (outfit) parts.push(`wardrobe: ${outfit.fragment}`);
+  if (scene) parts.push(`scene: ${scene.fragment}`);
+  if (lighting) parts.push(`lighting: ${lighting.fragment}`);
+  if (body) parts.push(`body lock: ${body.fragment}`);
   parts.push("still photograph, single hero frame, no camera move, no video");
 
   return {
     prompt: parts.join(". ") + ".",
     negativePrompt: NEGATIVE,
-    chips: { pose, outfit, scene, lighting, ...(body ? { body } : {}) },
+    chips: {
+      pose,
+      ...(outfit ? { outfit } : {}),
+      ...(scene ? { scene } : {}),
+      ...(lighting ? { lighting } : {}),
+      ...(body ? { body } : {}),
+    },
   };
 }
 
@@ -87,13 +99,14 @@ export function compileStarterPrompt(input: {
   const view = preset.kind === "face" ? "identity contact-sheet still" : "body-proportion reference still";
 
   return {
-    prompt: [
-      FICTIONAL_ADULT_CONSTRAINT,
-      `training reference for synthetic character "${name}" (pack ${input.characterPackId})`,
-      view,
-      preset.fragment,
-      "neutral expression, identity-stable, no wardrobe drama, no cinematic camera language",
-    ].join(". ") + ".",
+    prompt:
+      [
+        FICTIONAL_ADULT_CONSTRAINT,
+        `training reference for synthetic character "${name}" (pack ${input.characterPackId})`,
+        view,
+        preset.fragment,
+        "neutral expression, identity-stable, no wardrobe drama, no cinematic camera language",
+      ].join(". ") + ".",
     negativePrompt: NEGATIVE,
   };
 }

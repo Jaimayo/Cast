@@ -1,5 +1,5 @@
 /**
- * Edge-safe HMAC session token. Payload is JSON `{ sub, exp }`.
+ * Edge-safe HMAC session token. Payload is JSON `{ sub, exp, age }`.
  * DB lookups happen in `server/auth.ts` after verification.
  */
 
@@ -8,6 +8,8 @@ const encoder = new TextEncoder();
 export type SessionPayload = {
   sub: string;
   exp: number;
+  /** True after ageAttestedAt is set. Middleware reads this — no DB on the edge. */
+  age: boolean;
 };
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -77,7 +79,7 @@ export async function decodeSession(token: string, secret: string): Promise<Sess
     if (parsed.exp * 1000 < Date.now()) {
       return null;
     }
-    return parsed;
+    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age) };
   } catch {
     return null;
   }

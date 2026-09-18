@@ -1,10 +1,14 @@
 import { Suspense } from "react";
-import InviteForm from "./invite-form";
+import { GateHeader } from "@/components/gate-header";
+import { InviteForm } from "@/components/invite-form";
 
 export default function InviteRoute() {
   return (
-    <Suspense fallback={<main className="panel card">Loading…</main>}>
-      <InviteForm />
-    </Suspense>
+    <>
+      <GateHeader />
+      <Suspense fallback={<main className="panel card">Loading…</main>}>
+        <InviteForm />
+      </Suspense>
+    </>
   );
 }

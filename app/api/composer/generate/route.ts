@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   characterPackId: z.string().uuid(),
   poseChipId: z.string().min(1),
-  outfitChipId: z.string().min(1),
-  sceneChipId: z.string().min(1),
-  lightingChipId: z.string().min(1),
+  outfitChipId: z.string().min(1).optional().nullable(),
+  sceneChipId: z.string().min(1).optional().nullable(),
+  lightingChipId: z.string().min(1).optional().nullable(),
   bodyChipId: z.string().min(1).optional().nullable(),
 });
 

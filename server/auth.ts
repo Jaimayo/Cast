@@ -28,9 +28,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-async function setSessionCookie(userId: string): Promise<void> {
+async function setSessionCookie(userId: string, ageAttested: boolean): Promise<void> {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  const token = await encodeSession({ sub: userId, exp }, getEnv().sessionSecret);
+  const token = await encodeSession({ sub: userId, exp, age: ageAttested }, getEnv().sessionSecret);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -113,10 +113,10 @@ export async function redeemInvite(input: {
   const invites = await db.select().from(inviteCodes).where(eq(inviteCodes.code, code)).limit(1);
   const invite = invites[0];
   if (!invite || invite.revokedAt) {
-    throw new AuthError("Invite code is invalid or revoked", 400);
+    throw new AuthError("This invite code is invalid.", 400);
   }
   if (invite.useCount >= invite.maxUses) {
-    throw new AuthError("Invite code has already been used", 400);
+    throw new AuthError("This invite code has already been used.", 400);
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -144,7 +144,7 @@ export async function redeemInvite(input: {
     return user;
   });
 
-  await setSessionCookie(created.id);
+  await setSessionCookie(created.id, false);
   return created;
 }
 
@@ -162,7 +162,7 @@ export async function signIn(input: { email: string; password: string }): Promis
     user.role = "admin";
   }
 
-  await setSessionCookie(user.id);
+  await setSessionCookie(user.id, Boolean(user.ageAttestedAt));
   return user;
 }
 
@@ -177,6 +177,7 @@ export async function attestAge(userId: string): Promise<User> {
   if (!user) {
     throw new AuthError("User not found", 404);
   }
+  await setSessionCookie(user.id, true);
   return user;
 }
 
