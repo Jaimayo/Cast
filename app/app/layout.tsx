@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { PrivacyStrip } from "@/components/privacy-strip";
-import { getCurrentUser } from "@/server/auth";
+import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/invite");
   }
   if (!user) redirect("/invite");
+  await ensureSessionMatchesUser(user);
   if (!user.ageAttestedAt) redirect("/age");
 
   return (

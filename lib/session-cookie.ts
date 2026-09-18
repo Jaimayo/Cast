@@ -12,6 +12,32 @@ export type SessionPayload = {
   age: boolean;
 };
 
+export type SessionCookieAttrs = {
+  httpOnly: true;
+  sameSite: "lax";
+  secure: boolean;
+  path: "/";
+  maxAge: number;
+  expires?: Date;
+};
+
+export function sessionCookieAttrs(input: {
+  production: boolean;
+  maxAge: number;
+}): SessionCookieAttrs {
+  const attrs: SessionCookieAttrs = {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: input.production,
+    path: "/",
+    maxAge: input.maxAge,
+  };
+  if (input.maxAge <= 0) {
+    attrs.expires = new Date(0);
+  }
+  return attrs;
+}
+
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) {
@@ -49,34 +75,38 @@ export async function encodeSession(payload: SessionPayload, secret: string): Pr
 }
 
 export async function decodeSession(token: string, secret: string): Promise<SessionPayload | null> {
-  const [body, signature] = token.split(".");
-  if (!body || !signature) {
-    return null;
-  }
-
-  const key = await importKey(secret);
-  const expected = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const actual = base64UrlToBytes(signature);
-  const expectedBytes = new Uint8Array(expected);
-  if (expectedBytes.length !== actual.length) {
-    return null;
-  }
-
-  let mismatch = 0;
-  for (let i = 0; i < expectedBytes.length; i += 1) {
-    mismatch |= (expectedBytes[i] ?? 0) ^ (actual[i] ?? 0);
-  }
-  if (mismatch !== 0) {
-    return null;
-  }
-
   try {
-    const json = new TextDecoder().decode(base64UrlToBytes(body));
-    const parsed = JSON.parse(json) as SessionPayload;
-    if (typeof parsed.sub !== "string" || typeof parsed.exp !== "number") {
+    const parts = token.split(".");
+    if (parts.length !== 2) {
       return null;
     }
-    if (parsed.exp * 1000 < Date.now()) {
+    const [body, signature] = parts;
+    if (!body || !signature) {
+      return null;
+    }
+
+    const key = await importKey(secret);
+    const expected = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+    const actual = base64UrlToBytes(signature);
+    const expectedBytes = new Uint8Array(expected);
+    if (expectedBytes.length !== actual.length) {
+      return null;
+    }
+
+    let mismatch = 0;
+    for (let i = 0; i < expectedBytes.length; i += 1) {
+      mismatch |= (expectedBytes[i] ?? 0) ^ (actual[i] ?? 0);
+    }
+    if (mismatch !== 0) {
+      return null;
+    }
+
+    const json = new TextDecoder().decode(base64UrlToBytes(body));
+    const parsed = JSON.parse(json) as Partial<SessionPayload>;
+    if (typeof parsed.sub !== "string" || parsed.sub.length === 0 || typeof parsed.exp !== "number") {
+      return null;
+    }
+    if (!Number.isFinite(parsed.exp) || parsed.exp * 1000 < Date.now()) {
       return null;
     }
     return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age) };

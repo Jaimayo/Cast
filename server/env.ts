@@ -1,4 +1,5 @@
 import { loadLocalEnv } from "@/lib/load-env";
+import { roleForEmail } from "@/lib/auth-guards";
 
 loadLocalEnv();
 
@@ -64,5 +65,5 @@ export function getEnv() {
 }
 
 export function isAdminEmail(email: string): boolean {
-  return getEnv().adminEmails.includes(email.trim().toLowerCase());
+  return roleForEmail(email, getEnv().adminEmails) === "admin";
 }

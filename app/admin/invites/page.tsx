@@ -10,7 +10,18 @@ type Invite = {
   maxUses: number;
   useCount: number;
   revokedAt: string | null;
+  expiresAt: string | null;
 };
+
+function inviteState(invite: Invite): string {
+  if (invite.revokedAt) {
+    return "revoked";
+  }
+  if (invite.expiresAt && Date.parse(invite.expiresAt) <= Date.now()) {
+    return "expired";
+  }
+  return invite.note ?? "";
+}
 
 export default function AdminInvitesPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -83,7 +94,7 @@ export default function AdminInvitesPage() {
               <td>
                 {invite.useCount}/{invite.maxUses}
               </td>
-              <td>{invite.revokedAt ? "revoked" : invite.note}</td>
+              <td>{inviteState(invite)}</td>
               <td>
                 {invite.revokedAt ? null : (
                   <button className="btn secondary" type="button" onClick={() => void revoke(invite.id)}>
