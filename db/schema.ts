@@ -118,22 +118,28 @@ export const mediaAssets = pgTable(
   (table) => [uniqueIndex("media_assets_generation_job_id_idx").on(table.generationJobId)],
 );
 
-export const trainingSetAssets = pgTable("training_set_assets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  characterPackId: uuid("character_pack_id")
-    .notNull()
-    .references(() => characterPacks.id, { onDelete: "cascade" }),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  mediaAssetId: uuid("media_asset_id")
-    .notNull()
-    .references(() => mediaAssets.id, { onDelete: "cascade" }),
-  kind: trainingAssetKindEnum("kind").notNull(),
-  source: trainingAssetSourceEnum("source").notNull(),
-  starterPresetId: text("starter_preset_id"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const trainingSetAssets = pgTable(
+  "training_set_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterPackId: uuid("character_pack_id")
+      .notNull()
+      .references(() => characterPacks.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mediaAssetId: uuid("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    kind: trainingAssetKindEnum("kind").notNull(),
+    source: trainingAssetSourceEnum("source").notNull(),
+    starterPresetId: text("starter_preset_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("training_set_assets_pack_media_idx").on(table.characterPackId, table.mediaAssetId),
+  ],
+);
 
 export const recipes = pgTable("recipes", {
   id: uuid("id").primaryKey().defaultRandom(),

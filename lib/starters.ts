@@ -1,3 +1,5 @@
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+
 /**
  * Path 1 face/body vibes.
  * These are Generate-starters, NOT Composer templates. Results land on TrainingSetAssets.
@@ -85,11 +87,8 @@ export function getStarterPreset(id: string): StarterPreset | undefined {
 
 export function requireStarterPreset(id: string, kind?: StarterKind): StarterPreset {
   const preset = byId.get(id);
-  if (!preset) {
-    throw new Error(`Unknown starter preset: ${id}`);
-  }
-  if (kind && preset.kind !== kind) {
-    throw new Error(`Starter ${id} is ${preset.kind}, expected ${kind}`);
+  if (!preset || (kind && preset.kind !== kind)) {
+    throw new JobError({ code: JOB_ERROR_CODES.INVALID_STARTER, retryable: false });
   }
   return preset;
 }
