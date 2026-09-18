@@ -108,7 +108,12 @@ describe("public preview DTOs", () => {
       previewUrl: mediaPreviewPath("asset-1"),
     });
     expect(job.previewUrl).toBe("/api/media/asset-1");
+    expect(job.ageSeconds).toBe(0);
+    expect(job.attemptCount).toBe(0);
+    expect(job.lastErrorCode).toBeNull();
+    expect(job.lastError).toBeNull();
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey/);
+    expect("attemptsMade" in job).toBe(false);
 
     const media = publicMediaAsset({
       id: "asset-1",
@@ -122,5 +127,70 @@ describe("public preview DTOs", () => {
       previewExpiresInSeconds: MEDIA_PRESIGN_TTL_SECONDS,
     });
     expect(JSON.stringify(media)).not.toMatch(/still\/u1|storageKey/);
+  });
+});
+
+describe("job observability DTO", () => {
+  const now = new Date("2026-09-18T09:10:00.000Z");
+
+  it("exposes ageSeconds from createdAt, attemptCount, and user-safe lastError aliases", () => {
+    const job = publicJob(
+      {
+        id: "job-fail",
+        kind: "generate_still",
+        status: "failed",
+        createdAt: new Date("2026-09-18T09:08:30.000Z"),
+        attemptsMade: 3,
+        errorCode: "NETWORK_ERROR",
+        errorMessage: "Network error talking to the image service. Try again.",
+        resultAssetKey: "still/u1/secret.webp",
+        previewUrl: null,
+      },
+      now,
+    );
+    expect(job).toMatchObject({
+      id: "job-fail",
+      status: "failed",
+      ageSeconds: 90,
+      attemptCount: 3,
+      lastErrorCode: "NETWORK_ERROR",
+      lastError: "Network error talking to the image service. Try again.",
+      errorCode: "NETWORK_ERROR",
+      errorMessage: "Network error talking to the image service. Try again.",
+      previewUrl: null,
+    });
+    expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey|attemptsMade/);
+  });
+
+  it("uses catalog copy when a failed job has a code but no message", () => {
+    const job = publicJob(
+      {
+        id: "job-old",
+        kind: "train_pack",
+        status: "failed",
+        createdAt: "2026-09-18T08:10:00.000Z",
+        errorCode: "TRAIN_POLL_TIMEOUT",
+        errorMessage: null,
+      },
+      now,
+    );
+    expect(job.ageSeconds).toBe(3600);
+    expect(job.attemptCount).toBe(0);
+    expect(job.lastErrorCode).toBe("TRAIN_POLL_TIMEOUT");
+    expect(job.lastError).toBe("Training took too long. You can try Train & lock again.");
+  });
+
+  it("does not leak stacks or prompts through lastError", () => {
+    const job = publicJob({
+      id: "job-raw",
+      kind: "generate_still",
+      status: "failed",
+      errorCode: "GENERATE_STILL_FAILED",
+      errorMessage: "Venice explode\n    at generateStill (workers/generateStill.ts:12)\ncompiled prompt: secret pose",
+      resultAssetKey: "still/u1/x.webp",
+    });
+    expect(job.lastError).toBe("Still generation failed. Try again from Create.");
+    expect(job.lastError).not.toMatch(/compiled prompt|at generateStill|secret pose/);
+    expect(JSON.stringify(job)).not.toMatch(/still\/u1/);
   });
 });

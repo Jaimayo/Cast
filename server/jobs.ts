@@ -45,10 +45,16 @@ export async function existingMediaForJob(jobId: string) {
   return rows[0] ?? null;
 }
 
-export async function markJobRunning(jobId: string): Promise<void> {
+export async function markJobRunning(jobId: string, attemptsMade?: number): Promise<void> {
   await getDb()
     .update(generationJobs)
-    .set({ status: "running", errorCode: null, errorMessage: null, updatedAt: new Date() })
+    .set({
+      status: "running",
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: new Date(),
+      ...(attemptsMade != null ? { attemptsMade } : {}),
+    })
     .where(eq(generationJobs.id, jobId));
 }
 
@@ -82,6 +88,7 @@ export async function markJobFailedIfActive(input: {
   errorCode: string;
   errorMessage: string;
   providerJobId?: string | null;
+  attemptsMade?: number;
 }): Promise<boolean> {
   const job = await loadGenerationJob(input.jobId);
   if (!job || job.status === "succeeded" || job.status === "failed" || job.status === "canceled") {
@@ -94,6 +101,7 @@ export async function markJobFailedIfActive(input: {
       errorCode: input.errorCode,
       errorMessage: input.errorMessage,
       ...(input.providerJobId ? { providerJobId: input.providerJobId } : {}),
+      ...(input.attemptsMade != null ? { attemptsMade: input.attemptsMade } : {}),
       updatedAt: new Date(),
     })
     .where(eq(generationJobs.id, input.jobId));
@@ -170,6 +178,7 @@ export async function finalizeWorkerError(input: {
     errorCode: classified.code,
     errorMessage: userMessage,
     providerJobId: input.providerJobId,
+    attemptsMade: input.attempt.attempt,
   });
 
   if (input.kind === "train_pack" && input.packId) {
@@ -185,7 +194,11 @@ export async function finalizeWorkerError(input: {
 }
 
 /** BullMQ `failed` after the last attempt or stall — persist if the worker crashed before catch. */
-export async function persistQueueFailure(generationJobId: string, err?: unknown): Promise<void> {
+export async function persistQueueFailure(
+  generationJobId: string,
+  err?: unknown,
+  attemptsMade?: number,
+): Promise<void> {
   const job = await loadGenerationJob(generationJobId);
   if (!job || job.status === "succeeded" || job.status === "failed" || job.status === "canceled") {
     return;
@@ -206,6 +219,7 @@ export async function persistQueueFailure(generationJobId: string, err?: unknown
     jobId: job.id,
     errorCode: code,
     errorMessage: userMessage,
+    attemptsMade,
   });
 
   if (job.kind === "train_pack" && job.characterPackId) {

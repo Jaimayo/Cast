@@ -1,4 +1,5 @@
 import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
+import { jobAgeSeconds, jobAttemptCount, userSafeLastError } from "@/lib/job-errors";
 
 export { MEDIA_PRESIGN_TTL_SECONDS };
 
@@ -68,12 +69,34 @@ export function publicPack<T extends { adapterStorageKey?: string | null; adapte
   return { ...rest, hasAdapter: Boolean(adapterStorageKey && adapterStorageKey.trim()) };
 }
 
-export function publicJob<T extends { resultAssetKey?: string | null; previewUrl?: string | null }>(
-  job: T,
-): Omit<T, "resultAssetKey"> & { previewUrl: string | null } {
-  const { resultAssetKey, ...rest } = job;
+export type PublicJobFields = {
+  previewUrl: string | null;
+  ageSeconds: number;
+  attemptCount: number;
+  lastErrorCode: string | null;
+  lastError: string | null;
+};
+
+export function publicJob<
+  T extends {
+    resultAssetKey?: string | null;
+    previewUrl?: string | null;
+    createdAt?: Date | string | null;
+    attemptsMade?: number | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+  },
+>(job: T, now: Date = new Date()): Omit<T, "resultAssetKey" | "attemptsMade"> & PublicJobFields {
+  const { resultAssetKey, attemptsMade, ...rest } = job;
   void resultAssetKey;
-  return { ...rest, previewUrl: job.previewUrl ?? null };
+  return {
+    ...rest,
+    previewUrl: job.previewUrl ?? null,
+    ageSeconds: jobAgeSeconds(job.createdAt, now),
+    attemptCount: jobAttemptCount(attemptsMade),
+    lastErrorCode: job.errorCode ?? null,
+    lastError: userSafeLastError(job.errorCode, job.errorMessage),
+  };
 }
 
 export function publicMediaAsset<T extends { id: string; storageKey?: string }>(

@@ -83,7 +83,7 @@ for (const worker of [generateWorker, trainWorker]) {
     const generationJobId =
       "generationJobId" in job.data ? String(job.data.generationJobId) : null;
     if (!generationJobId) return;
-    void persistQueueFailure(generationJobId, err)
+    void persistQueueFailure(generationJobId, err, attempt.attempt)
       .then(() =>
         enqueueDeadLetterJob({
           sourceQueue: worker.name,

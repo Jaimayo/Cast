@@ -12,7 +12,14 @@ import { isLockedSoul, LOCK_SOUL_ID_FIRST } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
-type Job = { id: string; kind: string; status: string; previewUrl?: string | null };
+type Job = {
+  id: string;
+  kind: string;
+  status: string;
+  previewUrl?: string | null;
+  lastError?: string | null;
+  lastErrorCode?: string | null;
+};
 
 function spotlightPack(packs: Pack[], initialPackId?: string): Pack | undefined {
   const preferred = initialPackId ? packs.find((pack) => pack.id === initialPackId) : undefined;
@@ -106,7 +113,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
       }
       if (data.job.status === "succeeded" || data.job.status === "failed") {
         if (data.job.status === "failed") {
-          setError("Generate failed. Try again.");
+          setError(data.job.lastError || "Generate failed. Try again.");
         }
         return;
       }
@@ -211,6 +218,12 @@ export function ComposerShell(props: { initialPackId?: string }) {
               ) : (
                 <p>
                   {job.status} · {job.id.slice(0, 8)}
+                  {job.status === "failed" && job.lastError ? (
+                    <>
+                      <br />
+                      <span className="error">{job.lastError}</span>
+                    </>
+                  ) : null}
                 </p>
               )}
             </div>

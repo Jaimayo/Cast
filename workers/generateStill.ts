@@ -60,7 +60,7 @@ export async function processGenerateStillJob(
     return;
   }
 
-  await markJobRunning(job.id);
+  await markJobRunning(job.id, attempt.attempt);
 
   try {
     if (!job.characterPackId) {
