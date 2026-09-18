@@ -132,8 +132,8 @@
   }
 
   .cast-dots {
-    background-image: radial-gradient(#c4a574 0.85px, transparent 0.85px);
-    background-size: 14px 14px;
+    background-image: radial-gradient(#c4a574 1.05px, transparent 1.05px);
+    background-size: 12px 12px;
   }
 
   .cast-metallic {

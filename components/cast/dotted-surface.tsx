@@ -10,7 +10,7 @@ export function DottedSurface(props: { children: ReactNode; className?: string }
         props.className,
       )}
     >
-      <div className="cast-dots pointer-events-none absolute inset-0 opacity-[0.14]" aria-hidden />
+      <div className="cast-dots pointer-events-none absolute inset-0 opacity-[0.28]" aria-hidden />
       <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/20 via-transparent to-background/50" />
       <div className="relative z-10">{props.children}</div>
     </div>
