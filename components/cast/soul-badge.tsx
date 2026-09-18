@@ -6,7 +6,15 @@ export function SoulBadge(props: { name?: string; locked?: boolean; status?: str
     ? soulStatusLabel(props.status)
     : props.locked
       ? "Locked"
-      : "Draft";
+      : null;
+
+  if (!status) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground">
+        No Soul ID
+      </span>
+    );
+  }
 
   if (status === "Locked") {
     return (
