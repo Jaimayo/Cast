@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { AuthError } from "@/lib/auth-error";
+import { RATE_LIMIT_CODES, RATE_LIMIT_MESSAGES, RateLimitError } from "@/lib/rate-limit";
 import { jsonError } from "@/server/http";
 import { ObjectNotFoundError } from "@/server/storage";
 
-async function bodyOf(response: Response): Promise<{ error?: string }> {
-  return (await response.json()) as { error?: string };
+async function bodyOf(response: Response): Promise<{
+  error?: string;
+  code?: string;
+  retryAfterSeconds?: number;
+}> {
+  return (await response.json()) as { error?: string; code?: string; retryAfterSeconds?: number };
 }
 
 describe("jsonError media failures", () => {
@@ -32,6 +37,31 @@ describe("jsonError media failures", () => {
     expect(await bodyOf(revoked)).toEqual({ error: "This invite code has been revoked." });
     expect(adminOnly.status).toBe(403);
     expect(await bodyOf(adminOnly)).toEqual({ error: "Admin only" });
+  });
+
+  it("returns 429 with a UX code, message, and Retry-After", async () => {
+    const stills = jsonError(new RateLimitError(RATE_LIMIT_CODES.GENERATE_STILL_RATE_LIMIT, 12));
+    expect(stills.status).toBe(429);
+    expect(stills.headers.get("Retry-After")).toBe("12");
+    expect(await bodyOf(stills)).toEqual({
+      error: RATE_LIMIT_MESSAGES.GENERATE_STILL_RATE_LIMIT,
+      code: RATE_LIMIT_CODES.GENERATE_STILL_RATE_LIMIT,
+      retryAfterSeconds: 12,
+    });
+
+    const invite = jsonError(new RateLimitError(RATE_LIMIT_CODES.INVITE_REDEEM_RATE_LIMIT, 90));
+    expect(invite.status).toBe(429);
+    expect(await bodyOf(invite)).toMatchObject({
+      code: RATE_LIMIT_CODES.INVITE_REDEEM_RATE_LIMIT,
+      error: RATE_LIMIT_MESSAGES.INVITE_REDEEM_RATE_LIMIT,
+    });
+
+    const busy = jsonError(new RateLimitError(RATE_LIMIT_CODES.TRAIN_PACK_BUSY, 15));
+    expect(busy.status).toBe(429);
+    expect(await bodyOf(busy)).toMatchObject({
+      code: RATE_LIMIT_CODES.TRAIN_PACK_BUSY,
+      error: RATE_LIMIT_MESSAGES.TRAIN_PACK_BUSY,
+    });
   });
 
   it("maps missing objects to 404 without leaking paths", async () => {
