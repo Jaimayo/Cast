@@ -7,6 +7,13 @@ export const PACK_TARGET_REFS = 20;
 export const SESSION_COOKIE = "cast_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
+/**
+ * R2/S3 presigned GET lifetime. Studio never ships a permanent public object URL.
+ * `<img>` tags load `/api/media/:id` (invite + age session). That route remints a
+ * GET after this TTL so an expired preview refreshes without exposing bucket keys.
+ */
+export const MEDIA_PRESIGN_TTL_SECONDS = 120;
+
 export const JOB_QUEUES = {
   generateStill: "generateStill",
   trainPack: "trainPack",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 
 type Job = {
@@ -80,8 +81,7 @@ export default function JobsPage() {
               <td>{job.provider}</td>
               <td>
                 {job.previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="still-thumb job-thumb" src={job.previewUrl} alt="" />
+                  <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
                 ) : (
                   "—"
                 )}

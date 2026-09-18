@@ -1,5 +1,6 @@
 import { PackStatusPanel } from "@/components/pack-status-panel";
 import { PackWizard } from "@/components/pack-wizard";
+import { publicPack } from "@/lib/media";
 import { countRefs, getPack } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
 import { notFound } from "next/navigation";
@@ -17,5 +18,5 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
     return <PackWizard initialPackId={pack.id} />;
   }
 
-  return <PackStatusPanel pack={pack} refCount={refCount} />;
+  return <PackStatusPanel pack={publicPack(pack)} refCount={refCount} />;
 }

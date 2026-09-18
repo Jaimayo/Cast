@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { publicJob } from "@/lib/media";
 import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import { enqueueGenerateStill } from "@/server/packs";
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
       lightingChipId: body.lightingChipId,
       bodyChipId: body.bodyChipId,
     });
-    return NextResponse.json(result, { status: 202 });
+    return NextResponse.json({ ...result, job: publicJob(result.job) }, { status: 202 });
   } catch (err) {
     return jsonError(err);
   }

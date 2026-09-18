@@ -1,5 +1,6 @@
 import { listLibraryStills } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
+import { StillPreview } from "@/components/still-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,7 @@ export default async function LibraryPage() {
       <div className="contact-sheet">
         {stills.map((still) => (
           <div key={still.id} className="sheet-tile">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="still-thumb" src={still.previewUrl} alt="Your still" />
+            <StillPreview src={still.previewUrl} alt="Your still" />
           </div>
         ))}
       </div>

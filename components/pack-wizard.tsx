@@ -10,9 +10,9 @@ import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
 
 type Preset = { id: string; kind: string; label: string };
-type Pack = { id: string; name: string; status: string; origin: string; adapterStorageKey?: string | null };
+type Pack = { id: string; name: string; status: string; origin: string; hasAdapter?: boolean };
 type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean; previewUrl?: string | null };
-type LibraryItem = { id: string; kind: string; storageKey: string; previewUrl?: string | null };
+type LibraryItem = { id: string; kind: string; previewUrl?: string | null };
 
 type Ref = { mediaAssetId: string };
 
@@ -270,7 +270,7 @@ export function PackWizard(props: { initialPackId?: string }) {
                     {item.previewUrl ? (
                       <StillPreview src={item.previewUrl} alt="Library still" />
                     ) : (
-                      item.storageKey
+                      <span className="muted">Still</span>
                     )}
                     <div className="muted">{selected ? "Selected" : "Tap to add"}</div>
                   </button>

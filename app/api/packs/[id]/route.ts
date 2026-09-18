@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { publicPack } from "@/lib/media";
 import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import {
@@ -25,7 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       listStarterSheet(user.id, pack.id),
       listLibraryStills(user.id),
     ]);
-    return NextResponse.json({ pack, refs, refCount, starters, library });
+    return NextResponse.json({ pack: publicPack(pack), refs, refCount, starters, library });
   } catch (err) {
     return jsonError(err);
   }

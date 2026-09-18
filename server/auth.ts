@@ -4,21 +4,14 @@ import { cookies } from "next/headers";
 import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { inviteCodes, users, type User } from "@/db/schema";
+import { AuthError } from "@/lib/auth-error";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/constants";
 import { newInviteCode } from "@/lib/invite-code";
 import { decodeSession, encodeSession } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv, isAdminEmail } from "@/server/env";
 
-export class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly status: number = 401,
-  ) {
-    super(message);
-    this.name = "AuthError";
-  }
-}
+export { AuthError } from "@/lib/auth-error";
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);

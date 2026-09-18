@@ -6,6 +6,7 @@ import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button
 import { HeroCanvas } from "@/components/hero-canvas";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
+import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { isLockedSoul, LOCK_SOUL_ID_FIRST } from "@/lib/soul";
 
@@ -205,8 +206,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
             <div key={job.id} className="history-item">
               {job.previewUrl ? (
                 <button type="button" className="history-thumb" onClick={() => setHeroUrl(job.previewUrl ?? null)}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className="still-thumb" src={job.previewUrl} alt="Still" />
+                  <StillPreview src={job.previewUrl} alt="Still" />
                 </button>
               ) : (
                 <p>
