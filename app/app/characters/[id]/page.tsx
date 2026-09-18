@@ -20,15 +20,21 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
   }
 
   return (
-    <section>
+    <section className="page-section">
       <div className="kicker">Character Pack</div>
       <div className="row-between">
         <h1>{pack.name}</h1>
         <SoulBadge name={pack.name} locked={locked} />
       </div>
-      <p className="muted">
+      <p className="lede-sm">
         {soulStatusLabel(pack.status)} · refs {refCount}/20
       </p>
+      {pack.status === "training" ? (
+        <div className="banner">
+          Training is in progress. This is a progress state only — Generate stays locked until Soul ID is
+          Locked.
+        </div>
+      ) : null}
       <div className="banner">Face upload from a real person is intentionally omitted.</div>
       <div className="actions">
         {locked ? (
@@ -36,7 +42,7 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
             Use in Create
           </a>
         ) : (
-          <span className="muted">Generate unlocks when this pack is Locked.</span>
+          <span className="muted">Lock Soul ID first — Generate unlocks when this pack is Locked.</span>
         )}
         <button className="btn secondary" type="button" disabled title="Later">
           Test grid

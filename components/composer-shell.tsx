@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CharacterChipPicker } from "@/components/character-chip-picker";
 import { ChipRail } from "@/components/chip-rail";
+import { CreditsLater, PrivacyBadge } from "@/components/privacy-badge";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
 import { SoulBadge } from "@/components/soul-badge";
@@ -12,7 +14,7 @@ type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
 type Job = { id: string; kind: string; status: string };
 
-export function ComposerShell(props: { initialPackId?: string }) {
+export function ComposerShell(props: { initialPackId?: string; stubMode?: boolean }) {
   const [chips, setChips] = useState<{
     pose: Chip[];
     outfit: Chip[];
@@ -32,31 +34,37 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    void Promise.all([
+  async function loadStudio(preferredId?: string) {
+    const [chipData, packData, jobData] = await Promise.all([
       api<{ pose: Chip[]; outfit: Chip[]; scene: Chip[]; lighting: Chip[]; body: Chip[] }>("/api/chips"),
       api<{ packs: Pack[] }>("/api/packs"),
       api<{ jobs: Job[] }>("/api/jobs").catch(() => ({ jobs: [] })),
-    ]).then(([chipData, packData, jobData]) => {
-      setChips(chipData);
-      setPacks(packData.packs);
-      setJobs(jobData.jobs.slice(0, 8));
-      const preferred = props.initialPackId
-        ? packData.packs.find((pack) => pack.id === props.initialPackId)
-        : undefined;
-      const locked =
-        preferred && isLockedSoul(preferred.status)
-          ? preferred
-          : packData.packs.find((pack) => isLockedSoul(pack.status));
-      setCharacterPackId(locked?.id ?? "");
-      setPoseChipId(chipData.pose[0]?.id ?? "");
-    });
+    ]);
+    setChips(chipData);
+    setPacks(packData.packs);
+    setJobs(jobData.jobs.slice(0, 8));
+    setPoseChipId((current) => current || chipData.pose[0]?.id || "");
+    const preferred = preferredId
+      ? packData.packs.find((pack) => pack.id === preferredId)
+      : undefined;
+    const locked =
+      preferred && isLockedSoul(preferred.status)
+        ? preferred
+        : packData.packs.find((pack) => isLockedSoul(pack.status));
+    if (preferred && !isLockedSoul(preferred.status)) {
+      setCharacterPackId(preferred.id);
+    } else {
+      setCharacterPackId(locked?.id ?? preferred?.id ?? "");
+    }
+  }
+
+  useEffect(() => {
+    void loadStudio(props.initialPackId);
   }, [props.initialPackId]);
 
   const selected = packs.find((pack) => pack.id === characterPackId);
   const locked = Boolean(selected && isLockedSoul(selected.status));
   const canGenerate = locked && Boolean(poseChipId);
-
   const characterName = selected?.name;
 
   async function generate() {
@@ -75,7 +83,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
           bodyChipId: bodyChipId || null,
         }),
       });
-      setMessage(`Queued still ${result.job.id}. Prompt stays hidden.`);
+      setMessage(`Queued still ${result.job.id.slice(0, 8)}. Prompt stays hidden.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed");
     } finally {
@@ -93,36 +101,52 @@ export function ComposerShell(props: { initialPackId?: string }) {
   }
 
   return (
-    <div>
+    <div className="composer-page">
       <div className="app-header">
-        <SoulBadge name={characterName} locked={locked} />
-        <span className="muted">Private · credits later</span>
+        <div className="header-left">
+          <SoulBadge name={characterName} locked={locked} />
+          {characterName ? <span className="character-name">{characterName}</span> : null}
+        </div>
+        <div className="header-right">
+          <PrivacyBadge />
+          <CreditsLater />
+        </div>
       </div>
+
+      <CharacterChipPicker packs={packs} value={characterPackId} onChange={setCharacterPackId} />
+
       <div className="composer-shell">
-        <ChipRail
-          packs={packs}
-          chips={chips}
-          characterPackId={characterPackId}
-          poseChipId={poseChipId}
-          outfitChipId={outfitChipId}
-          sceneChipId={sceneChipId}
-          lightingChipId={lightingChipId}
-          bodyChipId={bodyChipId}
-          onCharacter={setCharacterPackId}
-          onPose={setPoseChipId}
-          onOutfit={setOutfitChipId}
-          onScene={setSceneChipId}
-          onLighting={setLightingChipId}
-          onBody={setBodyChipId}
-        />
-        <div className="hero-canvas">
-          <HeroCanvas locked={locked} message={message} />
-          {error ? <p className="error">{error}</p> : null}
-          <div className="actions" style={{ marginTop: 0 }}>
-            <GenerateButton disabled={!canGenerate} pending={pending} onClick={() => void generate()} />
-            <TeaserAnimateLater />
+        <div className="composer-main">
+          <div className="hero-canvas">
+            <HeroCanvas
+              locked={locked}
+              message={message}
+              selectedPackId={characterPackId || undefined}
+              stubMode={props.stubMode}
+              onDemoSeeded={(id) => void loadStudio(id)}
+            />
+            {error ? <p className="error">{error}</p> : null}
+            <div className="composer-cta">
+              <GenerateButton disabled={!canGenerate} pending={pending} onClick={() => void generate()} />
+              <TeaserAnimateLater />
+            </div>
+            <p className="hidden-note">
+              No prompt textarea. No camera. No Advanced. Starters live in the Pack wizard only.
+            </p>
           </div>
-          <p className="hidden-note">No prompt textarea. No camera. No Advanced. Starters live in the Pack wizard only.</p>
+          <ChipRail
+            chips={chips}
+            poseChipId={poseChipId}
+            outfitChipId={outfitChipId}
+            sceneChipId={sceneChipId}
+            lightingChipId={lightingChipId}
+            bodyChipId={bodyChipId}
+            onPose={setPoseChipId}
+            onOutfit={setOutfitChipId}
+            onScene={setSceneChipId}
+            onLighting={setLightingChipId}
+            onBody={setBodyChipId}
+          />
         </div>
         <aside className="history-rail">
           <h4>History</h4>

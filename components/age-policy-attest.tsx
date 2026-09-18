@@ -35,9 +35,13 @@ export function AgePolicyAttest() {
   }
 
   return (
-    <main className="panel card">
+    <main className="panel card gate-card age-card">
       <div className="kicker">Age confirmation</div>
       <h1>Adults only</h1>
+      <p className="lede-sm">
+        Studio chrome stays hidden until both confirmations are checked. This is a self-attest, not an
+        ID scan.
+      </p>
       <form onSubmit={onSubmit}>
         <label className="checkbox-row">
           <input type="checkbox" checked={age} onChange={(event) => setAge(event.target.checked)} />
