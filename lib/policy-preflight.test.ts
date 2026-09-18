@@ -168,14 +168,18 @@ describe("compiled prompt denylist stub", () => {
   });
 
   it("blocks starters and Train & lock on the same denylist surface", () => {
+    const silent = () => {};
     expect(() =>
-      preflightStarterPrompt({ characterPackName: "teen vibe", characterPackId: "pack_1", presetId: "face-warm-olive" }),
+      preflightStarterPrompt(
+        { characterPackName: "teen vibe", characterPackId: "pack_1", presetId: "face-warm-olive" },
+        { log: silent },
+      ),
     ).toThrow(JobError);
-    expect(() => preflightTrainPack({ characterPackName: "my face ref", characterPackId: "pack_1" })).toThrow(
-      JobError,
-    );
+    expect(() =>
+      preflightTrainPack({ characterPackName: "my face ref", characterPackId: "pack_1" }, { log: silent }),
+    ).toThrow(JobError);
     try {
-      preflightTrainPack({ characterPackName: "underage muse", characterPackId: "pack_1" });
+      preflightTrainPack({ characterPackName: "underage muse", characterPackId: "pack_1" }, { log: silent });
       throw new Error("expected JobError");
     } catch (err) {
       expect((err as JobError).code).toBe(JOB_ERROR_CODES.POLICY_DENIED);
