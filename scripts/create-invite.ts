@@ -2,6 +2,9 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { inviteCodes } from "@/db/schema";
 import { newInviteCode } from "@/lib/invite-code";
+import { loadLocalEnv } from "@/lib/load-env";
+
+loadLocalEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

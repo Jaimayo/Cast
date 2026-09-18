@@ -30,13 +30,14 @@ export default function InviteForm() {
           method: "POST",
           body: JSON.stringify({ email, password, inviteCode }),
         });
+        router.push("/age");
       } else {
-        await api("/api/auth/sign-in", {
+        const data = await api<{ user: { ageAttestedAt: string | null } }>("/api/auth/sign-in", {
           method: "POST",
           body: JSON.stringify({ email, password }),
         });
+        router.push(data.user.ageAttestedAt ? "/studio" : "/age");
       }
-      router.push("/age");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not continue");

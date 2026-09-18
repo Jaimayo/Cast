@@ -1,3 +1,7 @@
+import { loadLocalEnv } from "@/lib/load-env";
+
+loadLocalEnv();
+
 function read(name: string): string | undefined {
   const value = process.env[name];
   return value && value.length > 0 ? value : undefined;

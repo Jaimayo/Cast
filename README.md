@@ -54,7 +54,6 @@ Requires Node 20+ and [pnpm](https://pnpm.io/).
 ```bash
 pnpm install
 cp .env.example .env.local
-# also copy into `.env` so the worker/scripts see the same values
 cp .env.example .env
 ```
 
