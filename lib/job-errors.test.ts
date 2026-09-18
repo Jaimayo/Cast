@@ -63,6 +63,18 @@ describe("classifyJobError", () => {
       code: JOB_ERROR_CODES.INVALID_STARTER,
       retryable: false,
     });
+    expect(
+      classifyJobError(new Error("Need at least 12 training refs to lock (have 7; target ~20).")),
+    ).toMatchObject({
+      code: JOB_ERROR_CODES.PACK_REFS_TOO_FEW,
+      retryable: false,
+    });
+    expect(classifyJobError(new Error("This pack already has 20 training refs. Remove one to add another."))).toMatchObject({
+      code: JOB_ERROR_CODES.PACK_REFS_FULL,
+      retryable: false,
+    });
+    expect(isPermanentCode(JOB_ERROR_CODES.PACK_REFS_TOO_FEW)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.PACK_REFS_FULL)).toBe(true);
     expect(classifyJobError(new Error(LOCK_SOUL_ID_FIRST))).toMatchObject({
       code: JOB_ERROR_CODES.PACK_NOT_LOCKED,
       retryable: false,

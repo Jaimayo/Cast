@@ -8,9 +8,16 @@ import {
   trainingSetAssets,
   type CharacterPack,
 } from "@/db/schema";
-import { PACK_TARGET_REFS } from "@/lib/constants";
+import { isUniqueViolation } from "@/lib/db-errors";
 import { generateStillJobProvider } from "@/lib/generate-route";
-import { canLockPack, lockWarning } from "@/lib/pack-rules";
+import { JOB_ERROR_CODES, JobError, type JobErrorCode } from "@/lib/job-errors";
+import {
+  attachRefDecision,
+  canLockPack,
+  generateStarterPackDecision,
+  lockPackDecision,
+  trainPackDecision,
+} from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
@@ -22,6 +29,8 @@ import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
 import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
+
+type PackDb = Pick<ReturnType<typeof getDb>, "select" | "insert" | "update" | "delete">;
 
 function hashPrompt(prompt: string): string {
   return createHash("sha256").update(prompt).digest("hex");
@@ -130,13 +139,92 @@ export async function createPack(input: {
   return pack;
 }
 
-export async function countRefs(packId: string): Promise<number> {
-  const db = getDb();
+function throwPackGate<T extends { ok: true } | { ok: false; code: string; message: string }>(
+  gate: T,
+): asserts gate is Extract<T, { ok: true }> {
+  if (!gate.ok) {
+    throw new JobError({
+      code: gate.code as JobErrorCode,
+      userMessage: gate.message,
+      retryable: false,
+    });
+  }
+}
+
+async function countRefsOn(db: PackDb, packId: string): Promise<number> {
   const rows = await db
-    .select({ id: trainingSetAssets.id })
+    .select({ n: sql<number>`count(*)::int` })
     .from(trainingSetAssets)
     .where(eq(trainingSetAssets.characterPackId, packId));
-  return rows.length;
+  return Number(rows[0]?.n ?? 0);
+}
+
+export async function countRefs(packId: string): Promise<number> {
+  return countRefsOn(getDb(), packId);
+}
+
+async function loadOwnedPackForUpdate(tx: PackDb, userId: string, packId: string) {
+  const rows = await tx
+    .select()
+    .from(characterPacks)
+    .where(and(eq(characterPacks.id, packId), eq(characterPacks.userId, userId)))
+    .limit(1)
+    .for("update");
+  const pack = rows[0];
+  if (!pack) {
+    throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
+  }
+  return pack;
+}
+
+async function existingRefOn(
+  tx: PackDb,
+  packId: string,
+  mediaAssetId: string,
+) {
+  const rows = await tx
+    .select()
+    .from(trainingSetAssets)
+    .where(
+      and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.mediaAssetId, mediaAssetId)),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+function resolveAttachKind(input: {
+  kind: "face_ref" | "body_ref" | "still" | "starter_face" | "starter_body";
+  source: "in_app_still" | "generate_starter";
+  starterPresetId?: string;
+}): {
+  kind: "face_ref" | "body_ref" | "still" | "starter_face" | "starter_body";
+  starterPresetId: string | null;
+} {
+  const starterPresetId = input.starterPresetId?.trim() || null;
+  if (input.source === "generate_starter" && starterPresetId) {
+    const preset = requireStarterPreset(starterPresetId);
+    return {
+      kind: preset.kind === "body" ? "starter_body" : "starter_face",
+      starterPresetId,
+    };
+  }
+  return { kind: input.kind, starterPresetId };
+}
+
+function assertMediaMatchesSource(
+  mediaKind: string,
+  source: "in_app_still" | "generate_starter",
+): void {
+  const ok =
+    (source === "generate_starter" && mediaKind === "starter") ||
+    (source === "in_app_still" && (mediaKind === "still" || mediaKind === "pack_ref"));
+  if (!ok) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: "That still isn't available to add as a training ref.",
+      retryable: false,
+    });
+  }
 }
 
 export async function setRefSelected(input: {
@@ -148,85 +236,133 @@ export async function setRefSelected(input: {
   source: "in_app_still" | "generate_starter";
   starterPresetId?: string;
 }) {
-  const pack = await getPack(input.userId, input.packId);
-  if (!pack) {
-    throw new Error("Pack not found");
-  }
-  if (pack.status !== "draft" && pack.status !== "failed") {
-    throw new Error("Refs can only be changed on a draft pack");
-  }
-
+  await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
+  const resolved = input.selected ? resolveAttachKind(input) : null;
   const db = getDb();
-  const existing = await db
-    .select()
-    .from(trainingSetAssets)
-    .where(
-      and(
-        eq(trainingSetAssets.characterPackId, pack.id),
-        eq(trainingSetAssets.mediaAssetId, input.mediaAssetId),
-      ),
-    )
-    .limit(1);
 
-  if (!input.selected) {
-    if (existing[0]) {
-      await db.delete(trainingSetAssets).where(eq(trainingSetAssets.id, existing[0].id));
+  try {
+    return await db.transaction(async (tx) => {
+      const pack = await loadOwnedPackForUpdate(tx, input.userId, input.packId);
+      if (pack.status !== "draft" && pack.status !== "failed") {
+        throw new JobError({
+          code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+          userMessage: "Refs can only be changed on a draft pack",
+          retryable: false,
+        });
+      }
+
+      const existing = await existingRefOn(tx, pack.id, input.mediaAssetId);
+      const refCount = await countRefsOn(tx, pack.id);
+      const decision = attachRefDecision({
+        wantSelected: input.selected,
+        alreadyAttached: Boolean(existing),
+        refCount,
+      });
+
+      if (decision.action === "reject") {
+        throw new JobError({
+          code: JOB_ERROR_CODES.PACK_REFS_FULL,
+          userMessage: decision.message,
+          retryable: false,
+        });
+      }
+
+      if (decision.action === "noop-unselected") {
+        return { selected: false as const, refCount };
+      }
+      if (decision.action === "noop-selected") {
+        return { selected: true as const, ref: existing!, refCount };
+      }
+
+      if (decision.action === "delete") {
+        await tx.delete(trainingSetAssets).where(eq(trainingSetAssets.id, existing!.id));
+        return { selected: false as const, refCount: Math.max(0, refCount - 1) };
+      }
+
+      const media = await tx
+        .select()
+        .from(mediaAssets)
+        .where(and(eq(mediaAssets.id, input.mediaAssetId), eq(mediaAssets.userId, input.userId)))
+        .limit(1);
+      if (!media[0]) {
+        throw new JobError({
+          code: JOB_ERROR_CODES.INVALID_INPUT,
+          userMessage: "That still isn't available to add as a training ref.",
+          retryable: false,
+        });
+      }
+      assertMediaMatchesSource(media[0].kind, input.source);
+
+      const rows = await tx
+        .insert(trainingSetAssets)
+        .values({
+          characterPackId: pack.id,
+          userId: input.userId,
+          mediaAssetId: input.mediaAssetId,
+          kind: resolved!.kind,
+          source: input.source,
+          starterPresetId: resolved!.starterPresetId,
+        })
+        .onConflictDoNothing({
+          target: [trainingSetAssets.characterPackId, trainingSetAssets.mediaAssetId],
+        })
+        .returning();
+
+      if (!rows[0]) {
+        const raced = await existingRefOn(tx, pack.id, input.mediaAssetId);
+        if (!raced) {
+          throw new JobError({
+            code: JOB_ERROR_CODES.INVALID_INPUT,
+            userMessage: "Could not attach that still. Try again.",
+            retryable: false,
+          });
+        }
+        return {
+          selected: true as const,
+          ref: raced,
+          refCount: await countRefsOn(tx, pack.id),
+        };
+      }
+      return { selected: true as const, ref: rows[0], refCount: refCount + 1 };
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) {
+      throw err;
     }
-    return { selected: false, refCount: await countRefs(pack.id) };
+    const refCount = await countRefs(input.packId);
+    const dbAfter = getDb();
+    const raced = await existingRefOn(dbAfter, input.packId, input.mediaAssetId);
+    if (!raced) {
+      throw err;
+    }
+    return { selected: true as const, ref: raced, refCount };
   }
-
-  const current = await countRefs(pack.id);
-  if (existing[0]) {
-    return { selected: true, ref: existing[0], refCount: current };
-  }
-  if (current >= PACK_TARGET_REFS) {
-    throw new Error(`Pack already has the target of ${PACK_TARGET_REFS} refs`);
-  }
-
-  const media = await db
-    .select()
-    .from(mediaAssets)
-    .where(and(eq(mediaAssets.id, input.mediaAssetId), eq(mediaAssets.userId, input.userId)))
-    .limit(1);
-  if (!media[0]) {
-    throw new Error("Media asset not found");
-  }
-
-  const rows = await db
-    .insert(trainingSetAssets)
-    .values({
-      characterPackId: pack.id,
-      userId: input.userId,
-      mediaAssetId: input.mediaAssetId,
-      kind: input.kind,
-      source: input.source,
-      starterPresetId: input.starterPresetId ?? null,
-    })
-    .returning();
-  return { selected: true, ref: rows[0], refCount: current + 1 };
 }
 
 export async function lockPack(userId: string, packId: string) {
-  const pack = await getPack(userId, packId);
-  if (!pack) {
-    throw new Error("Pack not found");
-  }
-  if (pack.status !== "draft") {
-    throw new Error("Only draft packs can be locked");
-  }
-  const refs = await countRefs(pack.id);
-  const gate = canLockPack(refs);
-  if (!gate.ok) {
-    throw new Error(gate.message);
-  }
-
+  await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
-  const rows = await db
-    .update(characterPacks)
-    .set({ status: "locked", lockedAt: new Date(), updatedAt: new Date() })
-    .where(eq(characterPacks.id, pack.id))
-    .returning();
-  return { pack: rows[0], warning: lockWarning(refs), refCount: refs };
+  return db.transaction(async (tx) => {
+    const pack = await loadOwnedPackForUpdate(tx, userId, packId);
+    const refs = await countRefsOn(tx, pack.id);
+    const gate = lockPackDecision(pack.status, refs);
+    throwPackGate(gate);
+
+    const rows = await tx
+      .update(characterPacks)
+      .set({ status: "locked", lockedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(characterPacks.id, pack.id), eq(characterPacks.status, "draft")))
+      .returning();
+    const locked = rows[0];
+    if (!locked) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+        userMessage: "Only draft packs can be locked",
+        retryable: false,
+      });
+    }
+    return { pack: locked, warning: gate.warning, refCount: refs };
+  });
 }
 
 export async function enqueueGenerateStill(input: {
@@ -311,15 +447,12 @@ export async function enqueueGenerateStarter(input: {
   characterPackId: string;
   presetId: string;
 }) {
+  const preset = requireStarterPreset(input.presetId);
   const pack = await getPack(input.userId, input.characterPackId);
   if (!pack) {
-    throw new Error("Character pack is required");
+    throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
-  if (pack.status !== "draft") {
-    throw new Error("Starters can only be added to a draft pack");
-  }
-
-  const preset = requireStarterPreset(input.presetId);
+  throwPackGate(generateStarterPackDecision(pack.status));
   compileStarterPrompt({
     characterPackName: pack.name,
     characterPackId: pack.id,
@@ -341,7 +474,11 @@ export async function enqueueGenerateStarter(input: {
     .returning();
   const job = jobRows[0];
   if (!job) {
-    throw new Error("Failed to create starter job");
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: "Could not queue that starter. Try again.",
+      retryable: true,
+    });
   }
 
   await enqueueGenerateStillJob(job.id);
@@ -351,39 +488,53 @@ export async function enqueueGenerateStarter(input: {
 export async function enqueueTrainPack(userId: string, packId: string) {
   const pack = await getPack(userId, packId);
   if (!pack) {
-    throw new Error("Pack not found");
+    throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
-  if (pack.status !== "draft" && pack.status !== "failed") {
-    throw new Error("Train & lock is available on draft packs");
-  }
-  const refs = await countRefs(pack.id);
-  const gate = canLockPack(refs);
-  if (!gate.ok) {
-    throw new Error(gate.message);
-  }
+  throwPackGate(trainPackDecision(pack.status, await countRefs(pack.id)));
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();
-  await db
-    .update(characterPacks)
-    .set({ status: "training", updatedAt: new Date() })
-    .where(eq(characterPacks.id, pack.id));
+  const job = await db.transaction(async (tx) => {
+    const locked = await loadOwnedPackForUpdate(tx, userId, packId);
+    const refs = await countRefsOn(tx, locked.id);
+    throwPackGate(trainPackDecision(locked.status, refs));
 
-  const jobRows = await db
-    .insert(generationJobs)
-    .values({
-      userId,
-      kind: "train_pack",
-      status: "queued",
-      provider: providerForTrain(),
-      characterPackId: pack.id,
-      inputJson: { refCount: refs },
-    })
-    .returning();
-  const job = jobRows[0];
-  if (!job) {
-    throw new Error("Failed to create train job");
-  }
+    const updated = await tx
+      .update(characterPacks)
+      .set({ status: "training", updatedAt: new Date() })
+      .where(
+        and(eq(characterPacks.id, locked.id), inArray(characterPacks.status, ["draft", "failed"])),
+      )
+      .returning();
+    if (!updated[0]) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+        userMessage: "Train & lock is available on draft packs",
+        retryable: false,
+      });
+    }
+
+    const jobRows = await tx
+      .insert(generationJobs)
+      .values({
+        userId,
+        kind: "train_pack",
+        status: "queued",
+        provider: providerForTrain(),
+        characterPackId: locked.id,
+        inputJson: { refCount: refs },
+      })
+      .returning();
+    const created = jobRows[0];
+    if (!created) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: "Could not queue Train & lock. Try again.",
+        retryable: true,
+      });
+    }
+    return created;
+  });
 
   await enqueueTrainPackJob({
     generationJobId: job.id,
@@ -420,16 +571,17 @@ export async function enqueueTestGrid(userId: string, packId: string) {
 export async function enqueueRetrainPack(userId: string, packId: string) {
   const pack = await getPack(userId, packId);
   if (!pack) {
-    throw new Error("Pack not found");
+    throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
   if (!canRetrainPack(pack.status)) {
-    throw new Error("Retrain is available after Soul ID is Locked.");
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: "Retrain is available after Soul ID is Locked.",
+      retryable: false,
+    });
   }
   const refs = await countRefs(pack.id);
-  const gate = canLockPack(refs);
-  if (!gate.ok) {
-    throw new Error(gate.message);
-  }
+  throwPackGate(canLockPack(refs));
   await guardJobEnqueue(userId, "trainPack");
 
   const db = getDb();

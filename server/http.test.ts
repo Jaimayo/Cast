@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AuthError } from "@/lib/auth-error";
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+import { packRefsTooFewMessage } from "@/lib/pack-rules";
 import { RATE_LIMIT_CODES, RATE_LIMIT_MESSAGES, RateLimitError } from "@/lib/rate-limit";
 import { jsonError } from "@/server/http";
 import { ObjectNotFoundError } from "@/server/storage";
@@ -68,6 +70,34 @@ describe("jsonError media failures", () => {
     const missing = jsonError(new ObjectNotFoundError());
     expect(missing.status).toBe(404);
     expect(await bodyOf(missing)).toEqual({ error: "Media not found" });
+  });
+
+  it("returns user-safe starter and lock codes without fragments or stacks", async () => {
+    const starter = jsonError(new JobError({ code: JOB_ERROR_CODES.INVALID_STARTER, retryable: false }));
+    expect(starter.status).toBe(400);
+    const starterPayload = await bodyOf(starter);
+    expect(starterPayload).toEqual({
+      error: "That starter isn't valid. Pick a face or body vibe again.",
+      code: JOB_ERROR_CODES.INVALID_STARTER,
+    });
+    expect(JSON.stringify(starterPayload)).not.toMatch(/fragment|olive|prompt/i);
+
+    const tooFew = jsonError(
+      new JobError({
+        code: JOB_ERROR_CODES.PACK_REFS_TOO_FEW,
+        userMessage: packRefsTooFewMessage(7),
+        retryable: false,
+      }),
+    );
+    expect(tooFew.status).toBe(400);
+    expect(await bodyOf(tooFew)).toEqual({
+      error: packRefsTooFewMessage(7),
+      code: JOB_ERROR_CODES.PACK_REFS_TOO_FEW,
+    });
+
+    const full = jsonError(new JobError({ code: JOB_ERROR_CODES.PACK_REFS_FULL, retryable: false }));
+    expect(full.status).toBe(400);
+    expect(await bodyOf(full)).toMatchObject({ code: JOB_ERROR_CODES.PACK_REFS_FULL });
   });
 
   it("redacts filesystem and bucket errors", async () => {

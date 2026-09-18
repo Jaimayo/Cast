@@ -86,4 +86,14 @@ describe("compileStarterPrompt", () => {
     });
     expect(body.prompt).toContain("body-proportion reference still");
   });
+
+  it("rejects unknown vibes without leaking a compiled fragment", () => {
+    expect(() =>
+      compileStarterPrompt({
+        characterPackName: "Mara",
+        characterPackId: "pack_123",
+        presetId: "not-a-vibe",
+      }),
+    ).toThrow(/That starter isn't valid/);
+  });
 });

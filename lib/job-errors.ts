@@ -32,6 +32,8 @@ export const JOB_ERROR_CODES = {
   GENERATE_NO_IMAGE: "GENERATE_NO_IMAGE",
   POSE_REQUIRED: "POSE_REQUIRED",
   JOB_STALLED: "JOB_STALLED",
+  PACK_REFS_TOO_FEW: "PACK_REFS_TOO_FEW",
+  PACK_REFS_FULL: "PACK_REFS_FULL",
 } as const;
 
 export type JobErrorCode = (typeof JOB_ERROR_CODES)[keyof typeof JOB_ERROR_CODES];
@@ -60,6 +62,8 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   GENERATE_NO_IMAGE: "The image service returned no still. Try again.",
   POSE_REQUIRED: "Pose is required",
   JOB_STALLED: "This job stopped unexpectedly. Try again.",
+  PACK_REFS_TOO_FEW: "Need at least 12 training refs to lock Soul ID.",
+  PACK_REFS_FULL: "This pack already has 20 training refs. Remove one to add another.",
 };
 
 const RETRYABLE_HTTP = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
@@ -110,7 +114,9 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT ||
     code === JOB_ERROR_CODES.TRAIN_PACK_CANCELED ||
     code === JOB_ERROR_CODES.POSE_REQUIRED ||
-    code === JOB_ERROR_CODES.JOB_STALLED
+    code === JOB_ERROR_CODES.JOB_STALLED ||
+    code === JOB_ERROR_CODES.PACK_REFS_TOO_FEW ||
+    code === JOB_ERROR_CODES.PACK_REFS_FULL
   );
 }
 
@@ -298,8 +304,21 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
   if (/unknown chip|expected pose|expected outfit|expected scene|expected lighting|expected body|pose is required/i.test(message)) {
     return classified(JOB_ERROR_CODES.INVALID_CHIP, false);
   }
-  if (/unknown starter preset|starter .+ is (face|body), expected/i.test(message)) {
+  if (
+    /unknown starter preset|starter .+ is (face|body), expected|that starter isn't valid/i.test(
+      message,
+    )
+  ) {
     return classified(JOB_ERROR_CODES.INVALID_STARTER, false);
+  }
+  if (/need at least \d+ training refs/i.test(message) || /PACK_REFS_TOO_FEW/i.test(message)) {
+    return classified(JOB_ERROR_CODES.PACK_REFS_TOO_FEW, false, message);
+  }
+  if (
+    /already has (the target of |\d+ training refs)/i.test(message) ||
+    /PACK_REFS_FULL/i.test(message)
+  ) {
+    return classified(JOB_ERROR_CODES.PACK_REFS_FULL, false, message);
   }
   if (/character pack name is too long|character pack is required/i.test(message)) {
     return classified(JOB_ERROR_CODES.INVALID_INPUT, false);
