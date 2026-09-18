@@ -18,6 +18,22 @@ describe("jsonError media failures", () => {
     expect(await bodyOf(attest)).toEqual({ error: "Age attestation required" });
   });
 
+  it("returns distinct invite failure copy", async () => {
+    const invalid = jsonError(new AuthError("This invite code is invalid.", 400));
+    const used = jsonError(new AuthError("This invite code has already been used.", 400));
+    const expired = jsonError(new AuthError("This invite code has expired.", 400));
+    const revoked = jsonError(new AuthError("This invite code has been revoked.", 400));
+    const adminOnly = jsonError(new AuthError("Admin only", 403));
+
+    expect(invalid.status).toBe(400);
+    expect(await bodyOf(invalid)).toEqual({ error: "This invite code is invalid." });
+    expect(await bodyOf(used)).toEqual({ error: "This invite code has already been used." });
+    expect(await bodyOf(expired)).toEqual({ error: "This invite code has expired." });
+    expect(await bodyOf(revoked)).toEqual({ error: "This invite code has been revoked." });
+    expect(adminOnly.status).toBe(403);
+    expect(await bodyOf(adminOnly)).toEqual({ error: "Admin only" });
+  });
+
   it("maps missing objects to 404 without leaking paths", async () => {
     const missing = jsonError(new ObjectNotFoundError());
     expect(missing.status).toBe(404);

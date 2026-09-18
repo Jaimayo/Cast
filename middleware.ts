@@ -1,4 +1,5 @@
 import { SESSION_COOKIE } from "@/lib/constants";
+import { authPathRedirect } from "@/lib/auth-gate";
 import { decodeSession } from "@/lib/session-cookie";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -21,35 +22,10 @@ async function readSession(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await readSession(request);
-  const studio =
-    pathname === "/app" ||
-    pathname.startsWith("/app/") ||
-    pathname.startsWith("/admin");
-
-  if (studio) {
-    if (!session) {
-      return redirectTo(request, "/invite");
-    }
-    if (!session.age) {
-      return redirectTo(request, "/age");
-    }
-    return NextResponse.next();
+  const redirectPath = authPathRedirect(pathname, session);
+  if (redirectPath) {
+    return redirectTo(request, redirectPath);
   }
-
-  if (pathname === "/age") {
-    if (!session) {
-      return redirectTo(request, "/invite");
-    }
-    if (session.age) {
-      return redirectTo(request, "/app");
-    }
-    return NextResponse.next();
-  }
-
-  if (pathname === "/invite" && session) {
-    return redirectTo(request, session.age ? "/app" : "/age");
-  }
-
   return NextResponse.next();
 }
 

@@ -73,6 +73,7 @@ export const inviteCodes = pgTable(
     redeemedByUserId: uuid("redeemed_by_user_id").references(() => users.id),
     redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("invite_codes_code_idx").on(table.code)],
