@@ -1,6 +1,6 @@
 "use client";
 
-import { StillPreview } from "@/components/still-preview";
+import { ElasticGallery } from "@/components/elastic-gallery";
 
 type Tile = {
   id: string;
@@ -14,23 +14,22 @@ export function ContactSheet(props: {
   tiles: Tile[];
   onToggle: (id: string, selected: boolean, vibeKind: string, presetId: string | null) => void;
 }) {
-  if (props.tiles.length === 0) {
-    return <p className="muted">No starter stills yet. Generate face or body vibes above.</p>;
-  }
+  const byId = new Map(props.tiles.map((tile) => [tile.id, tile]));
   return (
-    <div className="contact-sheet">
-      {props.tiles.map((tile) => (
-        <button
-          key={tile.id}
-          type="button"
-          className={tile.selected ? "sheet-tile selected" : "sheet-tile"}
-          onClick={() => props.onToggle(tile.id, !tile.selected, tile.vibeKind, tile.presetId)}
-        >
-          <StillPreview src={tile.previewUrl} alt={`${tile.vibeKind} starter`} label={tile.presetId ?? "starter"} />
-          {tile.previewUrl ? <div className="muted">{tile.presetId ?? "starter"}</div> : null}
-          <div className="muted">{tile.selected ? "Selected" : "Tap to select"}</div>
-        </button>
-      ))}
-    </div>
+    <ElasticGallery
+      items={props.tiles.map((tile) => ({
+        id: tile.id,
+        src: tile.previewUrl,
+        alt: `${tile.vibeKind} starter`,
+        label: tile.presetId ?? tile.vibeKind,
+        selected: tile.selected,
+      }))}
+      onSelect={(id) => {
+        const tile = byId.get(id);
+        if (!tile) return;
+        props.onToggle(tile.id, !tile.selected, tile.vibeKind, tile.presetId);
+      }}
+      empty={<p className="text-sm text-muted-foreground">No starter stills yet. Generate face or body vibes above.</p>}
+    />
   );
 }

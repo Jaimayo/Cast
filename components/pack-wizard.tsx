@@ -4,16 +4,21 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
 import { RefCountMeter } from "@/components/ref-count-meter";
-import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { PACK_MIN_REFS } from "@/lib/constants";
 import { soulStatusLabel } from "@/lib/soul";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MetallicButton } from "@/components/metallic-button";
+import { ElasticGallery } from "@/components/elastic-gallery";
+import { cn } from "@/lib/utils";
 
 type Preset = { id: string; kind: string; label: string };
 type Pack = { id: string; name: string; status: string; origin: string; hasAdapter?: boolean };
 type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean; previewUrl?: string | null };
 type LibraryItem = { id: string; kind: string; previewUrl?: string | null };
-
 type Ref = { mediaAssetId: string };
 
 export function PackWizard(props: { initialPackId?: string }) {
@@ -156,38 +161,53 @@ export function PackWizard(props: { initialPackId?: string }) {
     !training;
 
   return (
-    <section>
-      <div className="row-between">
+    <section className="mx-auto max-w-3xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="kicker">New character</div>
-          <h1>{pack?.name || "Character Pack"}</h1>
+          <p className="text-[11px] tracking-[0.16em] text-primary uppercase">New character</p>
+          <h1 className="font-heading text-3xl">{pack?.name || "Character Pack"}</h1>
         </div>
-        <span className="fictional-badge">Fictional only</span>
+        <StatusBadge status="outline" leftLabel="Fictional" rightLabel="only" />
       </div>
-      <p className="muted">
+      <p className="text-sm text-muted-foreground">
         Status: {status}. No device face upload. Starters are not Composer templates.
       </p>
 
-      <label htmlFor="name">Name</label>
-      <input
-        id="name"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        disabled={Boolean(pack)}
-        required
-      />
+      <div className="grid gap-2">
+        <Label htmlFor="name" className="text-muted-foreground">
+          Name
+        </Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={Boolean(pack)}
+          required
+          className="h-11 max-w-md rounded-xl bg-muted/40"
+        />
+      </div>
 
-      <div className="tabs">
+      <div className="flex gap-1 border-b border-border">
         <button
           type="button"
-          className={tab === "starters" ? "tab active" : "tab"}
+          className={cn(
+            "cast-ease -mb-px border-b-2 px-4 py-2.5 text-sm",
+            tab === "starters"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
           onClick={() => setTab("starters")}
         >
           Starters
         </button>
         <button
           type="button"
-          className={tab === "library" ? "tab active" : "tab"}
+          className={cn(
+            "cast-ease -mb-px border-b-2 px-4 py-2.5 text-sm",
+            tab === "library"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
           onClick={() => setTab("library")}
         >
           From library
@@ -195,99 +215,116 @@ export function PackWizard(props: { initialPackId?: string }) {
       </div>
 
       {tab === "starters" ? (
-        <>
-          <p className="muted">
+        <div className="space-y-5">
+          <p className="text-sm text-muted-foreground">
             Generate face and body vibes, pick at least {PACK_MIN_REFS} stills, then Train & lock Soul ID.
           </p>
-          <h3>Face starters</h3>
-          <div className="chips">
-            {(catalog?.face ?? []).map((preset) => (
-              <button
-                key={preset.id}
-                className="chip"
-                type="button"
-                disabled={pending || training}
-                onClick={() => void generateStarter(preset.id)}
-              >
-                {preset.label}
-              </button>
-            ))}
+          <div>
+            <h3 className="mb-2 font-heading text-xl">Face starters</h3>
+            <div className="flex flex-wrap gap-2">
+              {(catalog?.face ?? []).map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant="outline"
+                  type="button"
+                  disabled={pending || training}
+                  className="rounded-full"
+                  onClick={() => void generateStarter(preset.id)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
           </div>
-          <h3>Body starters</h3>
-          <div className="chips">
-            {(catalog?.body ?? []).map((preset) => (
-              <button
-                key={preset.id}
-                className="chip"
-                type="button"
-                disabled={pending || training}
-                onClick={() => void generateStarter(preset.id)}
-              >
-                {preset.label}
-              </button>
-            ))}
+          <div>
+            <h3 className="mb-2 font-heading text-xl">Body starters</h3>
+            <div className="flex flex-wrap gap-2">
+              {(catalog?.body ?? []).map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant="outline"
+                  type="button"
+                  disabled={pending || training}
+                  className="rounded-full"
+                  onClick={() => void generateStarter(preset.id)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
           </div>
-          <h3>Contact sheet</h3>
-          <ContactSheet
-            tiles={starters}
-            onToggle={(id, selected, vibeKind, presetId) =>
-              void toggleRef({
-                mediaAssetId: id,
-                selected,
-                kind: vibeKind === "body" ? "starter_body" : "starter_face",
-                source: "generate_starter",
-                starterPresetId: presetId,
-              })
-            }
-          />
-        </>
+          <div>
+            <h3 className="mb-2 font-heading text-xl">Contact sheet</h3>
+            <ContactSheet
+              tiles={starters}
+              onToggle={(id, selected, vibeKind, presetId) =>
+                void toggleRef({
+                  mediaAssetId: id,
+                  selected,
+                  kind: vibeKind === "body" ? "starter_body" : "starter_face",
+                  source: "generate_starter",
+                  starterPresetId: presetId,
+                })
+              }
+            />
+          </div>
+        </div>
       ) : (
-        <>
-          <p className="muted">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
             Pick in-app stills you already made in Create. Device uploads are not available.
           </p>
-          {library.length === 0 ? (
-            <p className="muted">Library is empty until you generate stills in Create with a Locked pack.</p>
-          ) : (
-            <div className="contact-sheet">
-              {library.map((item) => {
-                const selected = selectedLibrary.has(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={selected ? "sheet-tile selected" : "sheet-tile"}
-                    disabled={training}
-                    onClick={() =>
-                      void toggleRef({
-                        mediaAssetId: item.id,
-                        selected: !selected,
-                        kind: "still",
-                        source: "in_app_still",
-                      })
-                    }
-                  >
-                    {item.previewUrl ? (
-                      <StillPreview src={item.previewUrl} alt="Library still" />
-                    ) : (
-                      <span className="muted">Still</span>
-                    )}
-                    <div className="muted">{selected ? "Selected" : "Tap to add"}</div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </>
+          <ElasticGallery
+            items={library.map((item) => ({
+              id: item.id,
+              src: item.previewUrl,
+              alt: "Library still",
+              label: "Still",
+              selected: selectedLibrary.has(item.id),
+            }))}
+            onSelect={
+              training
+                ? undefined
+                : (id) => {
+                    const selected = selectedLibrary.has(id);
+                    void toggleRef({
+                      mediaAssetId: id,
+                      selected: !selected,
+                      kind: "still",
+                      source: "in_app_still",
+                    });
+                  }
+            }
+            empty={
+              <p className="text-sm text-muted-foreground">
+                Library is empty until you generate stills in Create with a Locked pack.
+              </p>
+            }
+          />
+        </div>
       )}
 
-      <RefCountMeter count={refCount} />
-      {training ? <p className="ok">Training Soul ID… this page updates when it locks.</p> : null}
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-      <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
-        {training ? "Training…" : "Train & lock Soul ID"}
-      </button>
+      <div className="cast-surface max-w-md space-y-4 rounded-xl p-4">
+        <RefCountMeter count={refCount} />
+        {training ? (
+          <div className="space-y-2 text-center">
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary/80" />
+            </div>
+            <p className="text-sm text-success">Training Soul ID… this page updates when it locks.</p>
+          </div>
+        ) : null}
+        {message ? <p className="text-sm text-success">{message}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <MetallicButton
+          type="button"
+          disabled={!canTrain || pending}
+          className="w-full"
+          onClick={() => void trainAndLock()}
+        >
+          {training ? "Training…" : "Train & lock Soul ID"}
+        </MetallicButton>
+      </div>
     </section>
   );
 }

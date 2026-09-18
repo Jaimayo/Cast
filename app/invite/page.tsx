@@ -1,8 +1,9 @@
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
-import { GateHeader } from "@/components/gate-header";
+import { GateStage } from "@/components/gate-stage";
 import { InviteForm } from "@/components/invite-form";
+import { VoidAtmosphere } from "@/components/void-atmosphere";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,16 @@ export default async function InviteRoute() {
   }
 
   return (
-    <>
-      <GateHeader />
-      <Suspense fallback={<main className="panel card">Loading…</main>}>
-        <InviteForm />
-      </Suspense>
-    </>
+    <VoidAtmosphere>
+      <GateStage
+        kicker="Gated access"
+        headline="Enter with an invite."
+        subhead="Invite-only studio. Invalid, used, or expired codes cannot continue."
+      >
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+          <InviteForm />
+        </Suspense>
+      </GateStage>
+    </VoidAtmosphere>
   );
 }

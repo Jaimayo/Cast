@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
+import { VoidAtmosphere } from "@/components/void-atmosphere";
 
 export const dynamic = "force-dynamic";
 
@@ -14,5 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await ensureSessionMatchesUser(user);
   if (!user.ageAttestedAt) redirect("/age");
   if (user.role !== "admin") redirect("/app");
-  return <main className="wrap" style={{ padding: "40px 0 80px" }}>{children}</main>;
+  return (
+    <VoidAtmosphere>
+      <div className="mx-auto max-w-4xl px-5 py-10">{children}</div>
+    </VoidAtmosphere>
+  );
 }

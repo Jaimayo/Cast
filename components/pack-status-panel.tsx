@@ -5,6 +5,8 @@ import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 import { TEST_GRID_SIZE } from "@/lib/test-grid";
+import { Button } from "@/components/ui/button";
+import { MetallicButton } from "@/components/metallic-button";
 
 type Pack = {
   id: string;
@@ -68,60 +70,79 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
   }
 
   return (
-    <section>
-      <div className="kicker">Character Pack</div>
-      <div className="row-between">
-        <h1>{props.pack.name}</h1>
-        <SoulBadge name={props.pack.name} locked={locked} />
+    <section className="mx-auto max-w-2xl space-y-5">
+      <p className="text-[11px] tracking-[0.16em] text-primary uppercase">Character Pack</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-heading text-3xl">{props.pack.name}</h1>
+        <SoulBadge name={props.pack.name} locked={locked} status={status} />
       </div>
-      <p className="muted">
+      <p className="font-mono text-sm text-muted-foreground">
         {soulStatusLabel(status)} · refs {props.refCount}/20
       </p>
-      <div className="banner">Face upload from a real person is intentionally omitted.</div>
-      {status === "training" ? <p className="ok">Training Soul ID…</p> : null}
-      {adapterReady ? (
-        <p className="ok">Identity adapter saved. Generate uses this Soul ID on stills.</p>
-      ) : locked ? (
-        <p className="muted">Locked without an adapter yet — Generate stills use the character name only.</p>
+      <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        Face upload from a real person is intentionally omitted.
+      </div>
+      {status === "training" ? (
+        <div className="space-y-2">
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-primary/80" />
+          </div>
+          <p className="text-sm text-success">Training Soul ID…</p>
+        </div>
       ) : null}
-      <p className="muted">
+      {adapterReady ? (
+        <p className="text-sm text-success">Identity adapter saved. Generate uses this Soul ID on stills.</p>
+      ) : locked ? (
+        <p className="text-sm text-muted-foreground">
+          Locked without an adapter yet — Generate stills use the character name only.
+        </p>
+      ) : null}
+      <p className="text-sm text-muted-foreground">
         Test grid queues {TEST_GRID_SIZE} stills (Create → Generate) so you can check identity. Retrain runs
         Train & lock again on the same refs.
       </p>
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-      <div className="actions">
+      {message ? <p className="text-sm text-success">{message}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="flex flex-wrap gap-2">
         {locked ? (
-          <a className="btn" href={`/app/create?pack=${props.pack.id}`}>
-            Use in Create
-          </a>
+          <MetallicButton asChild>
+            <a href={`/app/create?pack=${props.pack.id}`}>Use in Create</a>
+          </MetallicButton>
         ) : (
-          <span className="muted">Lock Soul ID first — Generate stays off until this pack is Locked.</span>
+          <span className="text-sm text-muted-foreground">
+            Lock Soul ID first — Generate stays off until this pack is Locked.
+          </span>
         )}
-        <button
-          className="btn secondary"
+        <Button
+          variant="outline"
           type="button"
+          className="rounded-full"
           disabled={!locked || Boolean(pending)}
           title={locked ? "Queue a small set of identity stills" : "Lock Soul ID first"}
           onClick={() => void queueTestGrid()}
         >
           {pending === "test-grid" ? "Queueing…" : "Test grid"}
-        </button>
-        <button
-          className="btn secondary"
+        </Button>
+        <Button
+          variant="outline"
           type="button"
+          className="rounded-full"
           disabled={!locked || Boolean(pending)}
           title={locked ? "Train again from the existing refs" : "Lock Soul ID first"}
           onClick={() => void retrain()}
         >
           {pending === "retrain" ? "Queueing…" : "Retrain"}
-        </button>
+        </Button>
       </div>
       {message && pending === null && locked ? (
-        <p className="muted">
-          <a href="/app/jobs">Open Jobs</a>
+        <p className="text-sm text-muted-foreground">
+          <a href="/app/jobs" className="text-primary underline-offset-4 hover:underline">
+            Open Jobs
+          </a>
           {" · "}
-          <a href={`/app/create?pack=${props.pack.id}`}>Open Create</a>
+          <a href={`/app/create?pack=${props.pack.id}`} className="text-primary underline-offset-4 hover:underline">
+            Open Create
+          </a>
         </p>
       ) : null}
     </section>

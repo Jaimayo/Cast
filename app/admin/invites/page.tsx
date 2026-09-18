@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Invite = {
   id: string;
@@ -65,47 +69,62 @@ export default function AdminInvitesPage() {
   }
 
   return (
-    <section>
-      <div className="kicker">Admin v1</div>
-      <h1>Invite codes</h1>
-      <form onSubmit={(event) => void createInvite(event)} className="card">
-        <label htmlFor="note">Note</label>
-        <input id="note" value={note} onChange={(event) => setNote(event.target.value)} />
-        <button className="btn" type="submit">
-          Create invite
-        </button>
-      </form>
-      {error ? <p className="error">{error}</p> : null}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Uses</th>
-            <th>Note</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {invites.map((invite) => (
-            <tr key={invite.id}>
-              <td>
-                <code>{invite.code}</code>
-              </td>
-              <td>
-                {invite.useCount}/{invite.maxUses}
-              </td>
-              <td>{inviteState(invite)}</td>
-              <td>
-                {invite.revokedAt ? null : (
-                  <button className="btn secondary" type="button" onClick={() => void revoke(invite.id)}>
-                    Revoke
-                  </button>
-                )}
-              </td>
+    <section className="space-y-6">
+      <div>
+        <p className="text-[11px] tracking-[0.16em] text-primary uppercase">Admin v1</p>
+        <h1 className="font-heading text-3xl">Invite codes</h1>
+      </div>
+      <Card className="cast-surface max-w-lg rounded-xl ring-border">
+        <CardHeader>
+          <CardTitle className="text-base">Create invite</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(event) => void createInvite(event)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="note" className="text-muted-foreground">
+                Note
+              </Label>
+              <Input id="note" value={note} onChange={(event) => setNote(event.target.value)} className="h-11 rounded-xl" />
+            </div>
+            <Button type="submit" className="h-11 rounded-full">
+              Create invite
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="overflow-x-auto rounded-xl ring-1 ring-border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Code</th>
+              <th className="px-3 py-2 font-medium">Uses</th>
+              <th className="px-3 py-2 font-medium">Note</th>
+              <th className="px-3 py-2" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {invites.map((invite) => (
+              <tr key={invite.id} className="border-t border-border">
+                <td className="px-3 py-2">
+                  <code className="font-mono text-xs">{invite.code}</code>
+                </td>
+                <td className="px-3 py-2 font-mono text-xs">
+                  {invite.useCount}/{invite.maxUses}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">{inviteState(invite)}</td>
+                <td className="px-3 py-2">
+                  {invite.revokedAt ? null : (
+                    <Button variant="outline" type="button" className="rounded-full" onClick={() => void revoke(invite.id)}>
+                      Revoke
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
