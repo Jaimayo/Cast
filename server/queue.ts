@@ -7,14 +7,17 @@ import {
   TRAIN_PACK_MAX_ATTEMPTS,
   deadLetterBullJobId,
   generateStillBullJobId,
+  generateStillRecoverBullJobId,
   isDuplicateBullJobError,
   trainPackBullJobId,
 } from "@/lib/job-errors";
 import { redisConnection } from "@/server/redis";
+import { generatePollDelayMs } from "@/server/providers/generate-output";
 import { trainPollDelayMs } from "@/server/providers/train-status";
 
 export type GenerateStillJobData = {
   generationJobId: string;
+  attempt?: number;
 };
 
 export type TrainPackJobData = {
@@ -99,8 +102,32 @@ export async function enqueueGenerateStillJob(generationJobId: string): Promise<
   await addIdempotent(
     getGenerateStillQueue(),
     "generateStill",
-    { generationJobId },
+    { generationJobId, attempt: 0 },
     generateStillBullJobId(generationJobId),
+    GENERATE_STILL_JOB_OPTIONS,
+  );
+}
+
+export async function enqueueGenerateStillPollJob(data: GenerateStillJobData): Promise<void> {
+  const attempt = data.attempt ?? 0;
+  await addIdempotent(
+    getGenerateStillQueue(),
+    "generateStill",
+    { generationJobId: data.generationJobId, attempt },
+    generateStillBullJobId(data.generationJobId, attempt),
+    attempt > 0
+      ? { ...GENERATE_STILL_JOB_OPTIONS, delay: generatePollDelayMs(attempt) }
+      : GENERATE_STILL_JOB_OPTIONS,
+  );
+}
+
+/** Resume generate after a worker crash. Same job id on every scan — no stacked RunPod /run. */
+export async function enqueueGenerateStillRecoverJob(data: GenerateStillJobData): Promise<void> {
+  await addIdempotent(
+    getGenerateStillQueue(),
+    "generateStill",
+    { generationJobId: data.generationJobId, attempt: data.attempt ?? 0 },
+    generateStillRecoverBullJobId(data.generationJobId),
     GENERATE_STILL_JOB_OPTIONS,
   );
 }

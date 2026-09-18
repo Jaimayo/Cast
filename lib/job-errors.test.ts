@@ -15,6 +15,7 @@ import {
   trainPackStalledMessage,
   trainPackTimeoutMessage,
   generateStillBullJobId,
+  generateStillRecoverBullJobId,
   trainPackBullJobId,
   isDuplicateBullJobError,
   trainSubmitDecision,
@@ -73,8 +74,9 @@ describe("classifyJobError", () => {
       code: JOB_ERROR_CODES.INVALID_PACK_STATE,
       retryable: false,
     });
-    expect(isPermanentCode(JOB_ERROR_CODES.INVALID_CHIP)).toBe(true);
-    expect(isPermanentCode(JOB_ERROR_CODES.PACK_NOT_LOCKED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_NO_IMAGE)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_POLL_TIMEOUT)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_SUBMIT_IN_FLIGHT)).toBe(true);
   });
 
   it("does not retry missing provider config or capability errors", () => {
@@ -112,8 +114,12 @@ describe("classifyJobError", () => {
       retryable: true,
     });
     expect(classifyJobError(new Error("RunPod generateStill polling timed out"))).toMatchObject({
-      code: JOB_ERROR_CODES.PROVIDER_TIMEOUT,
-      retryable: true,
+      code: JOB_ERROR_CODES.GENERATE_POLL_TIMEOUT,
+      retryable: false,
+    });
+    expect(classifyJobError(new Error("RunPod generateStill returned no image"))).toMatchObject({
+      code: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+      retryable: false,
     });
   });
 
@@ -211,6 +217,8 @@ describe("train failure copy", () => {
 describe("idempotent BullMQ ids and train submit", () => {
   it("keys generate/train jobs on generationJobId", () => {
     expect(generateStillBullJobId("job-1")).toBe("generateStill:job-1");
+    expect(generateStillBullJobId("job-1", 3)).toBe("generateStill:job-1:poll:3");
+    expect(generateStillRecoverBullJobId("job-1")).toBe("generateStill:job-1:recover");
     expect(trainPackBullJobId("job-1")).toBe("trainPack:job-1");
     expect(trainPackBullJobId("job-1", 3)).toBe("trainPack:job-1:poll:3");
     expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);

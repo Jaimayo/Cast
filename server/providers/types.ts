@@ -16,8 +16,11 @@ export type GenerateStillInput = {
 export type GenerateStillResult = {
   provider: "venice" | "runpod" | "sister" | "stub";
   providerJobId: string;
-  mimeType: string;
-  imageBytes: Buffer;
+  /** Sync providers (Venice/stub) always return succeeded + bytes. RunPod may be queued. */
+  status: "queued" | "running" | "succeeded" | "failed";
+  mimeType?: string;
+  imageBytes?: Buffer;
+  errorCode?: string | null;
 };
 
 export type TrainPackInput = {
@@ -41,6 +44,8 @@ export type TrainPackResult = {
 export interface GenerateStillAdapter {
   readonly name: "venice" | "runpod" | "sister" | "stub";
   generateStill(input: GenerateStillInput): Promise<GenerateStillResult>;
+  /** Resume a RunPod (or sister) generate that already has a provider job id. */
+  getGenerateStatus?(providerJobId: string): Promise<GenerateStillResult>;
 }
 
 export interface TrainPackAdapter {

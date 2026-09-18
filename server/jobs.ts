@@ -15,7 +15,7 @@ import {
 import { jobLog } from "@/lib/job-log";
 import { decideStaleJob, staleScanCutoff } from "@/lib/job-stale";
 import { getDb } from "@/server/db";
-import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
+import { enqueueGenerateStillRecoverJob, TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
 
 export function isRetrainJob(inputJson: Record<string, unknown>): boolean {
   return inputJson.retrain === true;
@@ -275,6 +275,19 @@ export async function recoverStaleJobs(filter?: {
       }
     }
 
+    if (job.kind === "generate_still" || job.kind === "generate_starter") {
+      const existing = await existingMediaForJob(job.id);
+      if (existing) {
+        await markJobSucceeded({
+          jobId: job.id,
+          resultAssetKey: existing.storageKey,
+          providerJobId: job.providerJobId,
+        });
+        recovered += 1;
+        continue;
+      }
+    }
+
     if (decision.action === "requeue_train_poll" && job.characterPackId) {
       await db
         .update(generationJobs)
@@ -290,6 +303,26 @@ export async function recoverStaleJobs(filter?: {
         kind: job.kind,
         packId: job.characterPackId,
         providerJobId: job.providerJobId,
+      });
+      recovered += 1;
+      continue;
+    }
+
+    if (decision.action === "requeue_generate" || decision.action === "requeue_generate_poll") {
+      await db
+        .update(generationJobs)
+        .set({ status: "running", updatedAt: now })
+        .where(eq(generationJobs.id, job.id));
+      await enqueueGenerateStillRecoverJob({
+        generationJobId: job.id,
+        attempt: decision.action === "requeue_generate_poll" ? 1 : 0,
+      });
+      jobLog("job.stale_requeue", {
+        jobId: job.id,
+        kind: job.kind,
+        packId: job.characterPackId,
+        providerJobId: job.providerJobId,
+        action: decision.action,
       });
       recovered += 1;
       continue;

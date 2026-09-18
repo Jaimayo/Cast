@@ -1,3 +1,4 @@
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { getEnv } from "@/server/env";
 import { providerFetch } from "@/server/providers/http";
 import {
@@ -69,12 +70,13 @@ export const veniceAdapter: GenerateStillAdapter = {
     const payload = (await response.json()) as VeniceGenerateResponse;
     const encoded = payload.images[0];
     if (!encoded) {
-      throw new Error("Venice generateStill returned no images");
+      throw new JobError({ code: JOB_ERROR_CODES.GENERATE_NO_IMAGE, retryable: false });
     }
 
     return {
       provider: "venice",
       providerJobId: payload.id,
+      status: "succeeded",
       mimeType: mimeFromFormat(format),
       imageBytes: Buffer.from(encoded, "base64"),
     };

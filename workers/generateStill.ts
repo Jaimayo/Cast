@@ -1,9 +1,18 @@
 import { eq } from "drizzle-orm";
-import { characterPacks, mediaAssets, recipes } from "@/db/schema";
-import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
+import { characterPacks, generationJobs, mediaAssets, recipes } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db-errors";
+import { shouldFallbackGenerateStill } from "@/lib/generate-fallback";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
+import {
+  JOB_ERROR_CODES,
+  JobError,
+  generateSubmitDecision,
+  isSubmitAttempted,
+  withSubmitAttempted,
+  type JobAttempt,
+} from "@/lib/job-errors";
 import { jobLog } from "@/lib/job-log";
-import type { JobAttempt } from "@/lib/job-errors";
+import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import {
@@ -12,12 +21,18 @@ import {
   loadGenerationJob,
   markJobRunning,
   markJobSucceeded,
+  persistProviderJobId,
 } from "@/server/jobs";
+import {
+  generatePollDecision,
+  generateStillHasImage,
+} from "@/server/providers/generate-output";
 import {
   generateStillFallbackAdapter,
   getGenerateStillAdapterForPack,
 } from "@/server/providers/registry";
-import { ProviderNotConfiguredError } from "@/server/providers/types";
+import type { GenerateStillAdapter, GenerateStillResult } from "@/server/providers/types";
+import { enqueueGenerateStillPollJob } from "@/server/queue";
 import { mediaKey, putObject } from "@/server/storage";
 
 function extFor(mime: string): string {
@@ -26,9 +41,16 @@ function extFor(mime: string): string {
   return "webp";
 }
 
+function generateFailCode(code: string): (typeof JOB_ERROR_CODES)[keyof typeof JOB_ERROR_CODES] {
+  if (code === JOB_ERROR_CODES.GENERATE_NO_IMAGE) return JOB_ERROR_CODES.GENERATE_NO_IMAGE;
+  if (code === JOB_ERROR_CODES.GENERATE_POLL_TIMEOUT) return JOB_ERROR_CODES.GENERATE_POLL_TIMEOUT;
+  return JOB_ERROR_CODES.GENERATE_STILL_FAILED;
+}
+
 export async function processGenerateStillJob(
   generationJobId: string,
   attempt: JobAttempt = { attempt: 1, maxAttempts: 1 },
+  pollAttempt = 0,
 ): Promise<void> {
   const db = getDb();
   const job = await loadGenerationJob(generationJobId);
@@ -128,44 +150,71 @@ export async function processGenerateStillJob(
       packId: pack.id,
       provider: adapter.name,
       providerMode: getEnv().providerMode,
+      pollAttempt,
       attempt: attempt.attempt,
       maxAttempts: attempt.maxAttempts,
       hasAdapter: Boolean(pack.adapterStorageKey),
+      hasProviderJobId: Boolean(job.providerJobId),
     });
 
-    let result;
-    try {
-      result = await adapter.generateStill({
-        jobId: job.id,
-        prompt,
-        negativePrompt,
-        characterPackId: pack.id,
-        adapterStorageKey: pack.adapterStorageKey,
-        adapterMeta: pack.adapterMeta,
+    const result = await submitOrPollGenerate({
+      jobId: job.id,
+      inputJson: job.inputJson,
+      providerJobId: job.providerJobId,
+      adapter,
+      prompt,
+      negativePrompt,
+      characterPackId: pack.id,
+      adapterStorageKey: pack.adapterStorageKey,
+      adapterMeta: pack.adapterMeta,
+    });
+
+    if (result.providerJobId && result.providerJobId !== job.providerJobId) {
+      await persistProviderJobId(job.id, result.providerJobId);
+    }
+
+    const decision = generatePollDecision({
+      status: result.status,
+      attempt: pollAttempt,
+      errorCode: result.errorCode,
+    });
+
+    if (decision.action === "fail") {
+      throw new JobError({
+        code: generateFailCode(decision.errorCode),
+        retryable: false,
       });
-    } catch (err) {
-      const fallback = generateStillFallbackAdapter();
-      const canFallback =
-        Boolean(fallback) &&
-        adapter.name === "venice" &&
-        (err instanceof ProviderNotConfiguredError || err instanceof Error);
-      if (!fallback || !canFallback) {
-        throw err;
-      }
-      jobLog("generateStill.fallback", {
-        jobId: job.id,
-        fromProvider: adapter.name,
-        toProvider: fallback.name,
-        attempt: attempt.attempt,
+    }
+    if (decision.action === "timeout") {
+      throw new JobError({ code: JOB_ERROR_CODES.GENERATE_POLL_TIMEOUT, retryable: false });
+    }
+    if (decision.action === "poll") {
+      await db
+        .update(generationJobs)
+        .set({
+          status: "running",
+          providerJobId: result.providerJobId,
+          errorCode: null,
+          errorMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(generationJobs.id, job.id));
+      await enqueueGenerateStillPollJob({
+        generationJobId: job.id,
+        attempt: decision.nextAttempt,
       });
-      result = await fallback.generateStill({
+      jobLog("generateStill.poll_scheduled", {
         jobId: job.id,
-        prompt,
-        negativePrompt,
-        characterPackId: pack.id,
-        adapterStorageKey: pack.adapterStorageKey,
-        adapterMeta: pack.adapterMeta,
+        kind: job.kind,
+        packId: pack.id,
+        providerJobId: result.providerJobId,
+        pollAttempt: decision.nextAttempt,
       });
+      return;
+    }
+
+    if (!generateStillHasImage(result) || !result.imageBytes || !result.mimeType) {
+      throw new JobError({ code: JOB_ERROR_CODES.GENERATE_NO_IMAGE, retryable: false });
     }
 
     const key = mediaKey({
@@ -179,15 +228,26 @@ export async function processGenerateStillJob(
     const alreadyStored = await existingMediaForJob(job.id);
     if (!alreadyStored) {
       const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
-      await db.insert(mediaAssets).values({
-        userId: job.userId,
-        kind: mediaKind,
-        storageKey: key,
-        mimeType: result.mimeType,
-        byteSize: result.imageBytes.byteLength,
-        generationJobId: job.id,
-        characterPackId: pack.id,
-      });
+      try {
+        await db.insert(mediaAssets).values({
+          userId: job.userId,
+          kind: mediaKind,
+          storageKey: key,
+          mimeType: result.mimeType,
+          byteSize: result.imageBytes.byteLength,
+          generationJobId: job.id,
+          characterPackId: pack.id,
+        });
+      } catch (err) {
+        if (!isUniqueViolation(err)) {
+          throw err;
+        }
+        jobLog("generateStill.skip_duplicate_media", {
+          jobId: job.id,
+          kind: job.kind,
+          attempt: attempt.attempt,
+        });
+      }
     }
 
     await markJobSucceeded({
@@ -211,4 +271,83 @@ export async function processGenerateStillJob(
       packId: job.characterPackId,
     });
   }
+}
+
+async function submitOrPollGenerate(input: {
+  jobId: string;
+  inputJson: Record<string, unknown>;
+  providerJobId: string | null;
+  adapter: GenerateStillAdapter;
+  prompt: string;
+  negativePrompt: string;
+  characterPackId: string;
+  adapterStorageKey: string | null;
+  adapterMeta: Record<string, unknown> | null;
+}): Promise<GenerateStillResult> {
+  const submit = generateSubmitDecision({
+    providerJobId: input.providerJobId,
+    submitAttempted: isSubmitAttempted(input.inputJson),
+  });
+
+  if (submit === "fail-in-flight") {
+    throw new JobError({ code: JOB_ERROR_CODES.GENERATE_SUBMIT_IN_FLIGHT, retryable: false });
+  }
+
+  const generateInput = {
+    jobId: input.jobId,
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt,
+    characterPackId: input.characterPackId,
+    adapterStorageKey: input.adapterStorageKey,
+    adapterMeta: input.adapterMeta,
+  };
+
+  if (submit === "poll") {
+    if (!input.adapter.getGenerateStatus || !input.providerJobId) {
+      throw new JobError({ code: JOB_ERROR_CODES.GENERATE_SUBMIT_IN_FLIGHT, retryable: false });
+    }
+    return input.adapter.getGenerateStatus(input.providerJobId);
+  }
+
+  if (input.adapter.getGenerateStatus) {
+    await markGenerateSubmitAttempted(input.jobId, input.inputJson);
+  }
+
+  try {
+    return await input.adapter.generateStill(generateInput);
+  } catch (err) {
+    const fallback = generateStillFallbackAdapter();
+    const canFallback =
+      Boolean(fallback) &&
+      shouldFallbackGenerateStill({
+        primaryAdapterName: input.adapter.name,
+        err,
+        hasProviderJobId: Boolean(input.providerJobId),
+      });
+    if (!fallback || !canFallback) {
+      throw err;
+    }
+    jobLog("generateStill.fallback", {
+      jobId: input.jobId,
+      fromProvider: input.adapter.name,
+      toProvider: fallback.name,
+    });
+    if (fallback.getGenerateStatus) {
+      await markGenerateSubmitAttempted(input.jobId, input.inputJson);
+    }
+    return fallback.generateStill(generateInput);
+  }
+}
+
+async function markGenerateSubmitAttempted(jobId: string, inputJson: Record<string, unknown>): Promise<void> {
+  if (isSubmitAttempted(inputJson)) {
+    return;
+  }
+  await getDb()
+    .update(generationJobs)
+    .set({
+      inputJson: withSubmitAttempted(inputJson),
+      updatedAt: new Date(),
+    })
+    .where(eq(generationJobs.id, jobId));
 }
