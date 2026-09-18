@@ -1,11 +1,11 @@
 import { soulAdapterSourceUrl } from "@/lib/generate-route";
+import { JOB_ERROR_CODES } from "@/lib/job-errors";
 import workflowPlaceholder from "@/server/providers/comfy/train-pack-workflow.json";
 import { getEnv } from "@/server/env";
 import {
   extractGenerateImage,
-  GENERATE_POLL_DELAY_MS,
-  generateStillTimedOut,
-  shouldKeepPollingGenerate,
+  generateStillHasImage,
+  runPodGenerateErrorCode,
   type GenerateImagePointer,
 } from "@/server/providers/generate-output";
 import {
@@ -131,23 +131,39 @@ export const runpodTrainAdapter: TrainPackAdapter = {
   },
 };
 
-async function waitForGenerateResult(
-  endpointId: string,
-  initial: RunPodRunResponse,
-  fallbackJobId: string,
-): Promise<RunPodRunResponse> {
-  let payload = initial;
-  let attempts = 0;
+async function toGenerateResult(payload: RunPodRunResponse, fallbackJobId: string): Promise<GenerateStillResult> {
+  const status = mapRunPodJobStatus(payload.status);
   const providerJobId = payload.id ?? fallbackJobId;
-  while (shouldKeepPollingGenerate(payload.status)) {
-    attempts += 1;
-    if (generateStillTimedOut(attempts)) {
-      throw new Error("RunPod generateStill polling timed out");
-    }
-    await new Promise((resolve) => setTimeout(resolve, GENERATE_POLL_DELAY_MS));
-    payload = await runpodStatus(endpointId, providerJobId);
+  if (status === "failed") {
+    return {
+      provider: "runpod",
+      providerJobId,
+      status: "failed",
+      errorCode: runPodGenerateErrorCode(payload.status, payload.error) ?? JOB_ERROR_CODES.GENERATE_STILL_FAILED,
+    };
   }
-  return payload;
+  if (status !== "succeeded") {
+    return { provider: "runpod", providerJobId, status };
+  }
+
+  const pointer = extractGenerateImage(payload.output);
+  if (!pointer) {
+    return {
+      provider: "runpod",
+      providerJobId,
+      status: "failed",
+      errorCode: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+    };
+  }
+
+  const imageBytes = await imageBytesFromPointer(pointer);
+  return {
+    provider: "runpod",
+    providerJobId,
+    status: "succeeded",
+    mimeType: pointer.mimeType,
+    imageBytes,
+  };
 }
 
 async function imageBytesFromPointer(pointer: GenerateImagePointer): Promise<Buffer> {
@@ -161,7 +177,7 @@ async function imageBytesFromPointer(pointer: GenerateImagePointer): Promise<Buf
     }
     return Buffer.from(await response.arrayBuffer());
   }
-  throw new Error("RunPod generateStill returned no image");
+  throw new ProviderHttpError("runpod", 502);
 }
 
 /** generateStill fallback when Venice is unavailable, and Soul ID path when a LoRA pointer exists. */
@@ -185,22 +201,22 @@ export const runpodGenerateAdapter: GenerateStillAdapter = {
       height: input.height ?? 1024,
     });
 
-    const result = await waitForGenerateResult(env.generateEndpointId, posted, posted.id ?? input.jobId);
-    const status = mapRunPodJobStatus(result.status);
-    if (status === "failed") {
-      throw new Error(result.error ?? "GENERATE_STILL_FAILED");
+    return toGenerateResult(posted, posted.id ?? input.jobId);
+  },
+  async getGenerateStatus(providerJobId: string): Promise<GenerateStillResult> {
+    const env = getEnv().runpod;
+    if (!env.apiKey || !env.generateEndpointId) {
+      throw new ProviderNotConfiguredError("runpod");
     }
-
-    const pointer = extractGenerateImage(result.output);
-    if (!pointer) {
-      throw new Error("RunPod generateStill returned no image");
+    const payload = await runpodStatus(env.generateEndpointId, providerJobId);
+    const result = await toGenerateResult(payload, providerJobId);
+    if (result.status === "succeeded" && !generateStillHasImage(result)) {
+      return {
+        ...result,
+        status: "failed",
+        errorCode: JOB_ERROR_CODES.GENERATE_NO_IMAGE,
+      };
     }
-
-    return {
-      provider: "runpod",
-      providerJobId: result.id ?? input.jobId,
-      mimeType: pointer.mimeType,
-      imageBytes: await imageBytesFromPointer(pointer),
-    };
+    return result;
   },
 };

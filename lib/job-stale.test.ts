@@ -48,7 +48,7 @@ describe("decideStaleJob", () => {
     ).toEqual({ action: "ok" });
   });
 
-  it("fails a generateStill job that has been running past the stale window", () => {
+  it("fails a generateStill job that has been running past the stale window without a vendor id by requeueing", () => {
     expect(
       decideStaleJob({
         kind: "generate_still",
@@ -57,7 +57,7 @@ describe("decideStaleJob", () => {
         now,
         providerJobId: null,
       }),
-    ).toEqual({ action: "fail" });
+    ).toEqual({ action: "requeue_generate" });
     expect(
       decideStaleJob({
         kind: "generate_starter",
@@ -65,7 +65,19 @@ describe("decideStaleJob", () => {
         updatedAt: ago(STALE_GENERATE_MS + 1),
         now,
       }),
-    ).toEqual({ action: "fail" });
+    ).toEqual({ action: "requeue_generate" });
+  });
+
+  it("resumes generate polling when a provider job id exists", () => {
+    expect(
+      decideStaleJob({
+        kind: "generate_still",
+        status: "running",
+        updatedAt: ago(STALE_GENERATE_MS + 1),
+        now,
+        providerJobId: "runpod-gen-1",
+      }),
+    ).toEqual({ action: "requeue_generate_poll" });
   });
 
   it("requeues train polling when a provider job id exists", () => {

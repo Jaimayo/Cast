@@ -18,6 +18,7 @@ export const stubGenerateAdapter: GenerateStillAdapter = {
     return {
       provider: "stub",
       providerJobId: `stub-${input.jobId}`,
+      status: "succeeded",
       mimeType: "image/webp",
       imageBytes: PLACEHOLDER_WEBP,
     };

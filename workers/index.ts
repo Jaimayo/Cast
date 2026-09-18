@@ -18,12 +18,12 @@ const generateWorker = new Worker<GenerateStillJobData>(
       attempt: attempt.attempt,
       maxAttempts: attempt.maxAttempts,
     });
-    await processGenerateStillJob(job.data.generationJobId, attempt);
+    await processGenerateStillJob(job.data.generationJobId, attempt, job.data.attempt ?? 0);
   },
   {
     connection: redisConnection(),
     concurrency: 2,
-    lockDuration: 10 * 60 * 1000,
+    lockDuration: 2 * 60 * 1000,
     stalledInterval: 30_000,
     maxStalledCount: 2,
   },

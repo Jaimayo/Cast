@@ -62,6 +62,7 @@ export const sisterGenerateAdapter: GenerateStillAdapter = {
     return {
       provider: "sister",
       providerJobId: payload.id,
+      status: "succeeded",
       mimeType: "image/webp",
       imageBytes: Buffer.from(payload.image_base64, "base64"),
     };
