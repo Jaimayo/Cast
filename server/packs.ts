@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   characterPacks,
   generationJobs,
@@ -10,11 +10,12 @@ import {
 } from "@/db/schema";
 import { PACK_TARGET_REFS } from "@/lib/constants";
 import { generateStillJobProvider } from "@/lib/generate-route";
-import { canLockPack, lockWarning } from "@/lib/pack-rules";
+import { canEnqueueRetrainPack, canEnqueueTrainPack, canLockDraftPack, canLockPack, lockWarning, TRAIN_ALREADY_RUNNING } from "@/lib/pack-rules";
+import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
-import { canRetrainPack, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
+import { TEST_GRID_SELECTIONS } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
@@ -180,8 +181,13 @@ export async function lockPack(userId: string, packId: string) {
   if (!pack) {
     throw new Error("Pack not found");
   }
-  if (pack.status !== "draft") {
-    throw new Error("Only draft packs can be locked");
+  const lockState = canLockDraftPack(pack.status);
+  if (!lockState.ok) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: lockState.message,
+      retryable: false,
+    });
   }
   const refs = await countRefs(pack.id);
   const gate = canLockPack(refs);
@@ -193,9 +199,17 @@ export async function lockPack(userId: string, packId: string) {
   const rows = await db
     .update(characterPacks)
     .set({ status: "locked", lockedAt: new Date(), updatedAt: new Date() })
-    .where(eq(characterPacks.id, pack.id))
+    .where(and(eq(characterPacks.id, pack.id), eq(characterPacks.status, "draft")))
     .returning();
-  return { pack: rows[0], warning: lockWarning(refs), refCount: refs };
+  const locked = rows[0];
+  if (!locked) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: TRAIN_ALREADY_RUNNING,
+      retryable: false,
+    });
+  }
+  return { pack: locked, warning: lockWarning(refs), refCount: refs };
 }
 
 export async function enqueueGenerateStill(input: {
@@ -317,8 +331,13 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new Error("Pack not found");
   }
-  if (pack.status !== "draft" && pack.status !== "failed") {
-    throw new Error("Train & lock is available on draft packs");
+  const trainState = canEnqueueTrainPack(pack.status);
+  if (!trainState.ok) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: trainState.message,
+      retryable: false,
+    });
   }
   const refs = await countRefs(pack.id);
   const gate = canLockPack(refs);
@@ -327,10 +346,20 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   }
 
   const db = getDb();
-  await db
+  const flipped = await db
     .update(characterPacks)
     .set({ status: "training", updatedAt: new Date() })
-    .where(eq(characterPacks.id, pack.id));
+    .where(
+      and(eq(characterPacks.id, pack.id), inArray(characterPacks.status, ["draft", "failed"])),
+    )
+    .returning();
+  if (!flipped[0]) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: TRAIN_ALREADY_RUNNING,
+      retryable: false,
+    });
+  }
 
   const jobRows = await db
     .insert(generationJobs)
@@ -383,8 +412,13 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new Error("Pack not found");
   }
-  if (!canRetrainPack(pack.status)) {
-    throw new Error("Retrain is available after Soul ID is Locked.");
+  const retrainState = canEnqueueRetrainPack(pack.status);
+  if (!retrainState.ok) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: retrainState.message,
+      retryable: false,
+    });
   }
   const refs = await countRefs(pack.id);
   const gate = canLockPack(refs);
@@ -393,10 +427,20 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   }
 
   const db = getDb();
-  await db
+  const flipped = await db
     .update(characterPacks)
     .set({ status: "training", updatedAt: new Date() })
-    .where(eq(characterPacks.id, pack.id));
+    .where(
+      and(eq(characterPacks.id, pack.id), inArray(characterPacks.status, ["locked", "ready"])),
+    )
+    .returning();
+  if (!flipped[0]) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: TRAIN_ALREADY_RUNNING,
+      retryable: false,
+    });
+  }
 
   const jobRows = await db
     .insert(generationJobs)
