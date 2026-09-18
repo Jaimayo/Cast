@@ -8,7 +8,7 @@ import {
   TRAIN_POLL_MAX_ATTEMPTS,
   trainPollDelayMs,
 } from "@/server/providers/train-status";
-import { assertSafeStorageKey, mediaKey } from "@/server/storage";
+import { assertSafeStorageKey, mediaKey, putObject, readObject, presignGetUrl } from "@/server/storage";
 
 describe("media previews", () => {
   it("builds an authenticated same-origin preview path", () => {
@@ -25,6 +25,18 @@ describe("storage keys", () => {
     expect(() => assertSafeStorageKey("../secret")).toThrow(/Invalid storage key/);
     expect(() => assertSafeStorageKey("/etc/passwd")).toThrow(/Invalid storage key/);
     expect(() => assertSafeStorageKey("ok/path.webp")).not.toThrow();
+  });
+
+  it("round-trips bytes in local storage when R2 is unset", async () => {
+    const key = `still/test/${Date.now()}.webp`;
+    const body = Buffer.from("cast-local-preview");
+    await putObject({ key, body, mimeType: "image/webp" });
+    const read = await readObject(key);
+    expect(read.equals(body)).toBe(true);
+  });
+
+  it("does not mint an R2 URL when S3 is unset", async () => {
+    await expect(presignGetUrl("still/test/x.webp")).rejects.toThrow(/S3 is not configured/);
   });
 });
 
