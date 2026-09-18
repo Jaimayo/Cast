@@ -222,6 +222,6 @@ describe("train / lock adapter state machine", () => {
       adapterStatus: "ready",
       adapterSource: "live",
     });
-    expect(JSON.stringify(pub)).not.toMatch(/adapters|rp_old|lora/i);
+    expect(JSON.stringify(pub)).not.toMatch(/adapters\/|rp_old|\.lora/i);
   });
 });

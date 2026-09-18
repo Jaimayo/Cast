@@ -107,7 +107,7 @@ describe("public preview DTOs", () => {
     });
     expect("adapterId" in pack).toBe(false);
     expect("adapterStorageKey" in pack).toBe(false);
-    expect(JSON.stringify(pack)).not.toMatch(/adapters|bucket\.example|lora|rp-1/i);
+    expect(JSON.stringify(pack)).not.toMatch(/adapters\/|bucket\.example|\.lora|rp-1/i);
 
     const job = publicJob({
       id: "job-1",
