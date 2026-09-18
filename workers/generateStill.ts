@@ -93,6 +93,7 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         prompt,
         negativePrompt,
         characterPackId: pack.id,
+        adapterStorageKey: pack.adapterStorageKey,
       });
     } catch (err) {
       const fallback = generateStillFallbackAdapter();
@@ -108,6 +109,7 @@ export async function processGenerateStillJob(generationJobId: string): Promise<
         prompt,
         negativePrompt,
         characterPackId: pack.id,
+        adapterStorageKey: pack.adapterStorageKey,
       });
     }
 

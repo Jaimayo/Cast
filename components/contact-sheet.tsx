@@ -1,10 +1,13 @@
 "use client";
 
+import { StillPreview } from "@/components/still-preview";
+
 type Tile = {
   id: string;
   presetId: string | null;
   vibeKind: string;
   selected: boolean;
+  previewUrl?: string | null;
 };
 
 export function ContactSheet(props: {
@@ -23,8 +26,8 @@ export function ContactSheet(props: {
           className={tile.selected ? "sheet-tile selected" : "sheet-tile"}
           onClick={() => props.onToggle(tile.id, !tile.selected, tile.vibeKind, tile.presetId)}
         >
-          <strong>{tile.vibeKind}</strong>
-          <div className="muted">{tile.presetId ?? "starter"}</div>
+          <StillPreview src={tile.previewUrl} alt={`${tile.vibeKind} starter`} label={tile.presetId ?? "starter"} />
+          {tile.previewUrl ? <div className="muted">{tile.presetId ?? "starter"}</div> : null}
           <div className="muted">{tile.selected ? "Selected" : "Tap to select"}</div>
         </button>
       ))}

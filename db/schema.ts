@@ -90,6 +90,10 @@ export const characterPacks = pgTable("character_packs", {
   lockedAt: timestamp("locked_at", { withTimezone: true }),
   trainedAt: timestamp("trained_at", { withTimezone: true }),
   providerJobId: text("provider_job_id"),
+  /** Object-storage key for the trained LoRA / IP-Adapter when RunPod finishes. */
+  adapterStorageKey: text("adapter_storage_key"),
+  adapterMimeType: text("adapter_mime_type"),
+  adapterMeta: jsonb("adapter_meta").$type<Record<string, unknown>>(),
   ...timestamps,
 });
 

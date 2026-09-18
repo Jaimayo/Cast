@@ -9,6 +9,7 @@ export type GenerateStillJobData = {
 export type TrainPackJobData = {
   generationJobId: string;
   characterPackId: string;
+  attempt?: number;
 };
 
 const globalForQueues = globalThis as unknown as {

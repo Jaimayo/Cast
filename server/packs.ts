@@ -12,7 +12,8 @@ import { PACK_TARGET_REFS } from "@/lib/constants";
 import { canLockPack, lockWarning } from "@/lib/pack-rules";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
-import { isLockedSoul } from "@/lib/soul";
+import { requireLockedSoulForGenerate } from "@/lib/soul";
+import { mediaPreviewPath } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { getGenerateStillQueue, getTrainPackQueue } from "@/server/queue";
@@ -201,9 +202,7 @@ export async function enqueueGenerateStill(input: {
   if (!pack) {
     throw new Error("Character pack is required");
   }
-  if (!isLockedSoul(pack.status)) {
-    throw new Error("Lock a Character Pack (Soul ID) before generating");
-  }
+  requireLockedSoulForGenerate(pack.status);
 
   const compiled = compileComposerPrompt({
     characterPackName: pack.name,
@@ -347,11 +346,12 @@ export async function enqueueTrainPack(userId: string, packId: string) {
 
 export async function listJobs(userId: string) {
   const db = getDb();
-  return db
+  const jobs = await db
     .select()
     .from(generationJobs)
     .where(eq(generationJobs.userId, userId))
     .orderBy(desc(generationJobs.createdAt));
+  return attachJobPreviews(userId, jobs);
 }
 
 export async function getJob(userId: string, jobId: string) {
@@ -361,7 +361,36 @@ export async function getJob(userId: string, jobId: string) {
     .from(generationJobs)
     .where(and(eq(generationJobs.id, jobId), eq(generationJobs.userId, userId)))
     .limit(1);
-  return rows[0] ?? null;
+  const job = rows[0];
+  if (!job) {
+    return null;
+  }
+  const [withPreview] = await attachJobPreviews(userId, [job]);
+  return withPreview ?? { ...job, previewUrl: null as string | null };
+}
+
+async function attachJobPreviews<T extends { id: string; kind: string }>(
+  userId: string,
+  jobs: T[],
+): Promise<Array<T & { previewUrl: string | null }>> {
+  if (jobs.length === 0) {
+    return [];
+  }
+  const db = getDb();
+  const media = await db
+    .select({ id: mediaAssets.id, generationJobId: mediaAssets.generationJobId })
+    .from(mediaAssets)
+    .where(eq(mediaAssets.userId, userId));
+  const byJob = new Map<string, string>();
+  for (const row of media) {
+    if (row.generationJobId) {
+      byJob.set(row.generationJobId, row.id);
+    }
+  }
+  return jobs.map((job) => ({
+    ...job,
+    previewUrl: job.kind === "train_pack" ? null : (byJob.has(job.id) ? mediaPreviewPath(byJob.get(job.id)!) : null),
+  }));
 }
 
 export async function listRefs(userId: string, packId: string) {
@@ -419,15 +448,17 @@ export async function listStarterSheet(userId: string, packId: string) {
       presetId,
       vibeKind,
       selected: selectedIds.has(row.id),
+      previewUrl: mediaPreviewPath(row.id),
     };
   });
 }
 
 export async function listLibraryStills(userId: string) {
   const db = getDb();
-  return db
+  const rows = await db
     .select()
     .from(mediaAssets)
     .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.kind, "still")))
     .orderBy(desc(mediaAssets.createdAt));
+  return rows.map((row) => ({ ...row, previewUrl: mediaPreviewPath(row.id) }));
 }

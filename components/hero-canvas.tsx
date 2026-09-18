@@ -1,23 +1,33 @@
-export function CharacterRequiredEmpty() {
+import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
+
+export function CharacterRequiredEmpty(props: { packId?: string | null; training?: boolean }) {
   return (
     <div className="hero-frame">
       <div>
-        <p>Create or select a Character Pack</p>
-        <a className="btn" href="/app/characters">
-          Characters
-        </a>
+        <LockSoulIdFirstCta packId={props.packId} training={props.training} />
       </div>
     </div>
   );
 }
 
-export function HeroCanvas(props: { locked: boolean; message?: string | null }) {
+export function HeroCanvas(props: {
+  locked: boolean;
+  message?: string | null;
+  previewUrl?: string | null;
+  packId?: string | null;
+  training?: boolean;
+}) {
   if (!props.locked) {
-    return <CharacterRequiredEmpty />;
+    return <CharacterRequiredEmpty packId={props.packId} training={props.training} />;
   }
   return (
     <div className="hero-frame">
-      {props.message ?? "Hero Frame still. Generate to fill this canvas."}
+      {props.previewUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="still-thumb" src={props.previewUrl} alt="Generated still" />
+      ) : (
+        <span>{props.message ?? "Hero Frame still. Generate to fill this canvas."}</span>
+      )}
     </div>
   );
 }

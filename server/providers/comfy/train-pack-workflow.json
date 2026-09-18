@@ -1,5 +1,5 @@
 {
-  "_comment": "Placeholder ComfyUI workflow for Character Pack (Soul ID) training. Not executed in Stage 1 scaffold.",
+  "_comment": "Placeholder ComfyUI workflow for Character Pack (Soul ID) training. Worker polls RunPod /status and persists LoRA/adapter object keys when COMPLETED.",
   "workflowName": "cast-train-pack-v0",
   "status": "placeholder",
   "todos": [

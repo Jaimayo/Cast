@@ -7,6 +7,8 @@ export type GenerateStillInput = {
   seed?: number;
   /** Opaque pack id for identity routing. Venice ignores this (no Soul ID). */
   characterPackId?: string;
+  /** Trained LoRA / adapter object key when a Soul ID exists. Venice ignores this. */
+  adapterStorageKey?: string | null;
 };
 
 export type GenerateStillResult = {
@@ -26,7 +28,12 @@ export type TrainPackInput = {
 export type TrainPackResult = {
   provider: "runpod" | "sister" | "stub";
   providerJobId: string;
-  status: "queued" | "running" | "succeeded";
+  status: "queued" | "running" | "succeeded" | "failed";
+  adapterStorageKey?: string | null;
+  adapterMimeType?: string | null;
+  adapterMeta?: Record<string, unknown> | null;
+  adapterBytesBase64?: string | null;
+  errorCode?: string | null;
 };
 
 export interface GenerateStillAdapter {
@@ -37,6 +44,7 @@ export interface GenerateStillAdapter {
 export interface TrainPackAdapter {
   readonly name: "runpod" | "sister" | "stub";
   trainPack(input: TrainPackInput): Promise<TrainPackResult>;
+  getTrainStatus?(providerJobId: string): Promise<TrainPackResult>;
 }
 
 export class ProviderNotConfiguredError extends Error {

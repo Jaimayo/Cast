@@ -9,6 +9,7 @@ type Job = {
   status: string;
   provider: string;
   errorCode: string | null;
+  previewUrl?: string | null;
 };
 
 export default function JobsPage() {
@@ -16,9 +17,21 @@ export default function JobsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void api<{ jobs: Job[] }>("/api/jobs")
-      .then((data) => setJobs(data.jobs))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load jobs"));
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await api<{ jobs: Job[] }>("/api/jobs");
+        if (!cancelled) setJobs(data.jobs);
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   return (
@@ -33,6 +46,7 @@ export default function JobsPage() {
             <th>Kind</th>
             <th>Status</th>
             <th>Provider</th>
+            <th>Preview</th>
             <th>Error</th>
           </tr>
         </thead>
@@ -42,6 +56,14 @@ export default function JobsPage() {
               <td>{job.kind}</td>
               <td>{job.status}</td>
               <td>{job.provider}</td>
+              <td>
+                {job.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="still-thumb job-thumb" src={job.previewUrl} alt="" />
+                ) : (
+                  "—"
+                )}
+              </td>
               <td>{job.errorCode ?? "—"}</td>
             </tr>
           ))}

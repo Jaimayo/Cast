@@ -31,6 +31,9 @@ export const stubTrainAdapter: TrainPackAdapter = {
       provider: "stub",
       providerJobId: `stub-train-${input.characterPackId}`,
       status: "succeeded",
+      adapterStorageKey: `adapters/stub/${input.characterPackId}.lora`,
+      adapterMimeType: "application/octet-stream",
+      adapterMeta: { stub: true },
     };
   },
 };

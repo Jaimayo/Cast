@@ -13,6 +13,13 @@ import {
  * Reserved adapter slot for a future sister private-AI company.
  * Implements the same generateStill / trainPack seam. Not a Stage 1 default.
  */
+function sisterHeaders(apiKey: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+}
+
 async function sisterFetch(path: string, body: unknown): Promise<Response> {
   const env = getEnv().sister;
   if (!env.apiKey || !env.baseUrl) {
@@ -20,11 +27,19 @@ async function sisterFetch(path: string, body: unknown): Promise<Response> {
   }
   return fetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: sisterHeaders(env.apiKey),
     body: JSON.stringify(body),
+  });
+}
+
+async function sisterGet(path: string): Promise<Response> {
+  const env = getEnv().sister;
+  if (!env.apiKey || !env.baseUrl) {
+    throw new ProviderNotConfiguredError("sister");
+  }
+  return fetch(`${env.baseUrl.replace(/\/$/, "")}${path}`, {
+    method: "GET",
+    headers: sisterHeaders(env.apiKey),
   });
 }
 
@@ -61,7 +76,26 @@ export const sisterTrainAdapter: TrainPackAdapter = {
     if (!response.ok) {
       throw new Error(`Sister trainPack failed with HTTP ${response.status}`);
     }
-    const payload = (await response.json()) as { id: string };
+    const payload = (await response.json()) as { id: string; status?: string };
     return { provider: "sister", providerJobId: payload.id, status: "queued" };
+  },
+  async getTrainStatus(providerJobId: string): Promise<TrainPackResult> {
+    const response = await sisterGet(`/v1/packs/train/${encodeURIComponent(providerJobId)}`);
+    if (!response.ok) {
+      throw new Error(`Sister train status failed with HTTP ${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      id?: string;
+      status?: "queued" | "running" | "succeeded" | "failed";
+      adapterStorageKey?: string;
+    };
+    const status = payload.status ?? "running";
+    return {
+      provider: "sister",
+      providerJobId: payload.id ?? providerJobId,
+      status,
+      adapterStorageKey: payload.adapterStorageKey ?? null,
+      adapterMimeType: payload.adapterStorageKey ? "application/octet-stream" : null,
+    };
   },
 };

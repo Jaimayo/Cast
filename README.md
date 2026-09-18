@@ -45,8 +45,9 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `server/providers/sister.ts` | Future sister private-AI company adapter slot |
 | `server/providers/registry.ts` | Provider registry + stub mode |
 | `server/providers/comfy/train-pack-workflow.json` | Comfy placeholder |
-| `server/storage.ts` | R2/S3 (or local) object storage |
-| `workers/` | `generateStill` and `trainPack` BullMQ workers |
+| `server/storage.ts` | R2/S3 (or local) object storage + presigned GET |
+| `app/api/media/[id]` | Auth’d still preview (local stream or 302 to presigned R2 GET) |
+| `workers/` | `generateStill` and `trainPack` BullMQ workers (trainPack polls RunPod until ready) |
 | `scripts/create-invite.ts` | CLI invite mint (no UI required) |
 
 ## Local setup
@@ -106,10 +107,10 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 
 - `GENERATE_STILL_PROVIDER=venice` calls `POST {VENICE_API_BASE_URL}/image/generate` with `Authorization: Bearer $VENICE_API_KEY`. `safe_mode` comes from `VENICE_SAFE_MODE` (default `false` for this gated adult product). Prompt bodies are not written to application logs.
 - If Venice is unset/fails, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set.
-- `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys and the Comfy placeholder. Venice **cannot** be selected for trainPack.
+- `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys and the Comfy placeholder, then polls `GET .../status/{id}` until complete. On success the worker stores LoRA/adapter object-key pointers on the Character Pack. Venice **cannot** be selected for trainPack.
 - `sister` adapters implement the same interfaces and are selected only when `GENERATE_STILL_PROVIDER` / `TRAIN_PACK_PROVIDER` is `sister`.
 
-Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored).
+Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are empty, stills/refs go to `.data/storage/` (gitignored). Studio previews use a short-lived presigned GET (R2) or `/api/media/:id` (local).
 
 ## What Stage 1 intentionally excludes
 
@@ -122,12 +123,12 @@ Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are em
 
 ## Build TODOs
 
-- Poll RunPod job status and persist LoRA/adapter artifacts
-- Presigned R2 GET for studio previews (no public URLs)
 - Replace self-attest with a highly effective age-assurance vendor where legally required
 - Output/input policy gateway and prompt log denylist audits
 - Credit ledger / adult-approved payments
 - Sister-company adapter implementation once that API exists
+- Test grid / Retrain on pack detail
+- Poll RunPod generateStill fallback for output image bytes (trainPack polling is in)
 
 ## License
 

@@ -10,5 +10,10 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "server/**/*.test.ts"],
+    env: {
+      SESSION_SECRET: "test-session-secret-not-for-prod-use-32b",
+      DATABASE_URL: "postgres://cast:cast@localhost:5432/cast",
+      PROVIDER_MODE: "stub",
+    },
   },
 });
