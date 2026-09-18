@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/cast/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function PrivacyBadge() {
@@ -11,9 +11,7 @@ export function PrivacyBadge() {
           type="button"
           className="inline-flex rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <Badge variant="outline" className="h-6 border-border font-normal text-muted-foreground">
-            Privacy: Private
-          </Badge>
+          <StatusBadge left="Privacy" right="Private" status="success" />
         </button>
       </TooltipTrigger>
       <TooltipContent sideOffset={6} className="max-w-xs text-left">

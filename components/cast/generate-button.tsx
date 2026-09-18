@@ -10,6 +10,7 @@ export function GenerateButton(props: {
   return (
     <Button
       type="button"
+      variant="metallic"
       size="xl"
       disabled={props.disabled || props.pending}
       title={props.disabled ? (props.disabledReason ?? LOCK_SOUL_ID_FIRST) : undefined}

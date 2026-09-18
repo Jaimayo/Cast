@@ -13,7 +13,7 @@ export function CharacterRequiredEmpty(props: { packId?: string | null; training
         <p className="mt-2 text-sm text-muted-foreground">Composer needs a Locked Soul ID.</p>
         {props.training ? <p className="mt-2 text-sm text-success">Training Soul ID…</p> : null}
         <div className="mt-6 flex flex-col items-center gap-3">
-          <Button asChild size="xl">
+          <Button asChild size="xl" variant="metallic">
             <a href="/app/characters">Go to Characters</a>
           </Button>
           <a

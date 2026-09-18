@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/cast/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -11,9 +11,7 @@ export function TeaserAnimateLater() {
         <span className="inline-flex">
           <Button type="button" variant="outline" size="xl" disabled className="gap-2 rounded-full">
             Animate later
-            <Badge variant="outline" className="h-5 border-border font-normal text-muted-foreground">
-              Phase 1.5
-            </Badge>
+            <StatusBadge left="Phase" right="1.5" status="muted" />
           </Button>
         </span>
       </TooltipTrigger>

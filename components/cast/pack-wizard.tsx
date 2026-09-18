@@ -295,7 +295,7 @@ export function PackWizard(props: { initialPackId?: string }) {
         {training ? <p className="text-sm text-success">Training Soul ID… this page updates when it locks.</p> : null}
         {message ? <p className="text-sm text-success">{message}</p> : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="button" size="xl" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
+        <Button type="button" size="xl" variant="metallic" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
           {training ? "Training…" : "Train & lock Soul ID"}
         </Button>
       </div>

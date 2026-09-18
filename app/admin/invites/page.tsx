@@ -82,7 +82,7 @@ export default function AdminInvitesPage() {
               <Label htmlFor="note">Note</Label>
               <Input id="note" value={note} onChange={(event) => setNote(event.target.value)} />
             </div>
-            <Button type="submit" size="xl">
+            <Button type="submit" size="xl" variant="metallic">
               Create invite
             </Button>
           </form>

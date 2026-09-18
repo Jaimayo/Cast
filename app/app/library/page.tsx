@@ -1,5 +1,4 @@
-import { PlaceholderThumb } from "@/components/cast/placeholder-thumb";
-import { StillPreview } from "@/components/still-preview";
+import { ElasticGallery } from "@/components/cast/elastic-gallery";
 import { listLibraryStills } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
 
@@ -15,17 +14,10 @@ export default async function LibraryPage() {
       <p className="mt-2 text-sm text-muted-foreground">
         In-app stills only. No public gallery and no device face upload.
       </p>
-      {stills.length === 0 ? <p className="mt-6 text-sm text-muted-foreground">Nothing stored yet.</p> : null}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {stills.map((still) => (
-          <div key={still.id} className="overflow-hidden rounded-[var(--radius-chip)] border border-border">
-            {still.previewUrl ? (
-              <StillPreview src={still.previewUrl} alt="Your still" className="still-thumb aspect-square w-full object-cover" />
-            ) : (
-              <PlaceholderThumb id={still.id} family="character" label="Still" />
-            )}
-          </div>
-        ))}
+      <div className="mt-6">
+        <ElasticGallery
+          stills={stills.map((still) => ({ id: still.id, previewUrl: still.previewUrl, label: "Private still" }))}
+        />
       </div>
     </section>
   );

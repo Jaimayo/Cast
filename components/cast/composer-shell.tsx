@@ -159,7 +159,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col md:h-dvh">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-6">
         <SoulBadge name={characterName} locked={locked} status={selected?.status} />
       </div>

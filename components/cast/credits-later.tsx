@@ -1,9 +1,5 @@
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/cast/status-badge";
 
 export function CreditsLater() {
-  return (
-    <Badge variant="outline" className="h-6 border-border font-normal text-muted-foreground">
-      Credits — later
-    </Badge>
-  );
+  return <StatusBadge left="Credits" right="later" status="muted" />;
 }

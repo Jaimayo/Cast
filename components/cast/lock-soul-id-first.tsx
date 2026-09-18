@@ -16,7 +16,7 @@ export function LockSoulIdFirstCta(props: {
           {label}
         </a>
       ) : (
-        <Button asChild size="xl">
+        <Button asChild size="xl" variant="metallic">
           <a href={href}>{label}</a>
         </Button>
       )}

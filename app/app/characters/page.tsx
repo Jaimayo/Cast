@@ -18,7 +18,7 @@ export default async function CharactersPage() {
             Lock a character before Create. Fictional only — no real-person upload.
           </p>
         </div>
-        <Button asChild size="xl">
+        <Button asChild size="xl" variant="metallic">
           <a href="/app/characters/new">+ New</a>
         </Button>
       </div>
