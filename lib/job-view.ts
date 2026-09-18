@@ -138,8 +138,9 @@ export function formatJobAttempts(attempt: number, maxAttempts: number): string 
  * Normalize a generation_jobs row (or enqueue result) for the Jobs API.
  * Drops storage keys, input JSON, provider ids, and other non-product fields.
  */
-export function publicJob(job: JobViewInput, now: Date = new Date()): PublicJob {
-  const createdAt = asDate(job.createdAt, now);
+export function publicJob(job: JobViewInput, now?: Date | number): PublicJob {
+  const clock = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+  const createdAt = asDate(job.createdAt, clock);
   const updatedAt = asDate(job.updatedAt, createdAt);
   const errorCode = job.errorCode?.trim() || null;
   const errorMessage = job.errorMessage?.trim() || null;
@@ -156,8 +157,8 @@ export function publicJob(job: JobViewInput, now: Date = new Date()): PublicJob 
     characterPackId: job.characterPackId ?? null,
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
-    ageMs: jobAgeMs(createdAt, now),
-    durationMs: jobDurationMs({ status: job.status, createdAt, updatedAt, now }),
+    ageMs: jobAgeMs(createdAt, clock),
+    durationMs: jobDurationMs({ status: job.status, createdAt, updatedAt, now: clock }),
     attempt: jobAttemptCount(job.attempt),
     maxAttempts: maxAttemptsForKind(job.kind),
     errorCode,

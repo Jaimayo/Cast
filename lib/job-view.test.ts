@@ -58,6 +58,21 @@ describe("Jobs API public shape", () => {
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey|compiledPrompt|rp-secret|user-1|recipe/i);
   });
 
+  it("ignores Array.map index so test-grid can map(publicJob)", () => {
+    const rows = [
+      {
+        id: "job-map",
+        kind: "generate_still" as const,
+        status: "queued",
+        createdAt: new Date("2026-09-18T11:59:50.000Z"),
+      },
+    ];
+    const [mapped] = rows.map(publicJob);
+    expect(mapped?.ageMs).toBeGreaterThanOrEqual(0);
+    expect(mapped?.lastError).toBeNull();
+    expect(mapped?.attempt).toBe(0);
+  });
+
   it("uses live age as duration while queued or running, and null lastError when clean", () => {
     const running = publicJob(
       {
