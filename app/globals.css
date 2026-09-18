@@ -548,6 +548,71 @@ input[type="checkbox"] {
   text-transform: uppercase;
 }
 
+.jobs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 28px;
+  align-items: start;
+}
+
+.jobs-row {
+  cursor: pointer;
+}
+
+.jobs-row:focus {
+  outline: 1px solid var(--gold);
+  outline-offset: -1px;
+}
+
+.jobs-row:hover td {
+  background: rgba(226, 182, 87, 0.05);
+}
+
+.jobs-row.is-selected td {
+  background: rgba(226, 182, 87, 0.1);
+}
+
+.job-status {
+  font-weight: 600;
+}
+
+.job-status.is-ok {
+  color: var(--ok);
+}
+
+.job-status.is-danger {
+  color: var(--danger);
+}
+
+.job-status.is-gold {
+  color: var(--gold);
+}
+
+.job-note.is-retry {
+  color: var(--gold);
+}
+
+.job-detail {
+  background: var(--bg-raise);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.job-detail h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.job-detail-thumb {
+  width: 100%;
+  max-width: 180px;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  margin: 8px 0 14px;
+}
+
 @media (max-width: 960px) {
   .composer-shell {
     grid-template-columns: 1fr;
@@ -555,5 +620,8 @@ input[type="checkbox"] {
   .chip-rail,
   .history-rail {
     border: 0;
+  }
+  .jobs-layout {
+    grid-template-columns: 1fr;
   }
 }
