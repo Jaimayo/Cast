@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   applicationName: "Cast",
   icons: {
     icon: [
-      { url: "/brand/icon-favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/cast-favicon.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "32x32" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
