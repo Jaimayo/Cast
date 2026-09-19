@@ -10,6 +10,7 @@ import {
 } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { isS3Configured, presignGetUrl, readObject } from "@/server/storage";
+import { isDemoStillId, readDemoStillBytes, servingDemoPacks } from "@/server/demo-pack";
 
 export async function getAccessibleMedia(userId: string, mediaId: string): Promise<MediaAsset | null> {
   const id = parseMediaId(mediaId);
@@ -103,6 +104,14 @@ export async function resolveMediaPreview(
   }
   if (!parseMediaId(input.mediaId)) {
     return { kind: "error", status: 404, error: MEDIA_AUTH_ERRORS.notFound };
+  }
+
+  if (servingDemoPacks() && isDemoStillId(input.mediaId)) {
+    const demo = await readDemoStillBytes(input.mediaId);
+    if (!demo) {
+      return { kind: "error", status: 404, error: MEDIA_AUTH_ERRORS.notFound };
+    }
+    return { kind: "bytes", body: demo.body, mimeType: demo.mimeType };
   }
 
   let asset: MediaAsset | null = null;

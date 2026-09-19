@@ -7,7 +7,7 @@ import { isLockedSoul } from "@/lib/soul";
 import type { StillAspectId } from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
-type Pack = { id: string; name: string; status: string };
+type Pack = { id: string; name: string; status: string; demo?: boolean };
 
 export function ChipRail(props: {
   packs: Pack[];
@@ -42,7 +42,7 @@ export function ChipRail(props: {
             <option value="">Select a Locked pack…</option>
             {lockedPacks.map((pack) => (
               <option key={pack.id} value={pack.id}>
-                {pack.name}
+                {pack.demo ? `${pack.name} · demo` : pack.name}
               </option>
             ))}
           </select>

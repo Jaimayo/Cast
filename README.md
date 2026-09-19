@@ -33,7 +33,8 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/invite`, `app/age` | Invite redeem / sign-in; age+policy (18+ copy locked) |
 | `app/app/characters*` | Roster, New wizard (Starters \| From library), pack detail |
 | `app/app/create` | Composer chip shell |
-| `app/app/library` | Own stills only |
+| `app/app/library` | Own stills only (stub review also shows fictional Mara placeholders) |
+| `app/api/demo-pack` | Stub seed catalog + drop path for 8–20 fictional refs |
 | `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` |
 | `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
@@ -101,6 +102,17 @@ Leave `PROVIDER_MODE=stub`. Do **not** set `DATABASE_URL`, `REDIS_URL`, S3/R2, V
 If `DATABASE_URL` is unset, `vercel-build` skips migrate/bootstrap and runs `next build` (memory preview). Setting `DATABASE_URL` turns the cookie-only path off and expects Postgres.
 
 Click-through: `/` → invite `castreview` → age **I confirm I am 18+.** → `/app/characters`.
+
+Stub review seeds two **fictional** Character Packs so Library / roster are not empty:
+
+| Pack | State | What you see |
+| --- | --- | --- |
+| **Mara** | Locked | Soul ID badge, 12 placeholder refs, **Use in Create**, Library stills |
+| **Iris** | Draft | 4 placeholder refs (below min 12), lock-before-Create, starters contact sheet |
+
+Tiles are champagne Cast-mark placeholders — not faces. Drop 8–20 fictional Soul ID refs later at `public/demo/refs/{mara,iris}/` (see the README there). `GET`/`POST /api/demo-pack` returns the seed catalog. Demo packs are read-only for attach / Train; Create → Generate on Mara returns a placeholder still.
+
+Live (`PROVIDER_MODE=live`) never injects demo packs.
 
 ### Commands
 

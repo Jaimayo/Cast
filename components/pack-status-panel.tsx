@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefCountMeter } from "@/components/ref-count-meter";
 import { RefTray, type TrayRef } from "@/components/ref-tray";
+import { DemoBadge, DemoPackBanner } from "@/components/demo-pack-banner";
 import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
 import { PACK_REF_FICTIONAL_COPY } from "@/lib/pack-ref-upload";
@@ -14,6 +15,8 @@ type Pack = {
   name: string;
   status: string;
   hasAdapter?: boolean;
+  demo?: boolean;
+  demoState?: "locked" | "draft";
 };
 
 export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: TrayRef[] }) {
@@ -75,8 +78,12 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: Tr
       <div className="kicker">Character Pack</div>
       <div className="row-between">
         <h1>{props.pack.name}</h1>
-        <SoulBadge name={props.pack.name} locked={locked} />
+        <div className="roster-badges">
+          {props.pack.demo ? <DemoBadge /> : null}
+          <SoulBadge name={props.pack.name} locked={locked} />
+        </div>
       </div>
+      {props.pack.demo ? <DemoPackBanner state="locked" /> : null}
       <p className="muted">
         {soulStatusLabel(status)} · {props.refCount} reference pictures
       </p>
@@ -116,8 +123,14 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: Tr
         <button
           className="btn secondary"
           type="button"
-          disabled={!locked || Boolean(pending)}
-          title={locked ? "Train again from the existing refs" : "Lock Soul ID first"}
+          disabled={!locked || Boolean(pending) || Boolean(props.pack.demo)}
+          title={
+            props.pack.demo
+              ? "Demo packs stay on placeholders — retrain on your own pack"
+              : locked
+                ? "Train again from the existing refs"
+                : "Lock Soul ID first"
+          }
           onClick={() => void retrain()}
         >
           {pending === "retrain" ? "Queueing…" : "Retrain"}
