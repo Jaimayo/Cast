@@ -1,8 +1,10 @@
 "use client";
 
+import { AspectChipSelect } from "@/components/aspect-chip-select";
 import { ChipSelect } from "@/components/chip-select";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { isLockedSoul } from "@/lib/soul";
+import type { StillAspectId } from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
@@ -16,12 +18,14 @@ export function ChipRail(props: {
   sceneChipId: string;
   lightingChipId: string;
   bodyChipId: string;
+  aspectRatio: StillAspectId;
   onCharacter: (id: string) => void;
   onPose: (id: string) => void;
   onOutfit: (id: string) => void;
   onScene: (id: string) => void;
   onLighting: (id: string) => void;
   onBody: (id: string) => void;
+  onAspect: (id: StillAspectId) => void;
   lockPackId?: string | null;
   training?: boolean;
 }) {
@@ -45,6 +49,7 @@ export function ChipRail(props: {
         )}
       </div>
       <ChipSelect title="Pose" required chips={props.chips.pose} value={props.poseChipId} onChange={props.onPose} />
+      <AspectChipSelect value={props.aspectRatio} onChange={props.onAspect} />
       <ChipSelect title="Outfit" optional chips={props.chips.outfit} value={props.outfitChipId} onChange={props.onOutfit} />
       <ChipSelect title="Scene" optional chips={props.chips.scene} value={props.sceneChipId} onChange={props.onScene} />
       <ChipSelect

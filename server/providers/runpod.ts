@@ -304,6 +304,7 @@ export const runpodGenerateAdapter: GenerateStillAdapter = {
       adapterMeta: input.adapterMeta ?? null,
       width: input.width ?? 1024,
       height: input.height ?? 1024,
+      aspectRatio: input.aspectRatio,
     });
 
     const result = await waitForGenerateResult(env.generateEndpointId, posted, posted.id ?? input.jobId);

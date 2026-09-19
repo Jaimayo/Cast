@@ -6,14 +6,23 @@ import { EmptyState } from "@/components/empty-state";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
 import { LoadingState } from "@/components/loading-state";
-import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
+import {
+  pickKnownChipId,
+  readComposerDraft,
+  writeComposerDraft,
+} from "@/lib/composer-draft";
 import { canGenerateStill, generateDisabledReason } from "@/lib/generate-affordances";
 import { jobCanceledMessage } from "@/lib/job-cancel";
 import { isInProgressJob, jobQueuePresentation, type JobDisplayInput } from "@/lib/job-display";
 import { isLockedSoul } from "@/lib/soul";
+import {
+  DEFAULT_STILL_ASPECT_ID,
+  stillAspectFromUnknown,
+  type StillAspectId,
+} from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
@@ -52,6 +61,8 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const [sceneChipId, setSceneChipId] = useState("");
   const [lightingChipId, setLightingChipId] = useState("");
   const [bodyChipId, setBodyChipId] = useState("");
+  const [aspectRatio, setAspectRatio] = useState<StillAspectId>(DEFAULT_STILL_ASPECT_ID);
+  const [draftReady, setDraftReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -84,10 +95,44 @@ export function ComposerShell(props: { initialPackId?: string }) {
         preferred && isLockedSoul(preferred.status)
           ? preferred
           : packData.packs.find((pack) => isLockedSoul(pack.status));
-      setCharacterPackId(locked?.id ?? "");
-      setPoseChipId(chipData.pose[0]?.id ?? "");
+      const draft = readComposerDraft(window.sessionStorage);
+      const lockedFromDraft =
+        draft?.characterPackId &&
+        packData.packs.some((pack) => pack.id === draft.characterPackId && isLockedSoul(pack.status))
+          ? packData.packs.find((pack) => pack.id === draft.characterPackId)
+          : undefined;
+      setCharacterPackId(locked?.id ?? lockedFromDraft?.id ?? "");
+      setPoseChipId(pickKnownChipId(draft?.poseChipId, chipData.pose, chipData.pose[0]?.id ?? ""));
+      setOutfitChipId(pickKnownChipId(draft?.outfitChipId, chipData.outfit));
+      setSceneChipId(pickKnownChipId(draft?.sceneChipId, chipData.scene));
+      setLightingChipId(pickKnownChipId(draft?.lightingChipId, chipData.lighting));
+      setBodyChipId(pickKnownChipId(draft?.bodyChipId, chipData.body));
+      setAspectRatio(stillAspectFromUnknown(draft?.aspectRatio));
+      setDraftReady(true);
     });
   }, [props.initialPackId]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    writeComposerDraft(window.sessionStorage, {
+      characterPackId: characterPackId || undefined,
+      poseChipId: poseChipId || undefined,
+      outfitChipId: outfitChipId || undefined,
+      sceneChipId: sceneChipId || undefined,
+      lightingChipId: lightingChipId || undefined,
+      bodyChipId: bodyChipId || undefined,
+      aspectRatio,
+    });
+  }, [
+    draftReady,
+    characterPackId,
+    poseChipId,
+    outfitChipId,
+    sceneChipId,
+    lightingChipId,
+    bodyChipId,
+    aspectRatio,
+  ]);
 
   const trainingAny = packs.some((pack) => pack.status === "training");
   useEffect(() => {
@@ -168,6 +213,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
           sceneChipId: sceneChipId || null,
           lightingChipId: lightingChipId || null,
           bodyChipId: bodyChipId || null,
+          aspectRatio,
         }),
       });
       setMessage("Still queued. Status updates here and on Jobs.");
@@ -223,6 +269,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
           sceneChipId={sceneChipId}
           lightingChipId={lightingChipId}
           bodyChipId={bodyChipId}
+          aspectRatio={aspectRatio}
           lockPackId={focus?.id}
           training={training}
           onCharacter={setCharacterPackId}
@@ -231,6 +278,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
           onScene={setSceneChipId}
           onLighting={setLightingChipId}
           onBody={setBodyChipId}
+          onAspect={setAspectRatio}
         />
         <div className="hero-canvas">
           <HeroCanvas
@@ -241,6 +289,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
             packId={focus?.id}
             training={training}
             generating={generating}
+            aspectRatio={aspectRatio}
           />
           {error ? <p className="error">{error}</p> : null}
           {activeView ? (
@@ -271,7 +320,6 @@ export function ComposerShell(props: { initialPackId?: string }) {
             ) : null}
             <TeaserAnimateLater />
           </div>
-          {!locked ? <LockSoulIdFirstCta packId={focus?.id} training={false} variant="link" /> : null}
           <p className="hidden-note">
             Generate needs a Locked Soul ID and a Pose. No prompt textarea. No camera. No Advanced.
             Starters live in the Pack wizard only. Animate later is Phase 1.5.
@@ -284,7 +332,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
               compact
               kicker="Session"
               title="No stills yet"
-              body="Generate a still and it will land here. Prompt stays hidden."
+              body="Generate a still and it lands here."
             />
           ) : null}
           {history.map((job) => {

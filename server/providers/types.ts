@@ -5,6 +5,8 @@ export type GenerateStillInput = {
   width?: number;
   height?: number;
   seed?: number;
+  /** Composer Frame id (`3:4`, `1:1`, `9:16`, `16:9`). Pixel adapters use width/height. */
+  aspectRatio?: string;
   /** 1-based BullMQ attempt. Stub scenarios use this for retry-then-succeed. */
   attempt?: number;
   /** Opaque pack id for identity routing. Venice ignores this (no Soul ID). */

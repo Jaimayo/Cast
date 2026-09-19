@@ -10,7 +10,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 - Age self-attest stored as `users.age_attested_at`; no studio until set
 - Stills first; ~5s clip is Phase 1.5 — UI shows **Animate later**, generation is not implemented
 - Character Pack (Soul ID): generate-then-lock **or** library-train from **in-app** stills; min 12 / target ~20 refs
-- Composer: Character required + Pose required for Generate; Outfit/Scene/Lighting/Body optional. **No camera. No Advanced panel.**
+- Composer: Character required + Pose required for Generate; Outfit/Scene/Lighting/Body optional. Frame defaults to **3:4 portrait** (also 1:1 / 9:16 / 16:9). **No camera. No Advanced panel.**
 - Path 1 face/body vibes = `/api/generate-starters` → `training_set_assets` (not Composer templates)
 - Providers: Venice = `generateStill` only; RunPod+Comfy = `trainPack` (+ gen fallback). Sister-company adapter slot is reserved and unwired as a default. Venice has no Soul-ID/train API.
 - Legal boundary: gated access; do not build real-likeness NSFW paths

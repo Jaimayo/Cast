@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { publicJob } from "@/lib/media";
+import { STILL_ASPECT_IDS } from "@/lib/still-aspect";
 import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import { enqueueGenerateStill } from "@/server/packs";
@@ -14,6 +15,7 @@ const bodySchema = z.object({
   sceneChipId: z.string().min(1).optional().nullable(),
   lightingChipId: z.string().min(1).optional().nullable(),
   bodyChipId: z.string().min(1).optional().nullable(),
+  aspectRatio: z.enum(STILL_ASPECT_IDS).optional(),
 });
 
 export async function POST(request: Request) {
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
       sceneChipId: body.sceneChipId,
       lightingChipId: body.lightingChipId,
       bodyChipId: body.bodyChipId,
+      aspectRatio: body.aspectRatio,
     });
     return NextResponse.json({ ...result, job: publicJob(result.job) }, { status: 202 });
   } catch (err) {

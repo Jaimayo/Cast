@@ -86,10 +86,33 @@ describe("Venice generateStill request mapping", () => {
       model: "nano-banana-2",
       safeMode: false,
     });
-    expect(nano.aspect_ratio).toBe("1:1");
+    expect(nano.aspect_ratio).toBe("3:4");
     expect(nano.resolution).toBe("1K");
     expect(nano.width).toBeUndefined();
     expect(nano.height).toBeUndefined();
+  });
+
+  it("maps Composer Frame onto pixel size and aspect_ratio models", () => {
+    const portrait = buildVeniceGenerateRequest({
+      prompt: "still",
+      model: "lustify-v8",
+      safeMode: false,
+      width: 768,
+      height: 1024,
+      aspectRatio: "3:4",
+    });
+    expect(portrait.width).toBe(768);
+    expect(portrait.height).toBe(1024);
+    expect(portrait.aspect_ratio).toBeUndefined();
+
+    const wide = buildVeniceGenerateRequest({
+      prompt: "still",
+      model: "nano-banana-2",
+      safeMode: false,
+      aspectRatio: "16:9",
+    });
+    expect(wide.aspect_ratio).toBe("16:9");
+    expect(wide.width).toBeUndefined();
   });
 
   it("omits empty negative_prompt", () => {

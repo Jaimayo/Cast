@@ -333,6 +333,25 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 
+.chip.aspect-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aspect-chip-icon {
+  display: inline-block;
+  height: 12px;
+  border: 1px solid var(--ink-dim);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.chip.selected .aspect-chip-icon {
+  border-color: var(--gold);
+  background: rgba(196, 165, 116, 0.28);
+}
+
 .chip.selected {
   border-color: var(--gold);
   background: rgba(196, 165, 116, 0.12);
@@ -597,6 +616,10 @@ input[type="checkbox"] {
 
 .history-item .btn.compact {
   margin-top: 6px;
+}
+
+.hero-frame-caption {
+  margin: 0;
 }
 
 .hero-progress {
