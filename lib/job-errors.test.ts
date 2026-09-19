@@ -149,6 +149,9 @@ describe("classifyJobError", () => {
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_TIMEOUT)).toBe(true);
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_NO_IMAGE)).toBe(true);
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_CANCELED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_ALREADY_FINISHED)).toBe(true);
   });
 
   it("does not retry 4xx provider rejections (except rate-limit / timeout)", () => {
@@ -230,6 +233,13 @@ describe("classifyJobError", () => {
     ).toMatchObject({
       userMessage: "This still was blocked by the image service policy. Change chips and try again.",
       retryable: false,
+    });
+    expect(
+      classifyJobError(new JobError({ code: JOB_ERROR_CODES.JOB_CANCELED, retryable: false })),
+    ).toMatchObject({
+      code: JOB_ERROR_CODES.JOB_CANCELED,
+      retryable: false,
+      userMessage: "This still was canceled.",
     });
     const timeout = new Error("Provider request timed out");
     timeout.name = "ProviderTimeoutError";
@@ -368,6 +378,10 @@ describe("jobs observability helpers", () => {
     ).toBe("Still generation failed. Try again from Create.");
     expect(userSafeLastError("GENERATE_STILL_FAILED", "compiled prompt: a woman in pose x")).toBe(
       "Still generation failed. Try again from Create.",
+    );
+    expect(userSafeLastError("JOB_CANCELED", "This still was canceled.")).toBe("This still was canceled.");
+    expect(userSafeLastError("JOB_CANCEL_NOT_SUPPORTED", "Train & lock can't be canceled from Jobs.")).toBe(
+      "Train & lock can't be canceled from Jobs.",
     );
   });
 

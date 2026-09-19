@@ -10,19 +10,23 @@ import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
-import { canGenerateStill, generateDisabledReason, GENERATE_IN_PROGRESS_COPY } from "@/lib/generate-affordances";
+import { canGenerateStill, generateDisabledReason } from "@/lib/generate-affordances";
+import { jobCanceledMessage } from "@/lib/job-cancel";
+import { isInProgressJob, jobQueuePresentation, type JobDisplayInput } from "@/lib/job-display";
 import { isLockedSoul } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
-type Job = {
+type Job = JobDisplayInput & {
   id: string;
-  kind: string;
-  status: string;
   previewUrl?: string | null;
-  lastError?: string | null;
-  lastErrorCode?: string | null;
+  cancelSupported?: boolean;
+  cancelDisabledReason?: string | null;
 };
+
+function stillJobs(jobs: Job[]): Job[] {
+  return jobs.filter((job) => job.kind === "generate_still").slice(0, 8);
+}
 
 function spotlightPack(packs: Pack[], initialPackId?: string): Pack | undefined {
   const preferred = initialPackId ? packs.find((pack) => pack.id === initialPackId) : undefined;
@@ -54,6 +58,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const [watchingId, setWatchingId] = useState<string | null>(null);
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
   const [attested, setAttested] = useState(true);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
 
   useEffect(() => {
     void api<{ user: { ageAttestedAt: string | null } | null }>("/api/auth/session")
@@ -68,8 +73,8 @@ export function ComposerShell(props: { initialPackId?: string }) {
     ]).then(([chipData, packData, jobData]) => {
       setChips(chipData);
       setPacks(packData.packs);
-      const stills = jobData.jobs.filter((job) => job.kind === "generate_still");
-      setJobs(stills.slice(0, 8));
+      const stills = stillJobs(jobData.jobs);
+      setJobs(stills);
       const latestPreview = stills.find((job) => job.previewUrl)?.previewUrl ?? null;
       setHeroUrl(latestPreview);
       const preferred = props.initialPackId
@@ -102,6 +107,40 @@ export function ComposerShell(props: { initialPackId?: string }) {
     return () => window.clearInterval(timer);
   }, [trainingAny]);
 
+  const inProgress = jobs.some((job) => isInProgressJob(job));
+  useEffect(() => {
+    if (!inProgress) return;
+    let cancelled = false;
+    async function refresh() {
+      try {
+        const data = await api<{ jobs: Job[] }>("/api/jobs");
+        if (cancelled) return;
+        const stills = stillJobs(data.jobs);
+        setJobs(stills);
+        const latestPreview = stills.find((job) => job.previewUrl)?.previewUrl ?? null;
+        if (latestPreview) setHeroUrl(latestPreview);
+        const watched = watchingId ? stills.find((job) => job.id === watchingId) : undefined;
+        if (!watched) return;
+        if (watched.status === "failed") {
+          setError(watched.lastError || "Generate failed. Try again.");
+        } else if (watched.status === "canceled") {
+          setError(null);
+          setMessage(jobCanceledMessage("generate_still"));
+        } else if (watched.status === "succeeded") {
+          setError(null);
+        }
+      } catch {
+        // Keep the last known in-progress row; the next tick retries.
+      }
+    }
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [inProgress, watchingId]);
+
   const selected = packs.find((pack) => pack.id === characterPackId);
   const locked = Boolean(selected && isLockedSoul(selected.status));
   const focus = spotlightPack(packs, props.initialPackId);
@@ -109,30 +148,10 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const generateGate = { attested, locked, poseChipId };
   const canGenerate = canGenerateStill(generateGate);
   const disabledReason = generateDisabledReason(generateGate);
-  const generating = Boolean(watchingId);
-
   const characterName = selected?.name;
-
-  async function watchJob(jobId: string) {
-    for (let i = 0; i < 40; i += 1) {
-      const data = await api<{ job: Job }>(`/api/jobs/${jobId}`);
-      setJobs((prev) => {
-        const rest = prev.filter((job) => job.id !== jobId);
-        return [data.job, ...rest].slice(0, 8);
-      });
-      if (data.job.previewUrl) {
-        setHeroUrl(data.job.previewUrl);
-      }
-      if (data.job.status === "succeeded" || data.job.status === "failed") {
-        setWatchingId(null);
-        if (data.job.status === "failed") {
-          setError(data.job.lastError || "Generate failed. Try again.");
-        }
-        return;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 1200));
-    }
-  }
+  const activeJob = jobs.find((job) => isInProgressJob(job));
+  const activeView = activeJob ? jobQueuePresentation(activeJob) : null;
+  const generating = Boolean(activeJob);
 
   async function generate() {
     if (!canGenerate) return;
@@ -140,7 +159,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
     setError(null);
     setMessage(null);
     try {
-      const result = await api<{ job: { id: string } }>("/api/composer/generate", {
+      const result = await api<{ job: Job }>("/api/composer/generate", {
         method: "POST",
         body: JSON.stringify({
           characterPackId,
@@ -151,16 +170,31 @@ export function ComposerShell(props: { initialPackId?: string }) {
           bodyChipId: bodyChipId || null,
         }),
       });
-      setMessage(`Queued still ${result.job.id}. Prompt stays hidden.`);
+      setMessage("Still queued. Status updates here and on Jobs.");
       setWatchingId(result.job.id);
-      setJobs((prev) => [{ id: result.job.id, kind: "generate_still", status: "queued", previewUrl: null }, ...prev].slice(0, 8));
-      void watchJob(result.job.id).finally(() => {
-        setWatchingId((current) => (current === result.job.id ? null : current));
-      });
+      setJobs((prev) => stillJobs([result.job, ...prev]));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function cancelJob(jobId: string) {
+    setCancelingId(jobId);
+    setError(null);
+    try {
+      const data = await api<{ job: Job }>(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+      setJobs((prev) => {
+        const rest = prev.filter((job) => job.id !== jobId);
+        return stillJobs([data.job, ...rest]);
+      });
+      setMessage(jobCanceledMessage("generate_still"));
+      if (watchingId === jobId) setWatchingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel this still.");
+    } finally {
+      setCancelingId(null);
     }
   }
 
@@ -202,13 +236,20 @@ export function ComposerShell(props: { initialPackId?: string }) {
           <HeroCanvas
             locked={locked}
             message={message}
+            progress={activeView?.note ?? null}
             previewUrl={heroUrl}
             packId={focus?.id}
             training={training}
             generating={generating}
           />
           {error ? <p className="error">{error}</p> : null}
-          {generating ? <p className="ok">{GENERATE_IN_PROGRESS_COPY}</p> : null}
+          {activeView ? (
+            <p className="job-status is-gold" aria-live="polite">
+              {activeView.statusLabel}
+              {activeView.meta ? ` · ${activeView.meta}` : ""}
+              {activeView.note ? ` — ${activeView.note}` : ""}
+            </p>
+          ) : null}
           {disabledReason ? <p className="generate-reason">{disabledReason}</p> : null}
           <div className="actions" style={{ marginTop: 0 }}>
             <GenerateButton
@@ -218,6 +259,16 @@ export function ComposerShell(props: { initialPackId?: string }) {
               disabledReason={disabledReason}
               onClick={() => void generate()}
             />
+            {activeJob?.cancelSupported ? (
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={cancelingId === activeJob.id}
+                onClick={() => void cancelJob(activeJob.id)}
+              >
+                {cancelingId === activeJob.id ? "Canceling…" : "Cancel"}
+              </button>
+            ) : null}
             <TeaserAnimateLater />
           </div>
           {!locked ? <LockSoulIdFirstCta packId={focus?.id} training={false} variant="link" /> : null}
@@ -236,25 +287,60 @@ export function ComposerShell(props: { initialPackId?: string }) {
               body="Generate a still and it will land here. Prompt stays hidden."
             />
           ) : null}
-          {history.map((job) => (
-            <div key={job.id} className="history-item">
-              {job.previewUrl ? (
-                <button type="button" className="history-thumb" onClick={() => setHeroUrl(job.previewUrl ?? null)}>
-                  <StillPreview src={job.previewUrl} alt="Still" />
-                </button>
-              ) : (
-                <p className={job.id === watchingId ? "ok" : undefined}>
-                  {job.id === watchingId ? GENERATE_IN_PROGRESS_COPY : `${job.status} · ${job.id.slice(0, 8)}`}
-                  {job.status === "failed" && job.lastError ? (
-                    <>
-                      <br />
-                      <span className="error">{job.lastError}</span>
-                    </>
-                  ) : null}
-                </p>
-              )}
-            </div>
-          ))}
+          {history.map((job) => {
+            const view = jobQueuePresentation(job);
+            const busy = isInProgressJob(job);
+            return (
+              <div key={job.id} className={busy ? "history-item is-progress" : "history-item"}>
+                {job.previewUrl ? (
+                  <button type="button" className="history-thumb" onClick={() => setHeroUrl(job.previewUrl ?? null)}>
+                    <StillPreview src={job.previewUrl} alt="Still" />
+                  </button>
+                ) : (
+                  <p>
+                    <span
+                      className={
+                        view.statusTone === "gold"
+                          ? "job-status is-gold"
+                          : view.statusTone === "danger"
+                            ? "job-status is-danger"
+                            : "job-status"
+                      }
+                    >
+                      {view.statusLabel}
+                    </span>
+                    {view.meta ? <span className="muted"> · {view.meta}</span> : null}
+                    {view.note ? (
+                      <>
+                        <br />
+                        <span
+                          className={
+                            view.noteTone === "fail"
+                              ? "error"
+                              : view.noteTone === "retry"
+                                ? "job-note is-retry"
+                                : "muted"
+                          }
+                        >
+                          {view.note}
+                        </span>
+                      </>
+                    ) : null}
+                  </p>
+                )}
+                {job.cancelSupported ? (
+                  <button
+                    className="btn secondary compact"
+                    type="button"
+                    disabled={cancelingId === job.id}
+                    onClick={() => void cancelJob(job.id)}
+                  >
+                    {cancelingId === job.id ? "Canceling…" : "Cancel"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </aside>
       </div>
     </div>

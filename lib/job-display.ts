@@ -1,4 +1,11 @@
 import {
+  QUEUE_WAIT_SECONDS,
+  isActiveJobStatus,
+  jobCanceledMessage,
+  jobGeneratingMessage,
+  jobQueueWaitMessage,
+} from "@/lib/job-cancel";
+import {
   isPermanentCode,
   USER_JOB_MESSAGES,
   userSafeLastError,
@@ -18,7 +25,7 @@ export type JobDisplayInput = {
 };
 
 export type JobStatusTone = "ok" | "danger" | "gold" | "muted";
-export type JobNoteTone = "retry" | "fail";
+export type JobNoteTone = "retry" | "fail" | "info";
 
 function knownErrorCode(code: string | null): JobErrorCode | null {
   if (!code) return null;
@@ -55,13 +62,25 @@ export function isRetryingJob(job: JobDisplayInput): boolean {
 }
 
 export function isInProgressJob(job: JobDisplayInput): boolean {
-  return job.status === "queued" || job.status === "running";
+  return isActiveJobStatus(job.status);
+}
+
+export function jobProgressMessage(job: JobDisplayInput): string | null {
+  if (isRetryingJob(job)) return null;
+  if (job.status === "queued") return jobQueueWaitMessage(job.ageSeconds);
+  if (job.status === "running") return jobGeneratingMessage(job.kind);
+  return null;
 }
 
 export function jobStatusLabel(job: JobDisplayInput): string {
   if (isRetryingJob(job)) return "Retrying";
-  if (job.status === "queued") return "Queued";
-  if (job.status === "running") return "Running";
+  if (job.status === "queued") {
+    return (job.ageSeconds ?? 0) >= QUEUE_WAIT_SECONDS ? "Waiting" : "Queued";
+  }
+  if (job.status === "running") {
+    if (job.kind === "train_pack") return "Training";
+    return "Generating";
+  }
   if (job.status === "succeeded") return "Succeeded";
   if (job.status === "failed") return "Failed";
   if (job.status === "canceled") return "Canceled";
@@ -97,6 +116,10 @@ export function jobRecoveryHint(job: JobDisplayInput): string | null {
   if (isRetryingJob(job) || (isInProgressJob(job) && jobErrorMessage(job))) {
     return "Still working — this is not a final failure.";
   }
+  if (job.status === "canceled") {
+    if (job.kind === "generate_starter") return "Generate the vibe again.";
+    return "Generate again from Create.";
+  }
   if (job.status !== "failed") return null;
   if (job.kind === "generate_still") return "Generate again from Create.";
   if (job.kind === "generate_starter") return "Generate the vibe again.";
@@ -119,12 +142,23 @@ export type JobQueuePresentation = {
 export function jobQueuePresentation(job: JobDisplayInput): JobQueuePresentation {
   const retrying = isRetryingJob(job);
   const inProgressWithError = isInProgressJob(job) && Boolean(jobErrorMessage(job));
-  const note = jobErrorMessage(job);
+  const errorNote = jobErrorMessage(job);
+  const progressNote = jobProgressMessage(job);
+  let note: string | null = null;
   let noteTone: JobNoteTone | null = null;
+
   if (retrying || inProgressWithError) {
+    note = errorNote;
     noteTone = "retry";
-  } else if (job.status === "failed" && note) {
+  } else if (job.status === "failed" && errorNote) {
+    note = errorNote;
     noteTone = "fail";
+  } else if (job.status === "canceled") {
+    note = jobCanceledMessage(job.kind);
+    noteTone = "info";
+  } else if (progressNote) {
+    note = progressNote;
+    noteTone = "info";
   }
 
   return {
@@ -132,7 +166,7 @@ export function jobQueuePresentation(job: JobDisplayInput): JobQueuePresentation
     statusLabel: jobStatusLabel(job),
     statusTone: jobStatusTone(job),
     meta: jobStatusMeta(job),
-    note: noteTone ? note : null,
+    note,
     noteTone,
     noteCaption: noteTone ? jobRecoveryHint(job) : null,
   };

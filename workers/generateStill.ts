@@ -4,6 +4,7 @@ import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
+import { generateStillWorkDecision, shouldPersistGenerateStillResult } from "@/lib/job-cancel";
 import { generateMissingAdapter, type JobAttempt } from "@/lib/job-errors";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -46,6 +47,16 @@ export async function processGenerateStillJob(
     return;
   }
 
+  if (generateStillWorkDecision(job.status) === "skip") {
+    jobLog("generateStill.skip_canceled", {
+      jobId: job.id,
+      kind: job.kind,
+      status: job.status,
+      attempt: attempt.attempt,
+    });
+    return;
+  }
+
   const existing = await existingMediaForJob(job.id);
   if (existing) {
     await markJobSucceeded({
@@ -61,7 +72,15 @@ export async function processGenerateStillJob(
     return;
   }
 
-  await markJobRunning(job.id, attempt.attempt);
+  const becameRunning = await markJobRunning(job.id, attempt.attempt);
+  if (!becameRunning) {
+    jobLog("generateStill.skip_inactive", {
+      jobId: job.id,
+      kind: job.kind,
+      attempt: attempt.attempt,
+    });
+    return;
+  }
 
   try {
     if (!job.characterPackId) {
@@ -176,6 +195,17 @@ export async function processGenerateStillJob(
       });
     }
 
+    const latest = await loadGenerationJob(job.id);
+    if (!latest || !shouldPersistGenerateStillResult(latest.status)) {
+      jobLog("generateStill.discard_canceled", {
+        jobId: job.id,
+        kind: job.kind,
+        status: latest?.status ?? "missing",
+        attempt: attempt.attempt,
+      });
+      return;
+    }
+
     const key = mediaKey({
       kind: job.kind === "generate_starter" ? "starter" : "still",
       userId: job.userId,
@@ -186,6 +216,16 @@ export async function processGenerateStillJob(
 
     const alreadyStored = await existingMediaForJob(job.id);
     if (!alreadyStored) {
+      const stillActive = await loadGenerationJob(job.id);
+      if (!stillActive || !shouldPersistGenerateStillResult(stillActive.status)) {
+        jobLog("generateStill.discard_canceled", {
+          jobId: job.id,
+          kind: job.kind,
+          status: stillActive?.status ?? "missing",
+          attempt: attempt.attempt,
+        });
+        return;
+      }
       const mediaKind = job.kind === "generate_starter" ? "starter" : "still";
       await db.insert(mediaAssets).values({
         userId: job.userId,
@@ -198,11 +238,19 @@ export async function processGenerateStillJob(
       });
     }
 
-    await markJobSucceeded({
+    const persisted = await markJobSucceeded({
       jobId: job.id,
       resultAssetKey: key,
       providerJobId: result.providerJobId,
     });
+    if (!persisted) {
+      jobLog("generateStill.discard_canceled", {
+        jobId: job.id,
+        kind: job.kind,
+        attempt: attempt.attempt,
+      });
+      return;
+    }
     jobLog("generateStill.succeeded", {
       jobId: job.id,
       kind: job.kind,
