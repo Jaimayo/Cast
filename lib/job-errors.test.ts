@@ -118,8 +118,9 @@ describe("classifyJobError", () => {
       retryable: true,
     });
     expect(classifyJobError(new Error("RunPod request failed with HTTP 429"))).toMatchObject({
-      code: JOB_ERROR_CODES.PROVIDER_HTTP_ERROR,
+      code: JOB_ERROR_CODES.PROVIDER_RATE_LIMIT,
       retryable: true,
+      userMessage: "The image service is rate-limiting requests. Try again in a moment.",
     });
     expect(classifyJobError(new Error("fetch failed"))).toMatchObject({
       code: JOB_ERROR_CODES.NETWORK_ERROR,
@@ -167,9 +168,21 @@ describe("classifyJobError", () => {
       status: 429,
     });
     expect(classifyJobError(err)).toMatchObject({
-      code: JOB_ERROR_CODES.PROVIDER_HTTP_ERROR,
+      code: JOB_ERROR_CODES.PROVIDER_RATE_LIMIT,
       retryable: true,
     });
+    const balance = Object.assign(new Error("venice failed with HTTP 402"), {
+      name: "ProviderHttpError",
+      status: 402,
+    });
+    expect(classifyJobError(balance)).toMatchObject({
+      code: JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE,
+      retryable: false,
+      userMessage: "The image service is out of credits. Try again after balance is restored.",
+    });
+    expect(isPermanentCode(JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_POLICY_REJECT)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.PROVIDER_RATE_LIMIT)).toBe(false);
   });
 
   it("does not retry stalled jobs", () => {
@@ -201,6 +214,30 @@ describe("classifyJobError", () => {
     const classified = classifyJobError(new Error("GENERATE_STILL_FAILED: prompt=secret lora bytes"));
     expect(classified.userMessage).toBe("Still generation failed. Try again from Create.");
     expect(classified.userMessage).not.toContain("secret");
+  });
+
+  it("keeps Venice 402 / policy / timeout copy user-safe", () => {
+    expect(
+      classifyJobError(
+        new JobError({ code: JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE, retryable: false }),
+      ),
+    ).toMatchObject({
+      code: JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE,
+      retryable: false,
+    });
+    expect(
+      classifyJobError(new JobError({ code: JOB_ERROR_CODES.GENERATE_POLICY_REJECT, retryable: false })),
+    ).toMatchObject({
+      userMessage: "This still was blocked by the image service policy. Change chips and try again.",
+      retryable: false,
+    });
+    const timeout = new Error("Provider request timed out");
+    timeout.name = "ProviderTimeoutError";
+    expect(classifyJobError(timeout)).toMatchObject({
+      code: JOB_ERROR_CODES.PROVIDER_TIMEOUT,
+      retryable: true,
+      userMessage: "The image service took too long. Try again.",
+    });
   });
 });
 

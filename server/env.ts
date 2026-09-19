@@ -45,6 +45,7 @@ export function getEnv() {
     venice: {
       apiKey: read("VENICE_API_KEY"),
       baseUrl: read("VENICE_API_BASE_URL") ?? "https://api.venice.ai/api/v1",
+      // Private-friendly uncensored character stills. See server/providers/venice.ts.
       imageModel: read("VENICE_IMAGE_MODEL") ?? "lustify-v8",
       safeMode: (read("VENICE_SAFE_MODE") ?? "false") === "true",
     },

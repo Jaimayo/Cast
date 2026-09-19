@@ -93,6 +93,30 @@ describe("retrying vs terminal Jobs copy", () => {
     ).toBe(USER_JOB_MESSAGES.GENERATE_MISSING_ADAPTER);
     expect(
       jobErrorMessage({
+        kind: "generate_still",
+        status: "failed",
+        lastErrorCode: "GENERATE_POLICY_REJECT",
+        lastError: null,
+      }),
+    ).toBe(USER_JOB_MESSAGES.GENERATE_POLICY_REJECT);
+    expect(
+      jobErrorMessage({
+        kind: "generate_still",
+        status: "failed",
+        lastErrorCode: "PROVIDER_INSUFFICIENT_BALANCE",
+        lastError: null,
+      }),
+    ).toBe(USER_JOB_MESSAGES.PROVIDER_INSUFFICIENT_BALANCE);
+    expect(
+      jobErrorMessage({
+        kind: "generate_still",
+        status: "failed",
+        lastErrorCode: "PROVIDER_RATE_LIMIT",
+        lastError: null,
+      }),
+    ).toBe(USER_JOB_MESSAGES.PROVIDER_RATE_LIMIT);
+    expect(
+      jobErrorMessage({
         kind: "train_pack",
         status: "failed",
         lastErrorCode: "TRAIN_NO_ADAPTER",
