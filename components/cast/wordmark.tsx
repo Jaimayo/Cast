@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 
 type LogoSize = "sm" | "md" | "lg";
 
-/** Crop production 280×48 L1 to the mark + CAST (left ~162×48). */
+/** Crop production 280×40 L1 to the mark + CAST (left ~145×40). */
 const LOCKUP: Record<LogoSize, string> = {
-  sm: "h-7 w-[95px]",
-  md: "h-8 w-[108px]",
-  lg: "h-12 w-[162px]",
+  sm: "h-7 w-[102px]",
+  md: "h-8 w-[116px]",
+  lg: "h-12 w-[174px]",
 };
 
 /** Crop production 200×40 W1 to the tracked CAST (left ~96×40). */

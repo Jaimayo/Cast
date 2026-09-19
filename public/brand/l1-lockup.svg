@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="280" height="48" viewBox="0 0 280 48" role="img" aria-label="Cast L1 lockup">
-  <g transform="translate(28,24)">
-    <rect x="-22" y="-15" width="44" height="30" rx="3" fill="none" stroke="#C4A574" stroke-width="2.25"/>
-    <rect x="-8" y="-1.25" width="16" height="2.5" rx="1.25" fill="#C4A574"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="40" viewBox="0 0 280 40" role="img" aria-label="Cast L1 lockup">
+  <!-- Shared optical mid-line at y=20: mark + CAST centered together -->
+  <g transform="translate(22,20)">
+    <rect x="-18" y="-12" width="36" height="24" rx="3" fill="none" stroke="#C4A574" stroke-width="2"/>
+    <rect x="-7" y="-1.25" width="14" height="2.5" rx="1.25" fill="#C4A574"/>
   </g>
-  <text x="62" y="32" font-family="system-ui, -apple-system, 'Helvetica Neue', 'Segoe UI', sans-serif" font-size="28" font-weight="500" letter-spacing="0.18em" fill="#F4F1EA">CAST</text>
+  <text x="52" y="20" dominant-baseline="central" alignment-baseline="middle" font-family="system-ui, -apple-system, 'Helvetica Neue', 'Segoe UI', sans-serif" font-size="26" font-weight="500" letter-spacing="0.18em" fill="#F4F1EA">CAST</text>
 </svg>
