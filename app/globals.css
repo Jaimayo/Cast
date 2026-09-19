@@ -1173,7 +1173,7 @@ input[type="checkbox"] {
   margin: 20px;
   aspect-ratio: 3 / 4;
   max-height: calc(100vh - 64px);
-  border: 1px dashed var(--gold-dim);
+  border: 0;
   border-radius: 18px;
   overflow: hidden;
   background: var(--bg);
@@ -1244,6 +1244,14 @@ input[type="checkbox"] {
 .library-lightbox-actions {
   margin: 18px 0 12px;
   flex-wrap: wrap;
+}
+
+.library-lightbox-actions .btn.secondary {
+  border-color: var(--gold-dim);
+}
+
+.library-lightbox-actions .btn:disabled {
+  opacity: 0.58;
 }
 
 .library-lightbox-nav {
