@@ -1,9 +1,9 @@
+import { Wordmark } from "@/components/wordmark";
+
 export function GateHeader() {
   return (
     <div className="wrap site-header">
-      <a className="wordmark" href="/">
-        Cast
-      </a>
+      <Wordmark href="/" size="sm" />
     </div>
   );
 }
