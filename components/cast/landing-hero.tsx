@@ -23,7 +23,7 @@ export function LandingHero() {
     <div className="relative flex min-h-dvh flex-col">
       <VoidAtmosphere />
       <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <Wordmark href="/" size="sm" collapse="none" />
+        <Wordmark href="/" size="sm" />
         <StatusBadge left="Access" right="Invite-only" status="warning" />
       </header>
       <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-20 pt-6 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:px-10">
