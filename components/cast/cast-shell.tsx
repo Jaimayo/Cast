@@ -93,7 +93,7 @@ export function CastShell(props: {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-background/80 px-3 backdrop-blur-md md:hidden">
-            <Wordmark href="/app/characters" size="sm" />
+            <Wordmark href="/app/characters" size="sm" variant="w1" />
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Open studio menu">

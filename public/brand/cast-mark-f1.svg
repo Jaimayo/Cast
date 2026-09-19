@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Cast F1 mark">
+  <rect width="512" height="512" fill="#07070A"/>
+  <rect x="128" y="156" width="256" height="184" rx="18" fill="none" stroke="#C4A574" stroke-width="22"/>
+  <rect x="196" y="239" width="120" height="16" rx="8" fill="#C4A574"/>
+</svg>

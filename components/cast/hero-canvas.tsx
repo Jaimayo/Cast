@@ -8,7 +8,7 @@ export function CharacterRequiredEmpty(props: { packId?: string | null; training
     <div className="hero-frame relative flex aspect-[3/4] w-full max-w-md items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
       <div className="cast-vignette absolute inset-0" />
       <div className="relative z-10 flex max-w-xs flex-col items-center px-6 text-center">
-        <CastMark className="mb-5 h-12 w-9 opacity-80" />
+        <CastMark className="mb-5 h-12 w-12 opacity-80" />
         <h2 className="font-heading text-2xl">Lock a character to create</h2>
         <p className="mt-2 text-sm text-muted-foreground">Composer needs a Locked Soul ID.</p>
         {props.training ? <p className="mt-2 text-sm text-success">Training Soul ID…</p> : null}

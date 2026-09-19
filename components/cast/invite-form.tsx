@@ -55,7 +55,7 @@ export function InviteForm(props: { reviewInviteCode?: string | null }) {
       <main className="flex justify-center px-4 pb-20 pt-6">
         <DottedSurface className="w-full max-w-md py-7">
           <div className="space-y-2 px-6">
-            <StatusBadge left="Cast" right="Invite-only" status="warning" />
+            <StatusBadge left="Access" right="Invite-only" status="warning" />
             <h1 className="font-heading text-3xl">{title}</h1>
             <p className="text-sm text-muted-foreground">
               {mode === "invite"

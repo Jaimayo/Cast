@@ -13,7 +13,7 @@ function EditorialFrame(props: { className?: string }) {
       )}
     >
       <div className="cast-vignette absolute inset-0" />
-      <CastMark className="absolute top-1/2 left-1/2 h-10 w-8 -translate-x-1/2 -translate-y-1/2 opacity-40" />
+      <CastMark className="absolute top-1/2 left-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 opacity-40" />
     </div>
   );
 }
