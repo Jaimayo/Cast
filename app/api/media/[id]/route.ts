@@ -1,47 +1,37 @@
-import { NextResponse } from "next/server";
-import { AuthError } from "@/lib/auth-error";
-import { requireAttestedUser } from "@/server/auth";
-import { jsonError } from "@/server/http";
-import { getAccessibleMedia } from "@/server/media";
-import { isS3Configured, presignGetUrl, readObject } from "@/server/storage";
+import { MEDIA_AUTH_ERRORS, classifyMediaSession } from "@/lib/media";
+import { getCurrentUser, readSessionUserId } from "@/server/auth";
+import { mediaPreviewResponse, resolveMediaPreview } from "@/server/media";
 
 export const dynamic = "force-dynamic";
 
-const PREVIEW_HEADERS = {
-  "Cache-Control": "private, no-store",
-} as const;
-
-function previewError(err: unknown): NextResponse {
-  if (err instanceof AuthError) {
-    return jsonError(err);
-  }
-  return NextResponse.json({ error: "Media not found" }, { status: 404, headers: PREVIEW_HEADERS });
-}
-
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const sessionUserId = await readSessionUserId();
+  let user = null;
+  let userLookupFailed = false;
   try {
-    const user = await requireAttestedUser();
+    user = await getCurrentUser();
+  } catch {
+    userLookupFailed = true;
+  }
+
+  const auth = classifyMediaSession({ sessionUserId, user, userLookupFailed });
+  if (!auth.ok) {
+    return mediaPreviewResponse({ kind: "error", status: auth.status, error: auth.error });
+  }
+
+  try {
     const { id } = await context.params;
-    const asset = await getAccessibleMedia(user.id, id);
-    if (!asset) {
-      return NextResponse.json({ error: "Media not found" }, { status: 404, headers: PREVIEW_HEADERS });
-    }
-
-    if (isS3Configured()) {
-      const url = await presignGetUrl(asset.storageKey);
-      const redirect = NextResponse.redirect(url, 302);
-      redirect.headers.set("Cache-Control", PREVIEW_HEADERS["Cache-Control"]);
-      return redirect;
-    }
-
-    const body = await readObject(asset.storageKey);
-    return new NextResponse(Uint8Array.from(body), {
-      headers: {
-        "Content-Type": asset.mimeType || "image/webp",
-        "Cache-Control": PREVIEW_HEADERS["Cache-Control"],
-      },
+    const result = await resolveMediaPreview({
+      sessionUserId,
+      user,
+      mediaId: id,
     });
-  } catch (err) {
-    return previewError(err);
+    return mediaPreviewResponse(result);
+  } catch {
+    return mediaPreviewResponse({
+      kind: "error",
+      status: 404,
+      error: MEDIA_AUTH_ERRORS.notFound,
+    });
   }
 }

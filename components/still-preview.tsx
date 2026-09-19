@@ -1,17 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { mediaPreviewRefreshPath } from "@/lib/media";
-
-function mediaIdFromPreviewSrc(src: string): string | null {
-  try {
-    const url = new URL(src, "http://cast.local");
-    const match = url.pathname.match(/^\/api\/media\/([^/]+)$/);
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
-}
+import { stillPreviewRetrySrc } from "@/lib/media";
 
 export function StillPreview(props: {
   src?: string | null;
@@ -46,10 +36,10 @@ export function StillPreview(props: {
       src={src}
       alt={props.alt}
       onError={() => {
-        const mediaId = mediaIdFromPreviewSrc(src);
-        if (!refreshed && mediaId) {
+        const retry = stillPreviewRetrySrc(src, refreshed);
+        if (retry) {
           setRefreshed(true);
-          setSrc(mediaPreviewRefreshPath(mediaId));
+          setSrc(retry);
           return;
         }
         setFailed(true);

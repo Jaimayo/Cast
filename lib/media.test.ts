@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
 import {
+  MEDIA_AUTH_ERRORS,
+  MEDIA_PREVIEW_HEADERS,
+  MEDIA_PRESIGN_TTL_SECONDS,
   canAccessMedia,
   clampPresignTtlSeconds,
+  classifyMediaSession,
+  decideMediaPreview,
   isPreviewExpired,
+  mediaIdFromPreviewSrc,
   mediaPreviewPath,
   mediaPreviewRefreshPath,
+  parseMediaId,
   previewExpiresAt,
   publicJob,
   publicMediaAsset,
   publicPack,
+  stillPreviewRetrySrc,
 } from "@/lib/media";
 
 describe("media preview paths", () => {
@@ -83,6 +90,160 @@ describe("media authorization", () => {
       }),
     ).toBe(false);
     expect(canAccessMedia({ viewerId: "", assetUserId: "" })).toBe(false);
+  });
+});
+
+const attested = {
+  id: "user-a",
+  ageAttestedAt: new Date("2026-09-18T00:00:00.000Z"),
+};
+
+describe("media session gate", () => {
+  it("returns 401 when the session cookie is missing, expired, or invalid", () => {
+    expect(classifyMediaSession({ sessionUserId: null, user: null })).toEqual({
+      ok: false,
+      status: 401,
+      error: MEDIA_AUTH_ERRORS.signInRequired,
+    });
+    expect(classifyMediaSession({ sessionUserId: "", user: attested })).toMatchObject({
+      ok: false,
+      status: 401,
+    });
+  });
+
+  it("returns 403 when the cookie is valid but the user row is gone", () => {
+    expect(classifyMediaSession({ sessionUserId: "user-a", user: null })).toEqual({
+      ok: false,
+      status: 403,
+      error: MEDIA_AUTH_ERRORS.sessionRevoked,
+    });
+    expect(
+      classifyMediaSession({
+        sessionUserId: "user-a",
+        user: attested,
+        userLookupFailed: true,
+      }),
+    ).toEqual({
+      ok: false,
+      status: 403,
+      error: MEDIA_AUTH_ERRORS.sessionRevoked,
+    });
+    expect(
+      classifyMediaSession({
+        sessionUserId: "user-a",
+        user: { id: "other", ageAttestedAt: attested.ageAttestedAt },
+      }),
+    ).toEqual({
+      ok: false,
+      status: 403,
+      error: MEDIA_AUTH_ERRORS.sessionRevoked,
+    });
+  });
+
+  it("returns 403 until ageAttestedAt is set", () => {
+    expect(
+      classifyMediaSession({
+        sessionUserId: "user-a",
+        user: { id: "user-a", ageAttestedAt: null },
+      }),
+    ).toEqual({
+      ok: false,
+      status: 403,
+      error: MEDIA_AUTH_ERRORS.ageRequired,
+    });
+    expect(classifyMediaSession({ sessionUserId: "user-a", user: attested })).toEqual({
+      ok: true,
+      userId: "user-a",
+    });
+  });
+});
+
+describe("media preview decision", () => {
+  const ownStill = {
+    userId: "user-a",
+    storageKey: "still/user-a/asset-1.webp",
+    mimeType: "image/webp",
+  };
+
+  it("does not look up an asset until the session is valid", () => {
+    expect(
+      decideMediaPreview({
+        sessionUserId: null,
+        user: null,
+        mediaId: "asset-1",
+        asset: ownStill,
+      }),
+    ).toMatchObject({ ok: false, status: 401, error: MEDIA_AUTH_ERRORS.signInRequired });
+    expect(
+      decideMediaPreview({
+        sessionUserId: "user-a",
+        user: null,
+        mediaId: "asset-1",
+        asset: ownStill,
+      }),
+    ).toMatchObject({ ok: false, status: 403, error: MEDIA_AUTH_ERRORS.sessionRevoked });
+  });
+
+  it("allows the attested owner and never returns a public bucket URL", () => {
+    const allowed = decideMediaPreview({
+      sessionUserId: "user-a",
+      user: attested,
+      mediaId: "asset-1",
+      asset: ownStill,
+    });
+    expect(allowed).toEqual({
+      ok: true,
+      storageKey: "still/user-a/asset-1.webp",
+      mimeType: "image/webp",
+    });
+    expect(JSON.stringify(allowed)).not.toMatch(/https?:\/\/|r2|amazonaws/i);
+  });
+
+  it("hides another user's still as 404 so existence is not leaked", () => {
+    expect(
+      decideMediaPreview({
+        sessionUserId: "stranger",
+        user: { id: "stranger", ageAttestedAt: attested.ageAttestedAt },
+        mediaId: "asset-1",
+        asset: ownStill,
+      }),
+    ).toEqual({ ok: false, status: 404, error: MEDIA_AUTH_ERRORS.notFound });
+  });
+
+  it("rejects storage-key-shaped ids and missing rows without leaking paths", () => {
+    expect(parseMediaId("still/user-a/asset-1.webp")).toBeNull();
+    expect(parseMediaId("../secret")).toBeNull();
+    expect(
+      decideMediaPreview({
+        sessionUserId: "user-a",
+        user: attested,
+        mediaId: "still/user-a/asset-1.webp",
+        asset: ownStill,
+      }),
+    ).toEqual({ ok: false, status: 404, error: MEDIA_AUTH_ERRORS.notFound });
+    expect(
+      decideMediaPreview({
+        sessionUserId: "user-a",
+        user: attested,
+        mediaId: "asset-1",
+        asset: null,
+      }),
+    ).toEqual({ ok: false, status: 404, error: MEDIA_AUTH_ERRORS.notFound });
+  });
+});
+
+describe("still preview fail-clean", () => {
+  it("retries once through the same-origin media route, then gives up", () => {
+    expect(mediaIdFromPreviewSrc("/api/media/asset-1")).toBe("asset-1");
+    expect(stillPreviewRetrySrc("/api/media/asset-1", false, 1_700_000_000_000)).toBe(
+      "/api/media/asset-1?r=1700000000000",
+    );
+    expect(stillPreviewRetrySrc("/api/media/asset-1", true, 1_700_000_000_000)).toBeNull();
+    expect(stillPreviewRetrySrc("https://bucket.example/still/u1/x.webp", false)).toBeNull();
+  });
+
+  it("documents private no-store on every media response", () => {
+    expect(MEDIA_PREVIEW_HEADERS["Cache-Control"]).toBe("private, no-store");
   });
 });
 
