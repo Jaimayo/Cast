@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/empty-state";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
 import { LoadingState } from "@/components/loading-state";
-import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
@@ -321,7 +320,6 @@ export function ComposerShell(props: { initialPackId?: string }) {
             ) : null}
             <TeaserAnimateLater />
           </div>
-          {!locked ? <LockSoulIdFirstCta packId={focus?.id} training={false} variant="link" /> : null}
           <p className="hidden-note">
             Generate needs a Locked Soul ID and a Pose. No prompt textarea. No camera. No Advanced.
             Starters live in the Pack wizard only. Animate later is Phase 1.5.

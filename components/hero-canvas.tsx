@@ -36,29 +36,42 @@ export function HeroCanvas(props: {
   aspectRatio?: StillAspectId;
 }) {
   const aspect = getStillAspect(props.aspectRatio ?? "3:4");
+  const caption = (
+    <p className="kicker hero-frame-caption" aria-live="polite">
+      {aspect.label}
+    </p>
+  );
   if (!props.locked) {
     return (
-      <CharacterRequiredEmpty packId={props.packId} training={props.training} aspectRatio={aspect.id} />
+      <>
+        <CharacterRequiredEmpty packId={props.packId} training={props.training} aspectRatio={aspect.id} />
+        {caption}
+      </>
     );
   }
   return (
-    <div className={props.generating ? "hero-frame is-loading" : "hero-frame"} style={frameStyle(aspect.id)}>
-      {props.previewUrl ? (
-        <>
-          <StillPreview src={props.previewUrl} alt="Generated still" />
-          {props.progress ? <p className="hero-progress">{props.progress}</p> : null}
-        </>
-      ) : (
-        <span>
-          {props.progress ??
-            (props.generating ? GENERATE_IN_PROGRESS_COPY : (props.message ?? composerHeroEmptyCopy(aspect)))}
-        </span>
-      )}
-      {props.generating && props.previewUrl ? (
-        <div className="hero-generating" aria-live="polite">
-          {props.progress ?? GENERATE_IN_PROGRESS_COPY}
-        </div>
-      ) : null}
-    </div>
+    <>
+      <div className={props.generating ? "hero-frame is-loading" : "hero-frame"} style={frameStyle(aspect.id)}>
+        {props.previewUrl ? (
+          <>
+            <StillPreview src={props.previewUrl} alt="Generated still" />
+            {props.progress ? <p className="hero-progress">{props.progress}</p> : null}
+          </>
+        ) : (
+          <span>
+            {props.progress ??
+              (props.generating
+                ? GENERATE_IN_PROGRESS_COPY
+                : (props.message ?? composerHeroEmptyCopy(aspect)))}
+          </span>
+        )}
+        {props.generating && props.previewUrl ? (
+          <div className="hero-generating" aria-live="polite">
+            {props.progress ?? GENERATE_IN_PROGRESS_COPY}
+          </div>
+        ) : null}
+      </div>
+      {caption}
+    </>
   );
 }

@@ -618,6 +618,10 @@ input[type="checkbox"] {
   margin-top: 6px;
 }
 
+.hero-frame-caption {
+  margin: 0;
+}
+
 .hero-progress {
   position: absolute;
   left: 0;
