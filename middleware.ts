@@ -1,5 +1,6 @@
 import { SESSION_COOKIE } from "@/lib/constants";
 import { authPathRedirect } from "@/lib/auth-gate";
+import { stubSessionSecret } from "@/lib/memory-preview";
 import { decodeSession } from "@/lib/session-cookie";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -12,7 +13,7 @@ function redirectTo(request: NextRequest, pathname: string) {
 
 async function readSession(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const secret = process.env.SESSION_SECRET;
+  const secret = stubSessionSecret(process.env.PROVIDER_MODE ?? "stub", process.env.SESSION_SECRET);
   if (!token || !secret) {
     return null;
   }
@@ -20,11 +21,15 @@ async function readSession(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const session = await readSession(request);
-  const redirectPath = authPathRedirect(pathname, session);
-  if (redirectPath) {
-    return redirectTo(request, redirectPath);
+  try {
+    const { pathname } = request.nextUrl;
+    const session = await readSession(request);
+    const redirectPath = authPathRedirect(pathname, session);
+    if (redirectPath) {
+      return redirectTo(request, redirectPath);
+    }
+  } catch {
+    // Layouts re-check. Never fail the request with MIDDLEWARE_INVOCATION_FAILED.
   }
   return NextResponse.next();
 }

@@ -15,3 +15,12 @@ export function isUniqueViolation(err: unknown): boolean {
   }
   return false;
 }
+
+export class DatabaseRequiredError extends Error {
+  readonly status = 503;
+
+  constructor() {
+    super("Studio data needs a database.");
+    this.name = "DatabaseRequiredError";
+  }
+}

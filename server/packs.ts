@@ -32,6 +32,7 @@ import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
+import { isMemoryPreview } from "@/server/memory-preview";
 import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
 
@@ -99,6 +100,9 @@ async function guardJobEnqueue(
 }
 
 export async function listPacks(userId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const packs = await db
@@ -666,6 +670,9 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
 }
 
 export async function listJobs(userId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const jobs = await db
@@ -782,6 +789,9 @@ export async function listStarterSheet(userId: string, packId: string) {
 }
 
 export async function listLibraryStills(userId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select()

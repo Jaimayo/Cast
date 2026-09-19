@@ -41,4 +41,12 @@ describe("authPathRedirect", () => {
   it("sends a signed-in but unattested user from /invite to /age", () => {
     expect(authPathRedirect("/invite", waiting)).toBe("/age");
   });
+
+  it("denies every nested /app route without a session or age flag", () => {
+    for (const path of ["/app/library", "/app/jobs", "/app/create", "/app/characters/new"]) {
+      expect(authPathRedirect(path, null)).toBe("/invite");
+      expect(authPathRedirect(path, waiting)).toBe("/age");
+      expect(authPathRedirect(path, attested)).toBeNull();
+    }
+  });
 });

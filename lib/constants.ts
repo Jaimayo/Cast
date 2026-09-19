@@ -6,6 +6,8 @@ export const PACK_TARGET_REFS = 20;
 
 export const SESSION_COOKIE = "cast_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
+/** Remint the signed cookie when less than half the TTL remains. */
+export const SESSION_REFRESH_REMAINING_SECONDS = Math.floor(SESSION_TTL_SECONDS / 2);
 
 /**
  * R2/S3 presigned GET lifetime. Studio never ships a permanent public object URL.

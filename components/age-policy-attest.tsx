@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AGE_ATTEST_COPY, AGE_INCOMPLETE_MESSAGE } from "@/lib/age-attest";
 import { api } from "@/lib/client";
 
 export function AgePolicyAttest() {
@@ -15,17 +16,17 @@ export function AgePolicyAttest() {
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!ready) {
-      setError("Both confirmations are required.");
+      setError(AGE_INCOMPLETE_MESSAGE);
       return;
     }
     setPending(true);
     setError(null);
     try {
-      await api("/api/auth/age", {
+      const data = await api<{ next?: "/app" | "/age" }>("/api/auth/age", {
         method: "POST",
         body: JSON.stringify({ attested: true, fictionalOnly: true }),
       });
-      router.push("/app");
+      router.push(data.next ?? "/app");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not attest");
@@ -41,7 +42,7 @@ export function AgePolicyAttest() {
       <form onSubmit={onSubmit}>
         <label className="checkbox-row">
           <input type="checkbox" checked={age} onChange={(event) => setAge(event.target.checked)} />
-          I confirm I am 18+.
+          {AGE_ATTEST_COPY}
         </label>
         <label className="checkbox-row">
           <input

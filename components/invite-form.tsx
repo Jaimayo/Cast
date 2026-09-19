@@ -3,6 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
+import { nextPathAfterAuth } from "@/lib/auth-entry";
+
+type AuthPayload = {
+  user: { ageAttestedAt: string | null };
+  next?: "/invite" | "/age" | "/app";
+};
 
 export function InviteForm() {
   const params = useSearchParams();
@@ -23,17 +29,17 @@ export function InviteForm() {
     setError(null);
     try {
       if (mode === "invite") {
-        await api("/api/auth/invite", {
+        const data = await api<AuthPayload>("/api/auth/invite", {
           method: "POST",
           body: JSON.stringify({ email, password, inviteCode }),
         });
-        router.push("/age");
+        router.push(data.next ?? nextPathAfterAuth(data.user));
       } else {
-        const data = await api<{ user: { ageAttestedAt: string | null } }>("/api/auth/sign-in", {
+        const data = await api<AuthPayload>("/api/auth/sign-in", {
           method: "POST",
           body: JSON.stringify({ email, password }),
         });
-        router.push(data.user.ageAttestedAt ? "/app" : "/age");
+        router.push(data.next ?? nextPathAfterAuth(data.user));
       }
       router.refresh();
     } catch (err) {

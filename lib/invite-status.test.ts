@@ -3,6 +3,7 @@ import { AuthError } from "@/lib/auth-error";
 import {
   INVITE_ERROR_MESSAGE,
   classifyInvite,
+  inviteRedeemBodySchema,
   normalizeInviteCode,
   throwIfInviteUnusable,
 } from "@/lib/invite-status";
@@ -95,5 +96,17 @@ describe("invite error copy", () => {
 
   it("trims pasted invite codes", () => {
     expect(normalizeInviteCode("  abcd1234efgh  ")).toBe("abcd1234efgh");
+  });
+
+  it("maps a too-short invite on the form to the invalid product error", () => {
+    const parsed = inviteRedeemBodySchema.safeParse({
+      email: "jai@example.com",
+      password: "longenough1",
+      inviteCode: "ab",
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.message).toBe(INVITE_ERROR_MESSAGE.invalid);
+    }
   });
 });

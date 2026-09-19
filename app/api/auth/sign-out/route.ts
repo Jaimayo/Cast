@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/server/auth";
+import { revokeSessionCookie } from "@/server/auth";
 import { jsonError } from "@/server/http";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
-    await clearSessionCookie();
-    return NextResponse.json({ ok: true });
+    const { revoked } = await revokeSessionCookie();
+    return NextResponse.json({ ok: true, revoked });
   } catch (err) {
     return jsonError(err);
   }
