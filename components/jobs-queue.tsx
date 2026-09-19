@@ -6,6 +6,17 @@ import { LoadingState } from "@/components/loading-state";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { isInProgressJob, jobQueuePresentation, type JobDisplayInput } from "@/lib/job-display";
+import {
+  JOB_KIND_FILTERS,
+  JOB_STATUS_FILTERS,
+  jobKindFilterLabel,
+  jobStatusFilterLabel,
+  jobsListView,
+  parseJobKindFilter,
+  parseJobStatusFilter,
+  type JobKindFilter,
+  type JobStatusFilter,
+} from "@/lib/job-list";
 
 export type StudioJob = JobDisplayInput & {
   id: string;
@@ -28,11 +39,24 @@ function noteClass(tone: string | null): string {
   return "muted";
 }
 
+function writeJobsSearch(input: { job: string | null; kind: JobKindFilter; status: JobStatusFilter }) {
+  const url = new URL(window.location.href);
+  if (input.job) url.searchParams.set("job", input.job);
+  else url.searchParams.delete("job");
+  if (input.kind === "all") url.searchParams.delete("kind");
+  else url.searchParams.set("kind", input.kind);
+  if (input.status === "all") url.searchParams.delete("status");
+  else url.searchParams.set("status", input.status);
+  window.history.replaceState({}, "", url);
+}
+
 export function JobsQueue() {
   const [jobs, setJobs] = useState<StudioJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<JobKindFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<JobStatusFilter>("all");
   const [detail, setDetail] = useState<StudioJob | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -42,6 +66,8 @@ export function JobsQueue() {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get("job");
     if (fromUrl) setSelectedId(fromUrl);
+    setKindFilter(parseJobKindFilter(params.get("kind")));
+    setStatusFilter(parseJobStatusFilter(params.get("status")));
   }, []);
 
   useEffect(() => {
@@ -100,9 +126,23 @@ export function JobsQueue() {
   function selectJob(id: string) {
     setSelectedId(id);
     setCancelError(null);
-    const url = new URL(window.location.href);
-    url.searchParams.set("job", id);
-    window.history.replaceState({}, "", url);
+    writeJobsSearch({ job: id, kind: kindFilter, status: statusFilter });
+  }
+
+  function applyKindFilter(next: JobKindFilter) {
+    setKindFilter(next);
+    writeJobsSearch({ job: selectedId, kind: next, status: statusFilter });
+  }
+
+  function applyStatusFilter(next: JobStatusFilter) {
+    setStatusFilter(next);
+    writeJobsSearch({ job: selectedId, kind: kindFilter, status: next });
+  }
+
+  function showAllJobs() {
+    setKindFilter("all");
+    setStatusFilter("all");
+    writeJobsSearch({ job: selectedId, kind: "all", status: "all" });
   }
 
   async function cancelJob(id: string) {
@@ -124,6 +164,13 @@ export function JobsQueue() {
     return jobs.find((job) => job.id === selectedId) ?? null;
   }, [detail, jobs, selectedId]);
 
+  const view = useMemo(
+    () => jobsListView(jobs, { kind: kindFilter, status: statusFilter }),
+    [jobs, kindFilter, statusFilter],
+  );
+
+  const showQueue = !loading && jobs.length > 0;
+
   return (
     <section>
       <div className="kicker">Queue</div>
@@ -136,70 +183,78 @@ export function JobsQueue() {
         Cancel a still while it is queued or generating. Train & lock can&apos;t be canceled from here. Stub mode
         never calls vendors.
       </p>
+      <p className="muted">Filter or group by Still, Train, Test grid, or Starter. Status chips sit beside kind.</p>
       {error ? <p className="error">{error}</p> : null}
       {loading ? <LoadingState label="Loading jobs…" /> : null}
 
-      {!loading && jobs.length === 0 && !error ? (
-        <EmptyState
-          kicker="Queue"
-          title="No jobs yet"
-          body="Generate from Create, or Train & lock a character. In-progress stills, cancellations, and failures show up here with the same user-safe sentences the queue already stores."
-          action={{ href: "/app/create", label: "Open Create" }}
-        />
+      {showQueue ? (
+        <div className="jobs-filters">
+          <div className="chip-family">
+            <h4>Kind</h4>
+            <div className="chips" role="group" aria-label="Job kind">
+              {JOB_KIND_FILTERS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={kindFilter === value ? "chip selected" : "chip"}
+                  aria-pressed={kindFilter === value}
+                  onClick={() => applyKindFilter(value)}
+                >
+                  {jobKindFilterLabel(value)}
+                  <span className="jobs-filter-count">{view.counts.kind[value]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="chip-family">
+            <h4>Status</h4>
+            <div className="chips" role="group" aria-label="Job status">
+              {JOB_STATUS_FILTERS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={statusFilter === value ? "chip selected" : "chip"}
+                  aria-pressed={statusFilter === value}
+                  onClick={() => applyStatusFilter(value)}
+                >
+                  {jobStatusFilterLabel(value)}
+                  <span className="jobs-filter-count">{view.counts.status[value]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : null}
 
-      {jobs.length > 0 ? (
+      {!loading && !error && view.empty ? (
+        <EmptyState
+          kicker="Queue"
+          title={view.empty.title}
+          body={view.empty.body}
+          action={jobs.length === 0 ? { href: "/app/create", label: "Open Create" } : undefined}
+        >
+          {jobs.length > 0 ? (
+            <button className="btn secondary" type="button" onClick={showAllJobs}>
+              Show all jobs
+            </button>
+          ) : null}
+        </EmptyState>
+      ) : null}
+
+      {showQueue && view.visible.length > 0 ? (
         <div className="jobs-layout">
         <div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>Preview</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => {
-                const view = jobQueuePresentation(job);
-                const selectedRow = job.id === selectedId;
-                return (
-                  <tr
-                    key={job.id}
-                    className={selectedRow ? "jobs-row is-selected" : "jobs-row"}
-                    tabIndex={0}
-                    aria-selected={selectedRow}
-                    aria-busy={isInProgressJob(job)}
-                    onClick={() => selectJob(job.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        selectJob(job.id);
-                      }
-                    }}
-                  >
-                    <td>{view.kindLabel}</td>
-                    <td>
-                      <div className={statusClass(view.statusTone)}>{view.statusLabel}</div>
-                      {view.meta ? <div className="muted">{view.meta}</div> : null}
-                    </td>
-                    <td>
-                      {job.previewUrl ? (
-                        <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      {view.note ? <div className={noteClass(view.noteTone)}>{view.note}</div> : "—"}
-                      {view.noteCaption ? <div className="muted">{view.noteCaption}</div> : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {view.sections.map((section) => (
+            <div key={section.group} className="jobs-group">
+              {view.showGroupHeaders ? (
+                <div className="jobs-group-head">
+                  <h2>{section.label}</h2>
+                  <span className="muted">{section.jobs.length}</span>
+                </div>
+              ) : null}
+              <JobsTable jobs={section.jobs} selectedId={selectedId} onSelect={selectJob} />
+            </div>
+          ))}
         </div>
 
         <aside className="job-detail" aria-live="polite">
@@ -222,6 +277,64 @@ export function JobsQueue() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function JobsTable(props: {
+  jobs: StudioJob[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Kind</th>
+          <th>Status</th>
+          <th>Preview</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {props.jobs.map((job) => {
+          const view = jobQueuePresentation(job);
+          const selectedRow = job.id === props.selectedId;
+          return (
+            <tr
+              key={job.id}
+              className={selectedRow ? "jobs-row is-selected" : "jobs-row"}
+              tabIndex={0}
+              aria-selected={selectedRow}
+              aria-busy={isInProgressJob(job)}
+              onClick={() => props.onSelect(job.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  props.onSelect(job.id);
+                }
+              }}
+            >
+              <td>{view.kindLabel}</td>
+              <td>
+                <div className={statusClass(view.statusTone)}>{view.statusLabel}</div>
+                {view.meta ? <div className="muted">{view.meta}</div> : null}
+              </td>
+              <td>
+                {job.previewUrl ? (
+                  <StillPreview src={job.previewUrl} alt="" className="still-thumb job-thumb" />
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td>
+                {view.note ? <div className={noteClass(view.noteTone)}>{view.note}</div> : "—"}
+                {view.noteCaption ? <div className="muted">{view.noteCaption}</div> : null}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

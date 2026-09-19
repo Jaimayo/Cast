@@ -735,6 +735,50 @@ input[type="checkbox"] {
   text-transform: uppercase;
 }
 
+.jobs-filters {
+  margin: 18px 0 8px;
+}
+
+.jobs-filters .chip-family {
+  margin-bottom: 10px;
+}
+
+.jobs-filters .chips {
+  margin-bottom: 0;
+}
+
+.jobs-filters .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jobs-filter-count {
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip.selected .jobs-filter-count {
+  color: var(--gold);
+}
+
+.jobs-group {
+  margin: 0 0 22px;
+}
+
+.jobs-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 8px;
+}
+
+.jobs-group-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
 .jobs-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);

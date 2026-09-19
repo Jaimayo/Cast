@@ -4,6 +4,7 @@ import { extname, join } from "node:path";
 import type { CharacterPack } from "@/db/schema";
 import {
   DEMO_PACK_CREATE_MESSAGE,
+  DEMO_PACK_IDS,
   DEMO_PACK_READ_ONLY_MESSAGE,
   DEMO_REF_DROP_DIR,
   demoLibraryStills,
@@ -169,7 +170,7 @@ export function demoJobId(still: DemoStill): string {
 }
 
 export function listPublicDemoJobs(userId: string) {
-  const seeded = demoLibraryStills()
+  const stills = demoLibraryStills()
     .slice(0, 3)
     .map((still, index) =>
       publicJob({
@@ -191,7 +192,25 @@ export function listPublicDemoJobs(userId: string) {
         previewUrl: demoPreviewUrl(still.id),
       }),
     );
-  return [...(demoSessionJobs.get(userId) ?? []), ...seeded];
+  // Mara is already Locked in stub. Surface that Train row so Jobs can group Still vs Train
+  // without filling Test grid cells or changing the demo pack catalog.
+  const train = publicJob({
+    id: "00000000-0000-4000-a000-000000000501",
+    userId,
+    kind: "train_pack" as const,
+    status: "succeeded" as const,
+    characterPackId: DEMO_PACK_IDS.mara,
+    recipeId: null,
+    inputJson: { source: "demo" },
+    resultAssetKey: null,
+    errorCode: null,
+    errorMessage: null,
+    attemptsMade: 1,
+    createdAt: new Date(DEMO_CREATED_AT.getTime() - 60_000),
+    updatedAt: DEMO_CREATED_AT,
+    previewUrl: null,
+  });
+  return [...(demoSessionJobs.get(userId) ?? []), ...stills, train];
 }
 
 export function demoGenerateStillJob(input: {
