@@ -45,6 +45,20 @@ import { markJobCanceledIfActive, markJobFailedIfActive, recoverStaleJobsSafe } 
 import { isMemoryPreview } from "@/server/memory-preview";
 import { discardGenerateStillJob, enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
+import {
+  assertDemoPackMutable,
+  demoGenerateStillJob,
+  demoPackCreateError,
+  demoRefCount,
+  getDemoCharacterPack,
+  isDemoPackId,
+  listPublicDemoJobs,
+  listPublicDemoLibraryStills,
+  listPublicDemoPacks,
+  listPublicDemoRefs,
+  listPublicDemoStarters,
+  servingDemoPacks,
+} from "@/server/demo-pack";
 
 type PackDb = Pick<ReturnType<typeof getDb>, "select" | "insert" | "update" | "delete">;
 
@@ -110,8 +124,9 @@ async function guardJobEnqueue(
 }
 
 export async function listPacks(userId: string) {
+  const demo = servingDemoPacks() ? listPublicDemoPacks(userId) : [];
   if (isMemoryPreview()) {
-    return [];
+    return demo;
   }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
@@ -121,7 +136,7 @@ export async function listPacks(userId: string) {
     .where(eq(characterPacks.userId, userId))
     .orderBy(desc(characterPacks.createdAt));
   if (packs.length === 0) {
-    return [];
+    return demo;
   }
   const counts = await db
     .select({
@@ -132,10 +147,20 @@ export async function listPacks(userId: string) {
     .where(eq(trainingSetAssets.userId, userId))
     .groupBy(trainingSetAssets.characterPackId);
   const byPack = new Map(counts.map((row) => [row.packId, Number(row.n)]));
-  return packs.map((pack) => publicPack({ ...pack, refCount: byPack.get(pack.id) ?? 0 }));
+  return [
+    ...demo,
+    ...packs.map((pack) => publicPack({ ...pack, refCount: byPack.get(pack.id) ?? 0 })),
+  ];
 }
 
 export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
+  const demo = getDemoCharacterPack(userId, packId);
+  if (demo) {
+    return demo;
+  }
+  if (isMemoryPreview()) {
+    return null;
+  }
   await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
   const rows = await db
@@ -151,6 +176,9 @@ export async function createPack(input: {
   name: string;
   origin: "generate_then_lock" | "library_train";
 }) {
+  if (isMemoryPreview()) {
+    throw demoPackCreateError();
+  }
   const name = input.name.trim();
   if (!name) {
     throw new Error("Pack name is required");
@@ -193,6 +221,12 @@ async function countRefsOn(db: PackDb, packId: string): Promise<number> {
 }
 
 export async function countRefs(packId: string): Promise<number> {
+  if (servingDemoPacks() && isDemoPackId(packId)) {
+    return demoRefCount(packId);
+  }
+  if (isMemoryPreview()) {
+    return 0;
+  }
   return countRefsOn(getDb(), packId);
 }
 
@@ -269,6 +303,7 @@ export async function setRefSelected(input: {
   source: "in_app_still" | "generate_starter";
   starterPresetId?: string;
 }) {
+  assertDemoPackMutable(input.packId);
   await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
   const resolved = input.selected ? resolveAttachKind(input) : null;
   const db = getDb();
@@ -374,6 +409,7 @@ export async function setRefSelected(input: {
 }
 
 export async function lockPack(userId: string, packId: string) {
+  assertDemoPackMutable(packId);
   await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -417,6 +453,16 @@ export async function enqueueGenerateStill(input: {
     throw new Error("Character pack is required");
   }
   assertGenerateStillAllowed({ packStatus: pack.status, poseChipId: input.poseChipId });
+  if (servingDemoPacks() && isDemoPackId(pack.id)) {
+    return demoGenerateStillJob({
+      userId: input.userId,
+      packId: pack.id,
+      poseChipId: input.poseChipId,
+    });
+  }
+  if (isMemoryPreview()) {
+    throw demoPackCreateError();
+  }
   if (!input.skipAbuseGuard) {
     await guardJobEnqueue(input.userId, "generateStill");
   }
@@ -503,6 +549,7 @@ export async function enqueueGenerateStarter(input: {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
   throwPackGate(generateStarterPackDecision(pack.status));
+  assertDemoPackMutable(pack.id);
   compileStarterPrompt({
     characterPackName: pack.name,
     characterPackId: pack.id,
@@ -553,6 +600,7 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
+  assertDemoPackMutable(pack.id);
   throwPackGate(trainPackDecision(pack.status, await countRefs(pack.id)));
   await guardJobEnqueue(userId, "trainPack");
 
@@ -620,6 +668,16 @@ export async function enqueueTestGrid(userId: string, packId: string) {
     throw new Error("Pack not found");
   }
   requireLockedSoulForGenerate(pack.status);
+  if (servingDemoPacks() && isDemoPackId(pack.id)) {
+    const jobs = TEST_GRID_SELECTIONS.map((selection) =>
+      demoGenerateStillJob({
+        userId,
+        packId: pack.id,
+        poseChipId: selection.poseChipId,
+      }).job,
+    );
+    return { jobs, count: jobs.length };
+  }
   await guardJobEnqueue(userId, "generateStill", TEST_GRID_SIZE);
 
   const jobs = [];
@@ -644,6 +702,7 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
   if (!pack) {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
+  assertDemoPackMutable(pack.id);
   throwPackGate(retrainPackDecision(pack.status, await countRefs(pack.id)));
   await guardJobEnqueue(userId, "trainPack");
 
@@ -709,8 +768,9 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
 }
 
 export async function listJobs(userId: string) {
+  const demo = servingDemoPacks() && isMemoryPreview() ? listPublicDemoJobs(userId) : [];
   if (isMemoryPreview()) {
-    return [];
+    return demo;
   }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
@@ -723,6 +783,15 @@ export async function listJobs(userId: string) {
 }
 
 export async function getJob(userId: string, jobId: string) {
+  if (servingDemoPacks()) {
+    const demo = listPublicDemoJobs(userId).find((job) => job.id === jobId);
+    if (demo) {
+      return demo;
+    }
+    if (isMemoryPreview()) {
+      return null;
+    }
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const rows = await db
@@ -739,6 +808,18 @@ export async function getJob(userId: string, jobId: string) {
 }
 
 export async function cancelUserJob(userId: string, jobId: string) {
+  if (servingDemoPacks()) {
+    const demo = listPublicDemoJobs(userId).find((job) => job.id === jobId);
+    if (demo) {
+      const decision = decideCancelJob(demo);
+      if (decision.action === "reject") {
+        throw jobErrorFromCancelDecision(decision);
+      }
+    }
+    if (isMemoryPreview()) {
+      throw new JobError({ code: JOB_ERROR_CODES.JOB_NOT_FOUND, retryable: false });
+    }
+  }
   const db = getDb();
   const rows = await db
     .select()
@@ -811,6 +892,12 @@ async function attachJobPreviews<T extends { id: string; kind: string; resultAss
 }
 
 export async function listRefs(userId: string, packId: string) {
+  if (servingDemoPacks() && isDemoPackId(packId)) {
+    return listPublicDemoRefs(packId);
+  }
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select({
@@ -833,6 +920,7 @@ export async function listRefs(userId: string, packId: string) {
 }
 
 export async function uploadPackRef(input: { userId: string; packId: string; bytes: Buffer }) {
+  assertDemoPackMutable(input.packId);
   await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
   const pack = await getPack(input.userId, input.packId);
   if (!pack) {
@@ -935,6 +1023,7 @@ export async function uploadPackRef(input: { userId: string; packId: string; byt
 }
 
 export async function reorderRefs(input: { userId: string; packId: string; mediaAssetIds: string[] }) {
+  assertDemoPackMutable(input.packId);
   await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -977,6 +1066,12 @@ export async function reorderRefs(input: { userId: string; packId: string; media
 }
 
 export async function listStarterSheet(userId: string, packId: string) {
+  if (servingDemoPacks() && isDemoPackId(packId)) {
+    return listPublicDemoStarters(packId);
+  }
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select({
@@ -1020,8 +1115,9 @@ export async function listStarterSheet(userId: string, packId: string) {
 }
 
 export async function listLibraryStills(userId: string) {
+  const demo = servingDemoPacks() ? listPublicDemoLibraryStills() : [];
   if (isMemoryPreview()) {
-    return [];
+    return demo;
   }
   const db = getDb();
   const rows = await db
@@ -1029,5 +1125,5 @@ export async function listLibraryStills(userId: string) {
     .from(mediaAssets)
     .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.kind, "still")))
     .orderBy(desc(mediaAssets.createdAt));
-  return rows.map((row) => publicMediaAsset(row));
+  return [...demo, ...rows.map((row) => publicMediaAsset(row))];
 }

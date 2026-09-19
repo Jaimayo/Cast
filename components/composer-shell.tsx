@@ -25,7 +25,7 @@ import {
 } from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
-type Pack = { id: string; name: string; status: string };
+type Pack = { id: string; name: string; status: string; demo?: boolean };
 type Job = JobDisplayInput & {
   id: string;
   previewUrl?: string | null;
@@ -216,8 +216,20 @@ export function ComposerShell(props: { initialPackId?: string }) {
           aspectRatio,
         }),
       });
-      setMessage("Still queued. Status updates here and on Jobs.");
-      setWatchingId(result.job.id);
+      if (result.job.previewUrl) {
+        setHeroUrl(result.job.previewUrl);
+      }
+      if (result.job.status === "succeeded") {
+        const fromDemo = packs.some((pack) => pack.id === characterPackId && pack.demo);
+        setMessage(
+          fromDemo
+            ? "Placeholder still from the fictional demo pack."
+            : "Still ready.",
+        );
+      } else {
+        setMessage("Still queued. Status updates here and on Jobs.");
+        setWatchingId(result.job.id);
+      }
       setJobs((prev) => stillJobs([result.job, ...prev]));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed");

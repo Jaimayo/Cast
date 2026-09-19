@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
+import { DemoBadge, DemoPackBanner } from "@/components/demo-pack-banner";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingState } from "@/components/loading-state";
 import { RefCountMeter } from "@/components/ref-count-meter";
@@ -15,7 +16,16 @@ import { moveRefId } from "@/lib/pack-ref-order";
 import { soulStatusLabel } from "@/lib/soul";
 
 type Preset = { id: string; kind: string; label: string };
-type Pack = { id: string; name: string; status: string; origin: string; hasAdapter?: boolean };
+type Pack = {
+  id: string;
+  name: string;
+  status: string;
+  origin: string;
+  hasAdapter?: boolean;
+  demo?: boolean;
+  demoState?: "locked" | "draft";
+  summary?: string;
+};
 type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean; previewUrl?: string | null };
 type LibraryItem = { id: string; kind: string; previewUrl?: string | null };
 type PackRef = TrayRef & { mediaAssetId: string };
@@ -193,10 +203,12 @@ export function PackWizard(props: { initialPackId?: string }) {
     }
   }
 
+  const demo = Boolean(pack?.demo);
   const status = pack ? soulStatusLabel(pack.status) : "Draft";
   const training = pack?.status === "training";
   const canTrain =
     Boolean(pack) &&
+    !demo &&
     refCount >= PACK_MIN_REFS &&
     (pack?.status === "draft" || pack?.status === "failed") &&
     !training;
@@ -212,8 +224,12 @@ export function PackWizard(props: { initialPackId?: string }) {
           <div className="kicker">New character</div>
           <h1>{pack?.name || "Character Pack"}</h1>
         </div>
-        <span className="fictional-badge">Fictional only</span>
+        <div className="roster-badges">
+          {demo ? <DemoBadge /> : null}
+          <span className="fictional-badge">Fictional only</span>
+        </div>
       </div>
+      {demo ? <DemoPackBanner state="draft" /> : null}
       <p className="muted">
         Status: {status}. Add fictional reference pictures, then Train & lock Soul ID. Starters are not
         Composer templates.
@@ -231,7 +247,7 @@ export function PackWizard(props: { initialPackId?: string }) {
       <RefUploader
         packId={pack?.id}
         refCount={refCount}
-        disabled={pending || training}
+        disabled={pending || training || demo}
         onNeedPack={ensurePack}
         onUploaded={async (packId) => {
           await loadPack(packId);
@@ -243,6 +259,7 @@ export function PackWizard(props: { initialPackId?: string }) {
       <RefTray
         refs={refs}
         pendingId={pendingRefId}
+        readOnly={demo}
         onRemove={(id) => void removeRef(id)}
         onMove={(id, delta) => void moveRef(id, delta)}
       />
@@ -277,7 +294,7 @@ export function PackWizard(props: { initialPackId?: string }) {
                 key={preset.id}
                 className="chip"
                 type="button"
-                disabled={pending || training}
+                disabled={pending || training || demo}
                 onClick={() => void generateStarter(preset.id)}
               >
                 {preset.label}
@@ -291,7 +308,7 @@ export function PackWizard(props: { initialPackId?: string }) {
                 key={preset.id}
                 className="chip"
                 type="button"
-                disabled={pending || training}
+                disabled={pending || training || demo}
                 onClick={() => void generateStarter(preset.id)}
               >
                 {preset.label}
@@ -302,15 +319,16 @@ export function PackWizard(props: { initialPackId?: string }) {
           {awaitingStarters ? <LoadingState compact label="Waiting for starter stills…" /> : null}
           <ContactSheet
             tiles={starters}
-            onToggle={(id, selected, vibeKind, presetId) =>
+            onToggle={(id, selected, vibeKind, presetId) => {
+              if (demo) return;
               void toggleRef({
                 mediaAssetId: id,
                 selected,
                 kind: vibeKind === "body" ? "starter_body" : "starter_face",
                 source: "generate_starter",
                 starterPresetId: presetId,
-              })
-            }
+              });
+            }}
           />
         </>
       ) : (
@@ -332,7 +350,7 @@ export function PackWizard(props: { initialPackId?: string }) {
                     key={item.id}
                     type="button"
                     className={selected ? "sheet-tile selected" : "sheet-tile"}
-                    disabled={training}
+                    disabled={training || demo}
                     onClick={() =>
                       void toggleRef({
                         mediaAssetId: item.id,
@@ -361,7 +379,7 @@ export function PackWizard(props: { initialPackId?: string }) {
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       <button className="btn" type="button" disabled={!canTrain || pending} onClick={() => void trainAndLock()}>
-        {training ? "Training…" : "Train & lock Soul ID"}
+        {training ? "Training…" : demo ? "Demo pack — lock on your own" : "Train & lock Soul ID"}
       </button>
     </section>
   );
