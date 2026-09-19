@@ -11,6 +11,7 @@ import {
   DEMO_PACK_READ_ONLY_MESSAGE,
   DEMO_REF_DROP_DIR,
   DEMO_SEED_NOTE,
+  demoClientFields,
   demoCopyIsFictionalOnly,
   demoLibraryStills,
   demoPackCanTrain,
@@ -75,6 +76,8 @@ describe("stub demo Character Packs", () => {
       expect(still.kind).toBe("still");
     }
     expect(demoPackPreviewUrl(DEMO_PACK_IDS.mara)).toMatch(/^\/api\/media\//);
+    expect(demoClientFields(DEMO_PACK_IDS.mara)).toMatchObject({ demo: true, demoState: "locked" });
+    expect(demoClientFields(DEMO_PACK_IDS.iris)).toMatchObject({ demo: true, demoState: "draft" });
     expect(isDemoPackId("not-a-pack")).toBe(false);
     expect(getDemoStill("missing")).toBeUndefined();
   });

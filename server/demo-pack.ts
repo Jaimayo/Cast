@@ -7,6 +7,7 @@ import {
   DEMO_PACK_READ_ONLY_MESSAGE,
   DEMO_REF_DROP_DIR,
   demoLibraryStills,
+  demoClientFields,
   demoPackPreviewUrl,
   demoPreviewUrl,
   demoRefCount,
@@ -78,14 +79,15 @@ function toCharacterPack(userId: string, pack: DemoPackDefinition): CharacterPac
   };
 }
 
+export function toPublicPack<T extends Parameters<typeof publicPack>[0] & { id: string }>(pack: T) {
+  const extra = servingDemoPacks() ? demoClientFields(pack.id) : null;
+  return extra ? { ...publicPack(pack), ...extra } : publicPack(pack);
+}
+
 export function publicDemoPack(userId: string, pack: DemoPackDefinition) {
-  return publicPack({
+  return toPublicPack({
     ...toCharacterPack(userId, pack),
     refCount: pack.refCount,
-    demo: true as const,
-    demoState: pack.demoState,
-    previewUrl: demoPackPreviewUrl(pack.id),
-    summary: pack.summary,
   });
 }
 

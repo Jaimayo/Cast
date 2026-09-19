@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { publicPack } from "@/lib/media";
 import { requireAttestedUser } from "@/server/auth";
+import { toPublicPack } from "@/server/demo-pack";
 import { jsonError } from "@/server/http";
 import {
   countRefs,
@@ -26,7 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       listStarterSheet(user.id, pack.id),
       listLibraryStills(user.id),
     ]);
-    return NextResponse.json({ pack: publicPack(pack), refs, refCount, starters, library });
+    return NextResponse.json({ pack: toPublicPack(pack), refs, refCount, starters, library });
   } catch (err) {
     return jsonError(err);
   }

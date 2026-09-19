@@ -282,6 +282,23 @@ export function demoPackPreviewUrl(packId: string): string | null {
   return first ? demoPreviewUrl(first.id) : null;
 }
 
+/** Client fields so Locked vs Draft demo chrome survives getPack → publicPack. */
+export function demoClientFields(packId: string): {
+  demo: true;
+  demoState: DemoPackState;
+  previewUrl: string | null;
+  summary: string;
+} | null {
+  const pack = getDemoPack(packId);
+  if (!pack) return null;
+  return {
+    demo: true,
+    demoState: pack.demoState,
+    previewUrl: demoPackPreviewUrl(packId),
+    summary: pack.summary,
+  };
+}
+
 export function demoRefCount(packId: string): number {
   return getDemoPack(packId)?.refCount ?? 0;
 }
