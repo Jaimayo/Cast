@@ -10,6 +10,9 @@ export type SessionPayload = {
   exp: number;
   /** True after ageAttestedAt is set. Middleware reads this — no DB on the edge. */
   age: boolean;
+  /** Present in stub memory preview so studio pages can render without Postgres. */
+  email?: string;
+  role?: "admin" | "consumer";
 };
 
 export type SessionCookieAttrs = {
@@ -109,7 +112,9 @@ export async function decodeSession(token: string, secret: string): Promise<Sess
     if (!Number.isFinite(parsed.exp) || parsed.exp * 1000 < Date.now()) {
       return null;
     }
-    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age) };
+    const role = parsed.role === "admin" || parsed.role === "consumer" ? parsed.role : undefined;
+    const email = typeof parsed.email === "string" && parsed.email.includes("@") ? parsed.email : undefined;
+    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age), email, role };
   } catch {
     return null;
   }

@@ -34,7 +34,7 @@ export function CharacterRoster(props: { packs: Pack[]; stubMode?: boolean }) {
       {props.stubMode ? (
         <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-card/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Stub preview: seed a Locked pack so Create is reviewable without training.
+            Stub preview: Mara (Locked) and Iris (draft) are available without training. Re-seed if the roster is empty.
           </p>
           <Button type="button" variant="metallic" size="lg" disabled={pending} onClick={() => void seedDemo()}>
             {pending ? "Seeding…" : "Seed demo Locked pack"}

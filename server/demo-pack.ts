@@ -10,6 +10,7 @@ import {
 import { publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { isMemoryPreview, publicPreviewPacks } from "@/server/memory-preview";
 import { countRefs, lockPack } from "@/server/packs";
 
 async function findPackByName(userId: string, name: string) {
@@ -84,6 +85,13 @@ export async function seedStubReviewPacks(userId: string) {
   const blocked = stubDemoLockMessage(getEnv().providerMode);
   if (blocked) {
     throw new Error(blocked);
+  }
+  if (isMemoryPreview()) {
+    const [locked, draft] = publicPreviewPacks(userId);
+    if (!locked || !draft) {
+      throw new Error("Failed to seed Locked demo pack");
+    }
+    return { locked, draft };
   }
 
   const draft = await createDraftWithRefs({

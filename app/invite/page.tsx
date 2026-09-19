@@ -8,7 +8,12 @@ import { ensureStubReviewInvite, previewReviewInviteCode } from "@/server/review
 export const dynamic = "force-dynamic";
 
 export default async function InviteRoute() {
-  const user = await getCurrentUser();
+  let user = null;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    user = null;
+  }
   if (user) {
     await ensureSessionMatchesUser(user);
     redirect(user.ageAttestedAt ? "/app" : "/age");

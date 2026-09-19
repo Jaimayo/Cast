@@ -10,9 +10,11 @@ import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/constants";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { newInviteCode } from "@/lib/invite-code";
 import { classifyInvite, normalizeInviteCode, throwIfInviteUnusable } from "@/lib/invite-status";
+import { stubReviewInviteCode } from "@/lib/review-preview";
 import { decodeSession, encodeSession, sessionCookieAttrs } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { isMemoryPreview, previewUserFromSession } from "@/server/memory-preview";
 
 export { AuthError } from "@/lib/auth-error";
 
@@ -25,11 +27,22 @@ function cookieBase() {
   });
 }
 
-async function setSessionCookie(userId: string, ageAttested: boolean): Promise<void> {
+async function setSessionCookie(
+  userId: string,
+  ageAttested: boolean,
+  extras?: { email?: string; role?: "admin" | "consumer" },
+): Promise<void> {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  const token = await encodeSession({ sub: userId, exp, age: ageAttested }, getEnv().sessionSecret);
+  const token = await encodeSession(
+    { sub: userId, exp, age: ageAttested, email: extras?.email, role: extras?.role },
+    getEnv().sessionSecret,
+  );
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, cookieBase());
+}
+
+function sessionExtras(user: Pick<User, "email" | "role">) {
+  return { email: user.email, role: user.role };
 }
 
 export async function clearSessionCookie(): Promise<void> {
@@ -55,12 +68,20 @@ export async function readSessionUserId(): Promise<string | null> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const userId = await readSessionUserId();
-  if (!userId) {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) {
     return null;
   }
+  const payload = await decodeSession(token, getEnv().sessionSecret);
+  if (!payload) {
+    return null;
+  }
+  if (isMemoryPreview()) {
+    return previewUserFromSession(payload);
+  }
   const db = getDb();
-  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const rows = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1);
   return rows[0] ?? null;
 }
 
@@ -73,7 +94,7 @@ export async function ensureSessionMatchesUser(user: User): Promise<void> {
   if (payload && payload.sub === user.id && payload.age === age) {
     return;
   }
-  await setSessionCookie(user.id, age);
+  await setSessionCookie(user.id, age, sessionExtras(user));
 }
 
 export async function requireUser(): Promise<User> {
@@ -121,6 +142,26 @@ export async function redeemInvite(input: {
 
   const passwordHash = await hashPassword(input.password);
   const role = roleForEmail(email, getEnv().adminEmails);
+
+  if (isMemoryPreview()) {
+    const expected = stubReviewInviteCode(getEnv().providerMode, process.env.REVIEW_INVITE_CODE);
+    if (!expected || code !== expected) {
+      throw new AuthError("This invite code is invalid.", 400);
+    }
+    const now = new Date();
+    const created: User = {
+      id: crypto.randomUUID(),
+      email,
+      passwordHash,
+      role,
+      ageAttestedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await setSessionCookie(created.id, false, sessionExtras(created));
+    return created;
+  }
+
   const db = getDb();
 
   try {
@@ -169,7 +210,7 @@ export async function redeemInvite(input: {
       return user;
     });
 
-    await setSessionCookie(created.id, false);
+    await setSessionCookie(created.id, false, sessionExtras(created));
     return created;
   } catch (err) {
     if (err instanceof AuthError) {
@@ -184,6 +225,15 @@ export async function redeemInvite(input: {
 
 export async function signIn(input: { email: string; password: string }): Promise<User> {
   const email = input.email.trim().toLowerCase();
+  if (isMemoryPreview()) {
+    const current = await getCurrentUser();
+    if (current && current.email === email) {
+      await setSessionCookie(current.id, sessionAgeFlag(current.ageAttestedAt), sessionExtras(current));
+      return current;
+    }
+    throw new AuthError("Stub preview is cookie-only. Redeem the invite code again.", 401);
+  }
+
   const db = getDb();
   const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const user = rows[0];
@@ -197,11 +247,21 @@ export async function signIn(input: { email: string; password: string }): Promis
     user.role = "admin";
   }
 
-  await setSessionCookie(user.id, sessionAgeFlag(user.ageAttestedAt));
+  await setSessionCookie(user.id, sessionAgeFlag(user.ageAttestedAt), sessionExtras(user));
   return user;
 }
 
 export async function attestAge(userId: string): Promise<User> {
+  if (isMemoryPreview()) {
+    const current = await getCurrentUser();
+    if (!current || current.id !== userId) {
+      throw new AuthError("User not found", 404);
+    }
+    const attested = { ...current, ageAttestedAt: current.ageAttestedAt ?? new Date(), updatedAt: new Date() };
+    await setSessionCookie(attested.id, true, sessionExtras(attested));
+    return attested;
+  }
+
   const db = getDb();
   const existing = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const current = existing[0];
@@ -209,7 +269,7 @@ export async function attestAge(userId: string): Promise<User> {
     throw new AuthError("User not found", 404);
   }
   if (current.ageAttestedAt) {
-    await setSessionCookie(current.id, true);
+    await setSessionCookie(current.id, true, sessionExtras(current));
     return current;
   }
 
@@ -219,7 +279,7 @@ export async function attestAge(userId: string): Promise<User> {
     .where(and(eq(users.id, userId), isNull(users.ageAttestedAt)))
     .returning();
   const user = rows[0] ?? current;
-  await setSessionCookie(user.id, true);
+  await setSessionCookie(user.id, true, sessionExtras(user));
   return user;
 }
 

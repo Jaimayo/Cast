@@ -14,7 +14,7 @@ if (process.env.DATABASE_URL) {
   run("pnpm", ["review:bootstrap"]);
 } else {
   console.warn(
-    "DATABASE_URL is unset; skipping migrate/bootstrap. next build still runs. Studio click-through needs DATABASE_URL at runtime.",
+    "DATABASE_URL is unset; stub memory preview. next build still runs. No Redis/R2/RunPod required.",
   );
 }
 

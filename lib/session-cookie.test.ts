@@ -24,6 +24,26 @@ describe("signed session cookies", () => {
     expect(payload?.age).toBe(true);
   });
 
+  it("round-trips optional email and role for stub memory preview", async () => {
+    const encoded = await encodeSession(
+      {
+        sub: "user-1",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        age: true,
+        email: "jai@example.com",
+        role: "consumer",
+      },
+      secret,
+    );
+    const payload = await decodeSession(encoded, secret);
+    expect(payload).toMatchObject({
+      sub: "user-1",
+      age: true,
+      email: "jai@example.com",
+      role: "consumer",
+    });
+  });
+
   it("rejects a tampered payload that tries to flip the age flag", async () => {
     const encoded = await token({ age: false });
     const [body, signature] = encoded.split(".");

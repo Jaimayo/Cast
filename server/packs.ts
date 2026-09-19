@@ -24,9 +24,17 @@ import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { canRetrainPack, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
+import { DEMO_DRAFT_REF_COUNT, DEMO_LOCKED_REF_COUNT } from "@/lib/demo-pack";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
 import { recoverStaleJobsSafe } from "@/server/jobs";
+import {
+  isMemoryPreview,
+  previewPackForUser,
+  previewPacksForUser,
+  publicPreviewJob,
+  publicPreviewPacks,
+} from "@/server/memory-preview";
 import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
 
@@ -80,6 +88,9 @@ async function guardJobEnqueue(
 }
 
 export async function listPacks(userId: string) {
+  if (isMemoryPreview()) {
+    return publicPreviewPacks(userId);
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const packs = await db
@@ -103,6 +114,9 @@ export async function listPacks(userId: string) {
 }
 
 export async function getPack(userId: string, packId: string): Promise<CharacterPack | null> {
+  if (isMemoryPreview()) {
+    return previewPackForUser(userId, packId);
+  }
   await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
   const rows = await db
@@ -121,6 +135,25 @@ export async function createPack(input: {
   const name = input.name.trim();
   if (!name) {
     throw new Error("Pack name is required");
+  }
+  if (isMemoryPreview()) {
+    const now = new Date();
+    return {
+      id: crypto.randomUUID(),
+      userId: input.userId,
+      name,
+      origin: input.origin,
+      status: "draft" as const,
+      fictionalAttestation: true,
+      lockedAt: null,
+      trainedAt: null,
+      providerJobId: null,
+      adapterStorageKey: null,
+      adapterMimeType: null,
+      adapterMeta: null,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
   const db = getDb();
   const rows = await db
@@ -160,6 +193,11 @@ async function countRefsOn(db: PackDb, packId: string): Promise<number> {
 }
 
 export async function countRefs(packId: string): Promise<number> {
+  if (isMemoryPreview()) {
+    if (packId.endsWith("000000000001")) return DEMO_LOCKED_REF_COUNT;
+    if (packId.endsWith("000000000002")) return DEMO_DRAFT_REF_COUNT;
+    return 0;
+  }
   return countRefsOn(getDb(), packId);
 }
 
@@ -340,6 +378,15 @@ export async function setRefSelected(input: {
 }
 
 export async function lockPack(userId: string, packId: string) {
+  if (isMemoryPreview()) {
+    const pack = previewPackForUser(userId, packId);
+    if (!pack) {
+      throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
+    }
+    const refs = pack.id.endsWith("000000000001") ? DEMO_LOCKED_REF_COUNT : DEMO_DRAFT_REF_COUNT;
+    const locked = { ...pack, status: "locked" as const, lockedAt: pack.lockedAt ?? new Date(), updatedAt: new Date() };
+    return { pack: locked, warning: undefined, refCount: refs };
+  }
   await recoverStaleJobsSafe({ userId, packId });
   const db = getDb();
   return db.transaction(async (tx) => {
@@ -381,6 +428,13 @@ export async function enqueueGenerateStill(input: {
     throw new Error("Character pack is required");
   }
   assertGenerateStillAllowed({ packStatus: pack.status, poseChipId: input.poseChipId });
+  if (isMemoryPreview()) {
+    const job = publicPreviewJob({
+      userId: input.userId,
+      characterPackId: pack.id,
+    });
+    return { job, recipeId: job.recipeId ?? crypto.randomUUID() };
+  }
   if (!input.skipAbuseGuard) {
     await guardJobEnqueue(input.userId, "generateStill");
   }
@@ -453,6 +507,13 @@ export async function enqueueGenerateStarter(input: {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
   }
   throwPackGate(generateStarterPackDecision(pack.status));
+  if (isMemoryPreview()) {
+    const job = publicPreviewJob({
+      userId: input.userId,
+      characterPackId: pack.id,
+    });
+    return { job, preset };
+  }
   compileStarterPrompt({
     characterPackName: pack.name,
     characterPackId: pack.id,
@@ -489,6 +550,13 @@ export async function enqueueTrainPack(userId: string, packId: string) {
   const pack = await getPack(userId, packId);
   if (!pack) {
     throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
+  }
+  if (isMemoryPreview()) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: "Train & lock is skipped in stub preview. Use the Locked Mara pack.",
+      retryable: false,
+    });
   }
   throwPackGate(trainPackDecision(pack.status, await countRefs(pack.id)));
   await guardJobEnqueue(userId, "trainPack");
@@ -618,6 +686,9 @@ export async function enqueueRetrainPack(userId: string, packId: string) {
 }
 
 export async function listJobs(userId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const jobs = await db
@@ -629,6 +700,14 @@ export async function listJobs(userId: string) {
 }
 
 export async function getJob(userId: string, jobId: string) {
+  if (isMemoryPreview()) {
+    const pack = previewPacksForUser(userId)[0];
+    return publicPreviewJob({
+      userId,
+      jobId,
+      characterPackId: pack!.id,
+    });
+  }
   await recoverStaleJobsSafe({ userId });
   const db = getDb();
   const rows = await db
@@ -671,6 +750,9 @@ async function attachJobPreviews<T extends { id: string; kind: string; resultAss
 }
 
 export async function listRefs(userId: string, packId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select({
@@ -691,6 +773,9 @@ export async function listRefs(userId: string, packId: string) {
 }
 
 export async function listStarterSheet(userId: string, packId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select({
@@ -734,6 +819,9 @@ export async function listStarterSheet(userId: string, packId: string) {
 }
 
 export async function listLibraryStills(userId: string) {
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   const rows = await db
     .select()

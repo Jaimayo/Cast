@@ -85,17 +85,30 @@ pnpm worker
 
 Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` → `/age` → `/app/characters`.
 
-## Product review path (stub, no RunPod/R2)
+## Product review path (stub, no RunPod/R2/Redis/Postgres)
 
-Champagne-on-void UI for product click-through. Leave `PROVIDER_MODE=stub` and S3 keys empty.
+Champagne-on-void UI for product click-through. **Deploy branch `cursor/champagne-stage1-preview-a6ee`** to Vercel project **`cast-stage1-review`** as a **Next.js** app (not a static HTML project).
+
+Leave `PROVIDER_MODE=stub`. Do **not** set `DATABASE_URL`, `REDIS_URL`, S3/R2, Venice, or RunPod keys. Studio identity lives in the signed session cookie.
+
+### Vercel env (stub memory preview)
+
+| Key | Value | Required? |
+| --- | --- | --- |
+| `PROVIDER_MODE` | `stub` | Recommended (defaults to stub) |
+| `SESSION_SECRET` | any 32+ character string | Optional in stub (built-in review default) |
+| `REVIEW_INVITE_CODE` | `castreview` | Optional (this is the default) |
+| `APP_BASE_URL` | `https://cast-stage1-review.vercel.app` | Optional |
+
+Do **not** set `DATABASE_URL` for this preview. If you do, the app expects Postgres (+ Redis for live jobs) and the cookie-only path turns off.
 
 1. Landing `/` → **Enter with invite**
 2. Invite code `castreview` (prefilled in stub). Any new email + password of 10+ characters.
 3. Age: check both boxes, including exact **I confirm I am 18+.** → Enter studio
-4. Characters → **Seed demo Locked pack** (Mara locked, Iris draft)
-5. Create (empty state before seed; pose chips after Mara) → Library
+4. Characters already includes **Mara (demo)** Locked and **Iris (draft)**. Optional: **Seed demo Locked pack**
+5. Create (pose chips + Mara selected) → Library (empty stills in stub)
 
-`pnpm review:bootstrap` mints that invite. Vercel preview build runs migrate + bootstrap when `DATABASE_URL` is set.
+`pnpm review:bootstrap` mints that invite when Postgres is configured. Vercel preview build runs migrate + bootstrap only when `DATABASE_URL` is set.
 
 ### Commands
 

@@ -11,6 +11,7 @@ import {
   trainPackBullJobId,
 } from "@/lib/job-errors";
 import { redisConnection } from "@/server/redis";
+import { getEnv } from "@/server/env";
 import { trainPollDelayMs } from "@/server/providers/train-status";
 
 export type GenerateStillJobData = {
@@ -96,6 +97,9 @@ async function addIdempotent<T>(
 }
 
 export async function enqueueGenerateStillJob(generationJobId: string): Promise<void> {
+  if (getEnv().providerMode === "stub") {
+    return;
+  }
   await addIdempotent(
     getGenerateStillQueue(),
     "generateStill",
@@ -106,6 +110,9 @@ export async function enqueueGenerateStillJob(generationJobId: string): Promise<
 }
 
 export async function enqueueTrainPackJob(data: TrainPackJobData): Promise<void> {
+  if (getEnv().providerMode === "stub") {
+    return;
+  }
   const attempt = data.attempt ?? 0;
   await addIdempotent(
     getTrainPackQueue(),
@@ -119,6 +126,9 @@ export async function enqueueTrainPackJob(data: TrainPackJobData): Promise<void>
 }
 
 export async function enqueueDeadLetterJob(data: DeadLetterJobData): Promise<void> {
+  if (getEnv().providerMode === "stub") {
+    return;
+  }
   await addIdempotent(
     getDeadLetterQueue(),
     "deadLetter",

@@ -12,7 +12,11 @@ const globalForDb = globalThis as unknown as {
 
 export function getDb(): Db {
   if (!globalForDb.drizzle) {
-    const client = globalForDb.postgres ?? postgres(getEnv().databaseUrl, { max: 5 });
+    const databaseUrl = getEnv().databaseUrl;
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL is required outside stub memory preview");
+    }
+    const client = globalForDb.postgres ?? postgres(databaseUrl, { max: 5 });
     globalForDb.postgres = client;
     globalForDb.drizzle = drizzle(client, { schema });
   }

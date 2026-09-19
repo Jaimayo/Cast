@@ -22,6 +22,9 @@ export async function ensureStubReviewInvite(): Promise<string | null> {
   if (!code) {
     return null;
   }
+  if (!env.databaseUrl) {
+    return code;
+  }
 
   const db = getDb();
   const existing = await db.select().from(inviteCodes).where(eq(inviteCodes.code, code)).limit(1);
