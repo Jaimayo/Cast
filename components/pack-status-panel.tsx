@@ -20,13 +20,18 @@ type Pack = {
   demoState?: "locked" | "draft";
 };
 
-export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: TrayRef[] }) {
+export function PackStatusPanel(props: {
+  pack: Pack;
+  refCount: number;
+  refs?: TrayRef[];
+  initialGridJobs?: TestGridJob[];
+}) {
   const [status, setStatus] = useState(props.pack.status);
   const [adapterReady, setAdapterReady] = useState(Boolean(props.pack.hasAdapter));
   const [pending, setPending] = useState<"test-grid" | "retrain" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [gridJobs, setGridJobs] = useState<TestGridJob[]>([]);
+  const [gridJobs, setGridJobs] = useState<TestGridJob[]>(props.initialGridJobs ?? []);
 
   useEffect(() => {
     if (status !== "training") return;
