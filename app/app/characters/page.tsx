@@ -2,12 +2,14 @@ import { CharacterRoster } from "@/components/cast/character-roster";
 import { Button } from "@/components/ui/button";
 import { listPacks } from "@/server/packs";
 import { requireAttestedUser } from "@/server/auth";
+import { getEnv } from "@/server/env";
 
 export const dynamic = "force-dynamic";
 
 export default async function CharactersPage() {
   const user = await requireAttestedUser();
   const packs = await listPacks(user.id);
+  const stubMode = getEnv().providerMode === "stub";
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 md:px-8">
       <div className="mb-6 flex items-end justify-between gap-4">
@@ -22,7 +24,7 @@ export default async function CharactersPage() {
           <a href="/app/characters/new">+ New</a>
         </Button>
       </div>
-      <CharacterRoster packs={packs} />
+      <CharacterRoster packs={packs} stubMode={stubMode} />
     </section>
   );
 }

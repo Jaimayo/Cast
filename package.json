@@ -19,7 +19,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "invite:create": "tsx scripts/create-invite.ts"
+    "invite:create": "tsx scripts/create-invite.ts",
+    "demo:pack": "tsx scripts/seed-demo-pack.ts",
+    "review:bootstrap": "tsx scripts/bootstrap-review.ts",
+    "vercel-build": "tsx scripts/vercel-build.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.901.0",

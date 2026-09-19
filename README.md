@@ -85,6 +85,18 @@ pnpm worker
 
 Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` → `/age` → `/app/characters`.
 
+## Product review path (stub, no RunPod/R2)
+
+Champagne-on-void UI for product click-through. Leave `PROVIDER_MODE=stub` and S3 keys empty.
+
+1. Landing `/` → **Enter with invite**
+2. Invite code `castreview` (prefilled in stub). Any new email + password of 10+ characters.
+3. Age: check both boxes, including exact **I confirm I am 18+.** → Enter studio
+4. Characters → **Seed demo Locked pack** (Mara locked, Iris draft)
+5. Create (empty state before seed; pose chips after Mara) → Library
+
+`pnpm review:bootstrap` mints that invite. Vercel preview build runs migrate + bootstrap when `DATABASE_URL` is set.
+
 ### Commands
 
 | Script | Purpose |
@@ -93,6 +105,8 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 | `pnpm worker` | BullMQ workers (`generateStill`, `trainPack`) |
 | `pnpm db:migrate` | Apply Drizzle SQL migrations |
 | `pnpm invite:create` | Mint an invite code |
+| `pnpm demo:pack` | Stub-only: seed Locked + Draft demo packs for a user email |
+| `pnpm review:bootstrap` | Stub-only: mint/keep the product-review invite |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm test` | Prompt-compiler unit tests |
 | `pnpm build` | Production Next.js build |
