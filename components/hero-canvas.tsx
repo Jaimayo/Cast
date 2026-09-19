@@ -2,10 +2,19 @@ import { StillPreview } from "@/components/still-preview";
 import { CastMark } from "@/components/wordmark";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { GENERATE_IN_PROGRESS_COPY } from "@/lib/generate-affordances";
+import { composerHeroEmptyCopy, getStillAspect, type StillAspectId } from "@/lib/still-aspect";
 
-export function CharacterRequiredEmpty(props: { packId?: string | null; training?: boolean }) {
+function frameStyle(aspectRatio: StillAspectId | undefined): { aspectRatio: string } {
+  return { aspectRatio: getStillAspect(aspectRatio ?? "3:4").cssRatio };
+}
+
+export function CharacterRequiredEmpty(props: {
+  packId?: string | null;
+  training?: boolean;
+  aspectRatio?: StillAspectId;
+}) {
   return (
-    <div className="hero-frame empty-state">
+    <div className="hero-frame empty-state" style={frameStyle(props.aspectRatio)}>
       <CastMark className="empty-state-mark" />
       <div>
         <h2>Lock a character to create</h2>
@@ -24,12 +33,16 @@ export function HeroCanvas(props: {
   packId?: string | null;
   training?: boolean;
   generating?: boolean;
+  aspectRatio?: StillAspectId;
 }) {
+  const aspect = getStillAspect(props.aspectRatio ?? "3:4");
   if (!props.locked) {
-    return <CharacterRequiredEmpty packId={props.packId} training={props.training} />;
+    return (
+      <CharacterRequiredEmpty packId={props.packId} training={props.training} aspectRatio={aspect.id} />
+    );
   }
   return (
-    <div className={props.generating ? "hero-frame is-loading" : "hero-frame"}>
+    <div className={props.generating ? "hero-frame is-loading" : "hero-frame"} style={frameStyle(aspect.id)}>
       {props.previewUrl ? (
         <>
           <StillPreview src={props.previewUrl} alt="Generated still" />
@@ -38,7 +51,7 @@ export function HeroCanvas(props: {
       ) : (
         <span>
           {props.progress ??
-            (props.generating ? GENERATE_IN_PROGRESS_COPY : (props.message ?? "Hero Frame still. Generate to fill this canvas."))}
+            (props.generating ? GENERATE_IN_PROGRESS_COPY : (props.message ?? composerHeroEmptyCopy(aspect)))}
         </span>
       )}
       {props.generating && props.previewUrl ? (

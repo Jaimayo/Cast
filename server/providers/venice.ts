@@ -1,4 +1,5 @@
 import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+import { stillAspectFromUnknown } from "@/lib/still-aspect";
 import { getEnv } from "@/server/env";
 import { providerFetch } from "@/server/providers/http";
 import {
@@ -131,6 +132,7 @@ export function buildVeniceGenerateRequest(input: {
   safeMode: boolean;
   width?: number;
   height?: number;
+  aspectRatio?: string;
   seed?: number;
   format?: VeniceImageFormat;
 }): VeniceGenerateRequest {
@@ -153,13 +155,14 @@ export function buildVeniceGenerateRequest(input: {
   }
 
   const sizing = veniceSizingMode(model);
+  const aspectRatio = stillAspectFromUnknown(input.aspectRatio);
   if (sizing === "pixel") {
     request.width = input.width ?? VENICE_DEFAULT_WIDTH;
     request.height = input.height ?? VENICE_DEFAULT_HEIGHT;
   } else if (sizing === "aspect") {
-    request.aspect_ratio = "1:1";
+    request.aspect_ratio = aspectRatio;
   } else {
-    request.aspect_ratio = "1:1";
+    request.aspect_ratio = aspectRatio;
     request.resolution = "1K";
   }
 
@@ -304,6 +307,7 @@ export const veniceAdapter: GenerateStillAdapter = {
       safeMode: env.safeMode,
       width: input.width,
       height: input.height,
+      aspectRatio: input.aspectRatio,
       seed: input.seed,
       format,
     });

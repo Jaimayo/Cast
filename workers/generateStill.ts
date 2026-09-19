@@ -3,6 +3,7 @@ import { characterPacks, mediaAssets, recipes } from "@/db/schema";
 import { hasReadySoulAdapter } from "@/lib/adapter-identity";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
+import { stillGenerateSize } from "@/lib/still-aspect";
 import { jobLog } from "@/lib/job-log";
 import { generateStillWorkDecision, shouldPersistGenerateStillResult } from "@/lib/job-cancel";
 import { generateMissingAdapter, type JobAttempt } from "@/lib/job-errors";
@@ -150,6 +151,8 @@ export async function processGenerateStillJob(
       negativePrompt = compiled.negativePrompt;
     }
 
+    const stillSize = job.kind === "generate_still" ? stillGenerateSize(job.inputJson) : null;
+
     const adapter = getGenerateStillAdapterForPack(pack);
     jobLog("generateStill.start", {
       jobId: job.id,
@@ -172,6 +175,9 @@ export async function processGenerateStillJob(
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
         attempt: attempt.attempt,
+        ...(stillSize
+          ? { width: stillSize.width, height: stillSize.height, aspectRatio: stillSize.aspectRatio }
+          : {}),
       });
     } catch (err) {
       const fallback = generateStillFallbackAdapter();
@@ -192,6 +198,9 @@ export async function processGenerateStillJob(
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
         attempt: attempt.attempt,
+        ...(stillSize
+          ? { width: stillSize.width, height: stillSize.height, aspectRatio: stillSize.aspectRatio }
+          : {}),
       });
     }
 

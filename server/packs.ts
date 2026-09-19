@@ -34,6 +34,7 @@ import { mediaKey, putObject } from "@/server/storage";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
+import { stillGenerateSize, type StillAspectId } from "@/lib/still-aspect";
 import { TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
@@ -407,6 +408,7 @@ export async function enqueueGenerateStill(input: {
   sceneChipId?: string | null;
   lightingChipId?: string | null;
   bodyChipId?: string | null;
+  aspectRatio?: StillAspectId | null;
   source?: "composer" | "test_grid";
   skipAbuseGuard?: boolean;
 }) {
@@ -463,6 +465,7 @@ export async function enqueueGenerateStill(input: {
         sceneChipId: input.sceneChipId ?? null,
         lightingChipId: input.lightingChipId ?? null,
         bodyChipId: input.bodyChipId ?? null,
+        aspectRatio: stillGenerateSize({ aspectRatio: input.aspectRatio }).aspectRatio,
         source: input.source ?? "composer",
       },
     })
