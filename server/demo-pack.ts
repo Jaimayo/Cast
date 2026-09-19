@@ -169,6 +169,9 @@ export function demoJobId(still: DemoStill): string {
   return `00000000-0000-4000-a000-${(500 + still.slot).toString().padStart(12, "0")}`;
 }
 
+/** Distinct from demoJobId (500 + slot) so Jobs detail does not resolve a Still. */
+export const DEMO_TRAIN_JOB_ID = "00000000-0000-4000-a000-000000000701";
+
 export function listPublicDemoJobs(userId: string) {
   const stills = demoLibraryStills()
     .slice(0, 3)
@@ -195,7 +198,7 @@ export function listPublicDemoJobs(userId: string) {
   // Mara is already Locked in stub. Surface that Train row so Jobs can group Still vs Train
   // without filling Test grid cells or changing the demo pack catalog.
   const train = publicJob({
-    id: "00000000-0000-4000-a000-000000000501",
+    id: DEMO_TRAIN_JOB_ID,
     userId,
     kind: "train_pack" as const,
     status: "succeeded" as const,

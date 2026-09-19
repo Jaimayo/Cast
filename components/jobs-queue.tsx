@@ -267,7 +267,7 @@ export function JobsQueue() {
           ) : (
             <JobDetailCard
               job={selected}
-              loadError={detailError}
+              loadError={jobs.some((job) => job.id === selected.id) ? null : detailError}
               cancelError={cancelError}
               canceling={cancelingId === selected.id}
               onCancel={() => void cancelJob(selected.id)}
