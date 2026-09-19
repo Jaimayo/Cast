@@ -41,11 +41,13 @@ export function parseMediaId(mediaId: string): string | null {
 export function classifyMediaSession(input: {
   sessionUserId: string | null;
   user: { id: string; ageAttestedAt: Date | string | null } | null;
+  /** Cookie verified but the user row could not be loaded (deleted account / DB miss). */
+  userLookupFailed?: boolean;
 }): { ok: true; userId: string } | { ok: false; status: 401 | 403; error: string } {
   if (!input.sessionUserId) {
     return { ok: false, status: 401, error: MEDIA_AUTH_ERRORS.signInRequired };
   }
-  if (!input.user || input.user.id !== input.sessionUserId) {
+  if (input.userLookupFailed || !input.user || input.user.id !== input.sessionUserId) {
     return { ok: false, status: 403, error: MEDIA_AUTH_ERRORS.sessionRevoked };
   }
   if (!input.user.ageAttestedAt) {

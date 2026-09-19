@@ -120,6 +120,17 @@ describe("media session gate", () => {
     expect(
       classifyMediaSession({
         sessionUserId: "user-a",
+        user: attested,
+        userLookupFailed: true,
+      }),
+    ).toEqual({
+      ok: false,
+      status: 403,
+      error: MEDIA_AUTH_ERRORS.sessionRevoked,
+    });
+    expect(
+      classifyMediaSession({
+        sessionUserId: "user-a",
         user: { id: "other", ageAttestedAt: attested.ageAttestedAt },
       }),
     ).toEqual({
