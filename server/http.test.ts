@@ -5,6 +5,7 @@ import { packRefsTooFewMessage } from "@/lib/pack-rules";
 import { RATE_LIMIT_CODES, RATE_LIMIT_MESSAGES, RateLimitError } from "@/lib/rate-limit";
 import { jsonError } from "@/server/http";
 import { ObjectNotFoundError } from "@/server/storage";
+import { DatabaseRequiredError } from "@/lib/db-errors";
 
 async function bodyOf(response: Response): Promise<{
   error?: string;
@@ -39,6 +40,12 @@ describe("jsonError media failures", () => {
     expect(await bodyOf(revoked)).toEqual({ error: "This invite code has been revoked." });
     expect(adminOnly.status).toBe(403);
     expect(await bodyOf(adminOnly)).toEqual({ error: "Admin only" });
+  });
+
+  it("returns user-safe copy for incomplete age attest", async () => {
+    const incomplete = jsonError(new AuthError("Both confirmations are required.", 400));
+    expect(incomplete.status).toBe(400);
+    expect(await bodyOf(incomplete)).toEqual({ error: "Both confirmations are required." });
   });
 
   it("returns 429 with a UX code, message, and Retry-After", async () => {
@@ -124,5 +131,24 @@ describe("jsonError media failures", () => {
     const payload = await bodyOf(enoent);
     expect(payload.error).toBe("Media not found");
     expect(JSON.stringify(payload)).not.toMatch(/storage|still\/u1|\.data/);
+  });
+
+  it("hides postgres/redis internals and never returns a stack", async () => {
+    const dbDown = jsonError(new Error("connect ECONNREFUSED 127.0.0.1:5432"));
+    expect(dbDown.status).toBe(500);
+    const dbPayload = await bodyOf(dbDown);
+    expect(dbPayload).toEqual({ error: "Could not continue." });
+    expect(JSON.stringify(dbPayload)).not.toMatch(/ECONNREFUSED|5432|postgres/i);
+
+    const unique = jsonError(new Error('duplicate key value violates unique constraint "users_email_idx"'));
+    expect(unique.status).toBe(500);
+    expect(await bodyOf(unique)).toEqual({ error: "Could not continue." });
+
+    const missingEnv = jsonError(new Error("Missing required environment variable DATABASE_URL"));
+    expect(await bodyOf(missingEnv)).toEqual({ error: "Could not continue." });
+
+    const noDb = jsonError(new DatabaseRequiredError());
+    expect(noDb.status).toBe(503);
+    expect(await bodyOf(noDb)).toEqual({ error: "Studio data needs a database." });
   });
 });

@@ -3,6 +3,8 @@
  * DB lookups happen in `server/auth.ts` after verification.
  */
 
+import { SESSION_REFRESH_REMAINING_SECONDS } from "@/lib/constants";
+
 const encoder = new TextEncoder();
 
 export type SessionPayload = {
@@ -10,6 +12,9 @@ export type SessionPayload = {
   exp: number;
   /** True after ageAttestedAt is set. Middleware reads this — no DB on the edge. */
   age: boolean;
+  /** Present in stub memory preview so layouts can render without Postgres. */
+  email?: string;
+  role?: "admin" | "consumer";
 };
 
 export type SessionCookieAttrs = {
@@ -109,8 +114,25 @@ export async function decodeSession(token: string, secret: string): Promise<Sess
     if (!Number.isFinite(parsed.exp) || parsed.exp * 1000 < Date.now()) {
       return null;
     }
-    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age) };
+    const role = parsed.role === "admin" || parsed.role === "consumer" ? parsed.role : undefined;
+    const email = typeof parsed.email === "string" && parsed.email.includes("@") ? parsed.email : undefined;
+    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age), email, role };
   } catch {
     return null;
   }
+}
+
+export function sessionNeedsRefresh(
+  payload: Pick<SessionPayload, "sub" | "exp" | "age"> | null,
+  expected: { sub: string; age: boolean },
+  nowSeconds = Math.floor(Date.now() / 1000),
+  refreshWhenRemaining = SESSION_REFRESH_REMAINING_SECONDS,
+): boolean {
+  if (!payload) {
+    return true;
+  }
+  if (payload.sub !== expected.sub || payload.age !== expected.age) {
+    return true;
+  }
+  return payload.exp - nowSeconds < refreshWhenRemaining;
 }

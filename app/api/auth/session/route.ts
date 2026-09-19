@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { nextPathAfterAuth } from "@/lib/auth-entry";
 import { ensureSessionMatchesUser, getCurrentUser, publicUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 
@@ -10,7 +11,10 @@ export async function GET() {
     if (user) {
       await ensureSessionMatchesUser(user);
     }
-    return NextResponse.json({ user: user ? publicUser(user) : null });
+    return NextResponse.json({
+      user: user ? publicUser(user) : null,
+      next: nextPathAfterAuth(user),
+    });
   } catch (err) {
     return jsonError(err);
   }

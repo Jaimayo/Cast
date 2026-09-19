@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PrivacyStrip } from "@/components/privacy-strip";
+import { SignOutButton } from "@/components/sign-out-button";
 import { ensureSessionMatchesUser, getCurrentUser } from "@/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {user.role === "admin" ? <a href="/admin/invites">Admin</a> : null}
         </nav>
         <p className="muted">{user.email}</p>
+        <SignOutButton />
       </aside>
       <div>
         <PrivacyStrip />

@@ -4,15 +4,18 @@ import { cookies } from "next/headers";
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { inviteCodes, users, type InviteCode, type User } from "@/db/schema";
+import { nextPathAfterAuth } from "@/lib/auth-entry";
 import { AuthError } from "@/lib/auth-error";
 import { assertAdmin, assertAttested, assertSignedIn, roleForEmail, sessionAgeFlag } from "@/lib/auth-guards";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/constants";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { newInviteCode } from "@/lib/invite-code";
 import { classifyInvite, normalizeInviteCode, throwIfInviteUnusable } from "@/lib/invite-status";
-import { decodeSession, encodeSession, sessionCookieAttrs } from "@/lib/session-cookie";
+import { stubReviewInviteCode } from "@/lib/review-preview";
+import { decodeSession, encodeSession, sessionCookieAttrs, sessionNeedsRefresh } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { isMemoryPreview, previewUserFromSession } from "@/server/memory-preview";
 
 export { AuthError } from "@/lib/auth-error";
 
@@ -25,11 +28,22 @@ function cookieBase() {
   });
 }
 
-async function setSessionCookie(userId: string, ageAttested: boolean): Promise<void> {
+async function setSessionCookie(
+  userId: string,
+  ageAttested: boolean,
+  extras?: { email?: string; role?: "admin" | "consumer" },
+): Promise<void> {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  const token = await encodeSession({ sub: userId, exp, age: ageAttested }, getEnv().sessionSecret);
+  const token = await encodeSession(
+    { sub: userId, exp, age: ageAttested, email: extras?.email, role: extras?.role },
+    getEnv().sessionSecret,
+  );
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, cookieBase());
+}
+
+function sessionExtras(user: Pick<User, "email" | "role">) {
+  return { email: user.email, role: user.role };
 }
 
 export async function clearSessionCookie(): Promise<void> {
@@ -44,6 +58,14 @@ export async function clearSessionCookie(): Promise<void> {
   );
 }
 
+/** Revoke the session cookie when one is present. Always expires the cookie so leftovers cannot linger. */
+export async function revokeSessionCookie(): Promise<{ revoked: boolean }> {
+  const jar = await cookies();
+  const revoked = Boolean(jar.get(SESSION_COOKIE)?.value);
+  await clearSessionCookie();
+  return { revoked };
+}
+
 export async function readSessionUserId(): Promise<string | null> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
@@ -55,25 +77,33 @@ export async function readSessionUserId(): Promise<string | null> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const userId = await readSessionUserId();
-  if (!userId) {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) {
     return null;
   }
+  const payload = await decodeSession(token, getEnv().sessionSecret);
+  if (!payload) {
+    return null;
+  }
+  if (isMemoryPreview()) {
+    return previewUserFromSession(payload);
+  }
   const db = getDb();
-  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const rows = await db.select().from(users).where(eq(users.id, payload.sub)).limit(1);
   return rows[0] ?? null;
 }
 
-/** Remint the signed cookie when the DB age flag and cookie `age` bit disagree. */
+/** Remint the signed cookie when the age flag drifted or remaining TTL is below half. */
 export async function ensureSessionMatchesUser(user: User): Promise<void> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   const payload = token ? await decodeSession(token, getEnv().sessionSecret) : null;
   const age = sessionAgeFlag(user.ageAttestedAt);
-  if (payload && payload.sub === user.id && payload.age === age) {
+  if (!sessionNeedsRefresh(payload, { sub: user.id, age })) {
     return;
   }
-  await setSessionCookie(user.id, age);
+  await setSessionCookie(user.id, age, sessionExtras(user));
 }
 
 export async function requireUser(): Promise<User> {
@@ -105,11 +135,25 @@ function inviteRedeemable(id: string, now: Date) {
   );
 }
 
+async function resumeCurrentSession(): Promise<User | null> {
+  const current = await getCurrentUser();
+  if (!current) {
+    return null;
+  }
+  await ensureSessionMatchesUser(current);
+  return current;
+}
+
 export async function redeemInvite(input: {
   email: string;
   password: string;
   inviteCode: string;
 }): Promise<User> {
+  const resumed = await resumeCurrentSession();
+  if (resumed) {
+    return resumed;
+  }
+
   const email = input.email.trim().toLowerCase();
   const code = normalizeInviteCode(input.inviteCode);
   if (!email || !input.password || !code) {
@@ -121,6 +165,24 @@ export async function redeemInvite(input: {
 
   const passwordHash = await hashPassword(input.password);
   const role = roleForEmail(email, getEnv().adminEmails);
+
+  if (isMemoryPreview()) {
+    const expected = stubReviewInviteCode(getEnv().providerMode, process.env.REVIEW_INVITE_CODE);
+    throwIfInviteUnusable(expected && code === expected ? "ok" : "invalid");
+    const now = new Date();
+    const created: User = {
+      id: crypto.randomUUID(),
+      email,
+      passwordHash,
+      role,
+      ageAttestedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await setSessionCookie(created.id, false, sessionExtras(created));
+    return created;
+  }
+
   const db = getDb();
 
   try {
@@ -169,7 +231,7 @@ export async function redeemInvite(input: {
       return user;
     });
 
-    await setSessionCookie(created.id, false);
+    await setSessionCookie(created.id, false, sessionExtras(created));
     return created;
   } catch (err) {
     if (err instanceof AuthError) {
@@ -178,12 +240,21 @@ export async function redeemInvite(input: {
     if (isUniqueViolation(err)) {
       throw new AuthError("An account already exists for this email. Sign in instead.", 409);
     }
-    throw err;
+    throw new AuthError("Could not redeem this invite. Try again.", 500);
   }
 }
 
 export async function signIn(input: { email: string; password: string }): Promise<User> {
+  const resumed = await resumeCurrentSession();
+  if (resumed) {
+    return resumed;
+  }
+
   const email = input.email.trim().toLowerCase();
+  if (isMemoryPreview()) {
+    throw new AuthError("Stub preview is cookie-only. Redeem the invite code again.", 401);
+  }
+
   const db = getDb();
   const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const user = rows[0];
@@ -197,11 +268,21 @@ export async function signIn(input: { email: string; password: string }): Promis
     user.role = "admin";
   }
 
-  await setSessionCookie(user.id, sessionAgeFlag(user.ageAttestedAt));
+  await setSessionCookie(user.id, sessionAgeFlag(user.ageAttestedAt), sessionExtras(user));
   return user;
 }
 
 export async function attestAge(userId: string): Promise<User> {
+  if (isMemoryPreview()) {
+    const current = await getCurrentUser();
+    if (!current || current.id !== userId) {
+      throw new AuthError("User not found", 404);
+    }
+    const attested = { ...current, ageAttestedAt: current.ageAttestedAt ?? new Date(), updatedAt: new Date() };
+    await setSessionCookie(attested.id, true, sessionExtras(attested));
+    return attested;
+  }
+
   const db = getDb();
   const existing = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   const current = existing[0];
@@ -209,7 +290,7 @@ export async function attestAge(userId: string): Promise<User> {
     throw new AuthError("User not found", 404);
   }
   if (current.ageAttestedAt) {
-    await setSessionCookie(current.id, true);
+    await setSessionCookie(current.id, true, sessionExtras(current));
     return current;
   }
 
@@ -219,7 +300,7 @@ export async function attestAge(userId: string): Promise<User> {
     .where(and(eq(users.id, userId), isNull(users.ageAttestedAt)))
     .returning();
   const user = rows[0] ?? current;
-  await setSessionCookie(user.id, true);
+  await setSessionCookie(user.id, true, sessionExtras(user));
   return user;
 }
 
@@ -236,6 +317,9 @@ export async function createInvite(input: {
   const expiresAt = input.expiresAt ?? null;
   if (expiresAt && expiresAt.getTime() <= Date.now()) {
     throw new AuthError("Invite expiry must be in the future", 400);
+  }
+  if (isMemoryPreview()) {
+    throw new AuthError("Invite minting needs a database.", 503);
   }
 
   const db = getDb();
@@ -267,11 +351,17 @@ export async function createInvite(input: {
 }
 
 export async function listInvites(): Promise<InviteCode[]> {
+  if (isMemoryPreview()) {
+    return [];
+  }
   const db = getDb();
   return db.select().from(inviteCodes).orderBy(desc(inviteCodes.createdAt));
 }
 
 export async function revokeInvite(id: string): Promise<{ id: string; revokedAt: Date }> {
+  if (isMemoryPreview()) {
+    throw new AuthError("Invite revoke needs a database.", 503);
+  }
   const db = getDb();
   const existing = await db.select().from(inviteCodes).where(eq(inviteCodes.id, id)).limit(1);
   const invite = existing[0];
@@ -314,5 +404,13 @@ export function publicInvite(row: InviteCode) {
     redeemedAt: row.redeemedAt,
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
+  };
+}
+
+export function authResponse(user: User, extra?: { resumed?: boolean }) {
+  return {
+    user: publicUser(user),
+    next: nextPathAfterAuth(user),
+    resumed: extra?.resumed ?? false,
   };
 }

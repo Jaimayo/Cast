@@ -1,5 +1,6 @@
 import { loadLocalEnv } from "@/lib/load-env";
 import { roleForEmail } from "@/lib/auth-guards";
+import { stubSessionSecret } from "@/lib/memory-preview";
 import { parseStubJobScenario } from "@/lib/stub-job-scenario";
 
 loadLocalEnv();
@@ -7,14 +8,6 @@ loadLocalEnv();
 function read(name: string): string | undefined {
   const value = process.env[name];
   return value && value.length > 0 ? value : undefined;
-}
-
-function required(name: string): string {
-  const value = read(name);
-  if (!value) {
-    throw new Error(`Missing required environment variable ${name}`);
-  }
-  return value;
 }
 
 export type ProviderMode = "stub" | "live";
@@ -25,15 +18,25 @@ export function getEnv() {
     throw new Error("PROVIDER_MODE must be stub or live");
   }
 
+  const sessionSecret = stubSessionSecret(providerMode, read("SESSION_SECRET"));
+  if (!sessionSecret) {
+    throw new Error("Missing required environment variable SESSION_SECRET");
+  }
+
+  const databaseUrl = read("DATABASE_URL");
+  if (providerMode === "live" && !databaseUrl) {
+    throw new Error("Missing required environment variable DATABASE_URL");
+  }
+
   return {
     nodeEnv: read("NODE_ENV") ?? "development",
     appBaseUrl: read("APP_BASE_URL") ?? "http://localhost:3000",
-    sessionSecret: required("SESSION_SECRET"),
+    sessionSecret,
     adminEmails: (read("ADMIN_EMAILS") ?? "")
       .split(",")
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),
-    databaseUrl: required("DATABASE_URL"),
+    databaseUrl,
     redisUrl: read("REDIS_URL") ?? "redis://localhost:6379",
     providerMode,
     stubJobScenario: parseStubJobScenario(read("STUB_JOB_SCENARIO")),

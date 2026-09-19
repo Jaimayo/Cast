@@ -223,6 +223,11 @@ input[type="checkbox"] {
   color: var(--ink);
 }
 
+.rail .btn {
+  margin-top: 16px;
+  width: 100%;
+}
+
 .canvas {
   padding: 28px 32px 80px;
 }

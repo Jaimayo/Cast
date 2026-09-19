@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SESSION_TTL_SECONDS } from "@/lib/constants";
-import { decodeSession, encodeSession, sessionCookieAttrs } from "@/lib/session-cookie";
+import { SESSION_REFRESH_REMAINING_SECONDS, SESSION_TTL_SECONDS } from "@/lib/constants";
+import { decodeSession, encodeSession, sessionCookieAttrs, sessionNeedsRefresh } from "@/lib/session-cookie";
 
 const secret = "test-session-secret-not-for-prod-use-32b";
 const otherSecret = "different-session-secret-also-32bytes!!";
@@ -52,6 +52,38 @@ describe("signed session cookies", () => {
     const expired = await token({ exp: Math.floor(Date.now() / 1000) - 10 });
     expect(await decodeSession(expired, secret)).toBeNull();
     expect(await decodeSession("%%%notbase64.%%%notbase64", secret)).toBeNull();
+  });
+
+  it("round-trips optional email/role for stub cookie-only sessions", async () => {
+    const encoded = await encodeSession(
+      {
+        sub: "user-1",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        age: true,
+        email: "jai@example.com",
+        role: "admin",
+      },
+      secret,
+    );
+    const payload = await decodeSession(encoded, secret);
+    expect(payload?.email).toBe("jai@example.com");
+    expect(payload?.role).toBe("admin");
+  });
+
+  it("refreshes when the cookie is missing, the age bit drifted, or TTL is half gone", () => {
+    const now = 1_000_000;
+    const expected = { sub: "user-1", age: true };
+    expect(sessionNeedsRefresh(null, expected, now, 100)).toBe(true);
+    expect(
+      sessionNeedsRefresh({ sub: "user-1", exp: now + 50, age: false }, expected, now, 100),
+    ).toBe(true);
+    expect(
+      sessionNeedsRefresh({ sub: "user-1", exp: now + 50, age: true }, expected, now, 100),
+    ).toBe(true);
+    expect(
+      sessionNeedsRefresh({ sub: "user-1", exp: now + 500, age: true }, expected, now, 100),
+    ).toBe(false);
+    expect(SESSION_REFRESH_REMAINING_SECONDS).toBe(Math.floor(SESSION_TTL_SECONDS / 2));
   });
 
   it("signs out by clearing the same httpOnly path cookie the session used", () => {

@@ -1,4 +1,5 @@
 import { AuthError } from "@/lib/auth-error";
+import { z } from "zod";
 
 export type InviteRedemptionState = {
   revokedAt: Date | string | null;
@@ -15,6 +16,12 @@ export const INVITE_ERROR_MESSAGE: Record<Exclude<InviteIssue, "ok">, string> = 
   used: "This invite code has already been used.",
   expired: "This invite code has expired.",
 };
+
+export const inviteRedeemBodySchema = z.object({
+  email: z.string().email("Enter a valid email."),
+  password: z.string().min(10, "Password must be at least 10 characters"),
+  inviteCode: z.string().min(4, INVITE_ERROR_MESSAGE.invalid),
+});
 
 export function normalizeInviteCode(code: string): string {
   return code.trim();
