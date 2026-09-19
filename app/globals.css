@@ -1014,3 +1014,119 @@ input[type="checkbox"] {
 .hero-frame {
   position: relative;
 }
+
+.test-grid-panel {
+  margin: 22px 0 10px;
+}
+
+.test-grid-panel h3 {
+  margin: 0;
+}
+
+.test-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 8px;
+}
+
+.test-grid-cell {
+  min-width: 0;
+}
+
+.test-grid-frame {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px dashed var(--gold-dim);
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(280px 120px at 20% 0%, rgba(196, 165, 116, 0.1), transparent 62%),
+    var(--bg-raise);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.test-grid-cell.is-loading .test-grid-frame {
+  border-style: solid;
+  background:
+    linear-gradient(
+      90deg,
+      var(--bg-soft) 0%,
+      rgba(196, 165, 116, 0.14) 46%,
+      var(--bg-soft) 100%
+    );
+  background-size: 200% 100%;
+  animation: cast-shimmer 1.6s ease-in-out infinite;
+}
+
+.test-grid-cell.is-failed .test-grid-frame {
+  border-color: rgba(181, 74, 74, 0.45);
+}
+
+.test-grid-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.test-grid-empty .empty-state-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.test-grid-empty strong {
+  font-family: var(--serif);
+  font-weight: 500;
+  color: var(--gold);
+}
+
+.test-grid-frame .still-thumb,
+.test-grid-frame .still-fallback {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 0;
+  margin: 0;
+}
+
+.test-grid-frame .still-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
+  min-height: 0;
+}
+
+.test-grid-frame .loading-state {
+  width: 100%;
+  margin: 0;
+  padding: 12px;
+}
+
+.test-grid-frame .loading-shimmer {
+  display: none;
+}
+
+.test-grid-caption {
+  margin: 8px 0 0;
+}
+
+.test-grid-cell .error {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .test-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -2,6 +2,12 @@ import { publicAdapterFields, readAdapterIdentity, type AdapterSource, type Adap
 import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
 import { jobCancelState } from "@/lib/job-cancel";
 import { jobAgeSeconds, jobAttemptCount, userSafeLastError } from "@/lib/job-errors";
+import {
+  isStillSource,
+  poseChipIdFromInput,
+  stillSourceFromInput,
+  type StillSource,
+} from "@/lib/test-grid";
 
 export { MEDIA_PRESIGN_TTL_SECONDS };
 
@@ -231,6 +237,8 @@ export type PublicJobFields = {
   errorMessage: string | null;
   cancelSupported: boolean;
   cancelDisabledReason: string | null;
+  stillSource: StillSource | null;
+  poseChipId: string | null;
 };
 
 export function publicJob<
@@ -253,8 +261,9 @@ export function publicJob<
   const { resultAssetKey, attemptsMade, inputJson, providerJobId, errorCode, errorMessage, ...rest } = job;
   void resultAssetKey;
   void attemptsMade;
-  void inputJson;
   void providerJobId;
+  const existingSource = "stillSource" in rest && isStillSource(rest.stillSource) ? rest.stillSource : null;
+  const existingPose = poseChipIdFromInput({ poseChipId: "poseChipId" in rest ? rest.poseChipId : null });
   const safeMessage = userSafeLastError(errorCode, errorMessage);
   const safeCode = errorCode ?? null;
   const kind = "kind" in job && typeof job.kind === "string" ? job.kind : "";
@@ -271,6 +280,8 @@ export function publicJob<
     errorMessage: safeMessage,
     cancelSupported: cancel.cancelSupported,
     cancelDisabledReason: cancel.cancelDisabledReason,
+    stillSource: stillSourceFromInput(inputJson) ?? existingSource,
+    poseChipId: poseChipIdFromInput(inputJson) ?? existingPose,
   };
 }
 

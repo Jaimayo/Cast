@@ -22,6 +22,8 @@ export type JobDisplayInput = {
   errorMessage?: string | null;
   ageSeconds?: number;
   attemptCount?: number;
+  stillSource?: string | null;
+  poseChipId?: string | null;
 };
 
 export type JobStatusTone = "ok" | "danger" | "gold" | "muted";
@@ -32,7 +34,8 @@ function knownErrorCode(code: string | null): JobErrorCode | null {
   return code in USER_JOB_MESSAGES ? (code as JobErrorCode) : null;
 }
 
-export function jobKindLabel(kind: string): string {
+export function jobKindLabel(kind: string, stillSource?: string | null): string {
+  if (kind === "generate_still" && stillSource === "test_grid") return "Test grid";
   if (kind === "generate_still") return "Still";
   if (kind === "train_pack") return "Train";
   if (kind === "generate_starter") return "Starter";
@@ -162,7 +165,7 @@ export function jobQueuePresentation(job: JobDisplayInput): JobQueuePresentation
   }
 
   return {
-    kindLabel: jobKindLabel(job.kind),
+    kindLabel: jobKindLabel(job.kind, job.stillSource),
     statusLabel: jobStatusLabel(job),
     statusTone: jobStatusTone(job),
     meta: jobStatusMeta(job),
