@@ -19,6 +19,7 @@ import {
   trainPackTimeoutMessage,
   type JobAttempt,
 } from "@/lib/job-errors";
+import { jobCanceledMessage } from "@/lib/job-cancel";
 import { jobLog } from "@/lib/job-log";
 import { decideStaleJob, staleScanCutoff } from "@/lib/job-stale";
 import { getDb } from "@/server/db";
@@ -70,23 +71,25 @@ export async function existingMediaForJob(jobId: string) {
   return rows[0] ?? null;
 }
 
-export async function markJobRunning(jobId: string, attemptsMade?: number): Promise<void> {
-  await getDb()
+export async function markJobRunning(jobId: string, attemptsMade?: number): Promise<boolean> {
+  const rows = await getDb()
     .update(generationJobs)
     .set({
       status: "running",
       updatedAt: new Date(),
       ...(attemptsMade != null ? { attemptsMade } : {}),
     })
-    .where(eq(generationJobs.id, jobId));
+    .where(and(eq(generationJobs.id, jobId), inArray(generationJobs.status, ["queued", "running"])))
+    .returning({ id: generationJobs.id });
+  return rows.length > 0;
 }
 
 export async function markJobSucceeded(input: {
   jobId: string;
   resultAssetKey?: string | null;
   providerJobId?: string | null;
-}): Promise<void> {
-  await getDb()
+}): Promise<boolean> {
+  const rows = await getDb()
     .update(generationJobs)
     .set({
       status: "succeeded",
@@ -96,14 +99,33 @@ export async function markJobSucceeded(input: {
       updatedAt: new Date(),
       ...(input.providerJobId ? { providerJobId: input.providerJobId } : {}),
     })
-    .where(eq(generationJobs.id, input.jobId));
+    .where(and(eq(generationJobs.id, input.jobId), inArray(generationJobs.status, ["queued", "running"])))
+    .returning({ id: generationJobs.id });
+  return rows.length > 0;
+}
+
+export async function markJobCanceledIfActive(input: {
+  jobId: string;
+  kind: string;
+}): Promise<boolean> {
+  const rows = await getDb()
+    .update(generationJobs)
+    .set({
+      status: "canceled",
+      errorCode: JOB_ERROR_CODES.JOB_CANCELED,
+      errorMessage: jobCanceledMessage(input.kind),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(generationJobs.id, input.jobId), inArray(generationJobs.status, ["queued", "running"])))
+    .returning({ id: generationJobs.id });
+  return rows.length > 0;
 }
 
 export async function persistProviderJobId(jobId: string, providerJobId: string): Promise<void> {
   await getDb()
     .update(generationJobs)
     .set({ providerJobId, status: "running", updatedAt: new Date() })
-    .where(eq(generationJobs.id, jobId));
+    .where(and(eq(generationJobs.id, jobId), inArray(generationJobs.status, ["queued", "running"])));
 }
 
 export async function markJobFailedIfActive(input: {
@@ -248,6 +270,10 @@ export async function persistQueueFailure(
     return;
   }
   const classified = classifyJobError(err ?? new JobError({ code: JOB_ERROR_CODES.JOB_STALLED }));
+  if (classified.code === JOB_ERROR_CODES.JOB_CANCELED) {
+    await markJobCanceledIfActive({ jobId: job.id, kind: job.kind });
+    return;
+  }
   const code = classified.code;
   const pack = job.characterPackId ? await loadPack(job.characterPackId) : null;
   const keepLocked = keepLockedFromPack(job, pack);

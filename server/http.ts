@@ -32,7 +32,7 @@ export function jsonError(err: unknown): NextResponse {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
   if (err instanceof JobError) {
-    return NextResponse.json({ error: err.userMessage, code: err.code }, { status: 400 });
+    return NextResponse.json({ error: err.userMessage, code: err.code }, { status: err.httpStatus });
   }
   if (err instanceof ObjectNotFoundError) {
     return NextResponse.json({ error: "Media not found" }, { status: 404 });

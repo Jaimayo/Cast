@@ -10,6 +10,11 @@ import {
 } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { generateStillJobProvider } from "@/lib/generate-route";
+import {
+  decideCancelJob,
+  isCancelableStillKind,
+  jobErrorFromCancelDecision,
+} from "@/lib/job-cancel";
 import { JOB_ERROR_CODES, JobError, type JobErrorCode } from "@/lib/job-errors";
 import {
   readAdapterIdentity,
@@ -28,12 +33,13 @@ import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
+import { jobLog } from "@/lib/job-log";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
-import { recoverStaleJobsSafe } from "@/server/jobs";
+import { markJobCanceledIfActive, recoverStaleJobsSafe } from "@/server/jobs";
 import { isMemoryPreview } from "@/server/memory-preview";
-import { enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
+import { discardGenerateStillJob, enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
 
 type PackDb = Pick<ReturnType<typeof getDb>, "select" | "insert" | "update" | "delete">;
@@ -697,6 +703,52 @@ export async function getJob(userId: string, jobId: string) {
   }
   const [withPreview] = await attachJobPreviews(userId, [job]);
   return withPreview ?? publicJob({ ...job, previewUrl: null });
+}
+
+export async function cancelUserJob(userId: string, jobId: string) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(generationJobs)
+    .where(and(eq(generationJobs.id, jobId), eq(generationJobs.userId, userId)))
+    .limit(1);
+  const job = rows[0] ?? null;
+  const decision = decideCancelJob(job);
+  if (decision.action === "reject") {
+    throw jobErrorFromCancelDecision(decision);
+  }
+  if (!job) {
+    throw jobErrorFromCancelDecision({
+      action: "reject",
+      code: "JOB_NOT_FOUND",
+      httpStatus: 404,
+      message: "Job not found.",
+    });
+  }
+
+  const canceled = await markJobCanceledIfActive({ jobId: job.id, kind: job.kind });
+  if (!canceled) {
+    throw jobErrorFromCancelDecision({
+      action: "reject",
+      code: "JOB_ALREADY_FINISHED",
+      httpStatus: 409,
+      message: "This job already finished.",
+    });
+  }
+
+  if (isCancelableStillKind(job.kind)) {
+    try {
+      await discardGenerateStillJob(job.id);
+    } catch (err) {
+      jobLog("job.cancel_queue_discard_failed", {
+        jobId: job.id,
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  }
+
+  jobLog("job.canceled", { jobId: job.id, kind: job.kind });
+  return getJob(userId, job.id);
 }
 
 async function attachJobPreviews<T extends { id: string; kind: string; resultAssetKey?: string | null }>(
