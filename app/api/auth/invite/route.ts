@@ -4,6 +4,7 @@ import { clientIpFromHeaders } from "@/lib/rate-limit";
 import { publicUser, redeemInvite } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import { consumeInviteRedeemLimit } from "@/server/rate-limit";
+import { ensureStubReviewInvite } from "@/server/review-bootstrap";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,11 @@ export async function POST(request: Request) {
       email: body.email,
       ip: clientIpFromHeaders(request.headers),
     });
+    try {
+      await ensureStubReviewInvite();
+    } catch {
+      // Redeem still runs; missing DB/env surfaces as an invite error.
+    }
     const user = await redeemInvite(body);
     return NextResponse.json({ user: publicUser(user) });
   } catch (err) {

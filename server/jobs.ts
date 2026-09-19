@@ -15,6 +15,7 @@ import {
 import { jobLog } from "@/lib/job-log";
 import { decideStaleJob, staleScanCutoff } from "@/lib/job-stale";
 import { getDb } from "@/server/db";
+import { getEnv } from "@/server/env";
 import { TRAIN_PACK_JOB_OPTIONS, getTrainPackQueue } from "@/server/queue";
 
 export function isRetrainJob(inputJson: Record<string, unknown>): boolean {
@@ -362,6 +363,9 @@ export async function recoverStaleJobsSafe(filter?: {
   userId?: string;
   packId?: string;
 }): Promise<void> {
+  if (!getEnv().databaseUrl) {
+    return;
+  }
   try {
     const result = await recoverStaleJobs(filter);
     if (result.recovered > 0) {

@@ -10,14 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/client";
 
-export function InviteForm() {
+export function InviteForm(props: { reviewInviteCode?: string | null }) {
   const params = useSearchParams();
   const router = useRouter();
   const initialMode = params.get("mode") === "signin" ? "signin" : "invite";
   const [mode, setMode] = useState<"invite" | "signin">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(props.reviewInviteCode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -62,6 +62,11 @@ export function InviteForm() {
                 ? "Redeem a code to join this private studio. Invalid, used, or expired codes cannot continue."
                 : "Sign in with the email you used to redeem your invite."}
             </p>
+            {props.reviewInviteCode && mode === "invite" ? (
+              <p className="text-xs text-muted-foreground">
+                Stub preview: invite code is prefilled. Use any new email and a password of 10+ characters.
+              </p>
+            ) : null}
           </div>
           <form onSubmit={onSubmit} className="mt-6 space-y-4 px-6">
             {mode === "invite" ? (
