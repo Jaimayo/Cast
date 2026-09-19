@@ -14,6 +14,7 @@ export function CharacterRequiredEmpty(props: { packId?: string | null; training
 export function HeroCanvas(props: {
   locked: boolean;
   message?: string | null;
+  progress?: string | null;
   previewUrl?: string | null;
   packId?: string | null;
   training?: boolean;
@@ -24,9 +25,12 @@ export function HeroCanvas(props: {
   return (
     <div className="hero-frame">
       {props.previewUrl ? (
-        <StillPreview src={props.previewUrl} alt="Generated still" />
+        <>
+          <StillPreview src={props.previewUrl} alt="Generated still" />
+          {props.progress ? <p className="hero-progress">{props.progress}</p> : null}
+        </>
       ) : (
-        <span>{props.message ?? "Hero Frame still. Generate to fill this canvas."}</span>
+        <span>{props.progress ?? props.message ?? "Hero Frame still. Generate to fill this canvas."}</span>
       )}
     </div>
   );

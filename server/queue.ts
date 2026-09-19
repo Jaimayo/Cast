@@ -126,3 +126,14 @@ export async function enqueueDeadLetterJob(data: DeadLetterJobData): Promise<voi
     deadLetterBullJobId(data.sourceQueue, data.generationJobId),
   );
 }
+
+export async function discardGenerateStillJob(generationJobId: string): Promise<void> {
+  const queue = getGenerateStillQueue();
+  const job = await queue.getJob(generateStillBullJobId(generationJobId));
+  if (!job) return;
+  try {
+    await job.remove();
+  } catch {
+    // Active jobs keep their lock; the worker checks DB canceled and skips persist.
+  }
+}
