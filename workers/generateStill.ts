@@ -17,8 +17,8 @@ import {
 import {
   generateStillFallbackAdapter,
   getGenerateStillAdapterForPack,
+  shouldFallbackGenerateStill,
 } from "@/server/providers/registry";
-import { ProviderNotConfiguredError } from "@/server/providers/types";
 import { mediaKey, putObject } from "@/server/storage";
 
 function extFor(mime: string): string {
@@ -156,11 +156,7 @@ export async function processGenerateStillJob(
       });
     } catch (err) {
       const fallback = generateStillFallbackAdapter();
-      const canFallback =
-        Boolean(fallback) &&
-        adapter.name === "venice" &&
-        (err instanceof ProviderNotConfiguredError || err instanceof Error);
-      if (!fallback || !canFallback) {
+      if (!fallback || !shouldFallbackGenerateStill(adapter.name, err)) {
         throw err;
       }
       jobLog("generateStill.fallback", {

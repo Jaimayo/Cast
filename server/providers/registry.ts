@@ -5,6 +5,7 @@ import { sisterGenerateAdapter, sisterTrainAdapter } from "@/server/providers/si
 import { stubGenerateAdapter, stubTrainAdapter } from "@/server/providers/stub";
 import {
   ProviderCapabilityError,
+  ProviderNotConfiguredError,
   type GenerateStillAdapter,
   type TrainPackAdapter,
 } from "@/server/providers/types";
@@ -75,4 +76,12 @@ export function generateStillFallbackAdapter(): GenerateStillAdapter | null {
     return providerRegistry.generateStill.runpod;
   }
   return null;
+}
+
+/**
+ * Only when Venice is unset (missing API key). Balance, policy, rate-limit,
+ * and timeout stay on Venice — do not silently send the still to RunPod.
+ */
+export function shouldFallbackGenerateStill(adapterName: string, err: unknown): boolean {
+  return adapterName === "venice" && err instanceof ProviderNotConfiguredError;
 }

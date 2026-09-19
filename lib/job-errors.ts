@@ -34,9 +34,12 @@ export const JOB_ERROR_CODES = {
   PROVIDER_NOT_CONFIGURED: "PROVIDER_NOT_CONFIGURED",
   PROVIDER_CAPABILITY: "PROVIDER_CAPABILITY",
   PROVIDER_HTTP_ERROR: "PROVIDER_HTTP_ERROR",
+  PROVIDER_INSUFFICIENT_BALANCE: "PROVIDER_INSUFFICIENT_BALANCE",
+  PROVIDER_RATE_LIMIT: "PROVIDER_RATE_LIMIT",
   PROVIDER_TIMEOUT: "PROVIDER_TIMEOUT",
   NETWORK_ERROR: "NETWORK_ERROR",
   GENERATE_STILL_FAILED: "GENERATE_STILL_FAILED",
+  GENERATE_POLICY_REJECT: "GENERATE_POLICY_REJECT",
   TRAIN_PACK_FAILED: "TRAIN_PACK_FAILED",
   TRAIN_POLL_TIMEOUT: "TRAIN_POLL_TIMEOUT",
   TRAIN_NO_ADAPTER: "TRAIN_NO_ADAPTER",
@@ -66,9 +69,12 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   PROVIDER_NOT_CONFIGURED: "Generation isn't configured on this server.",
   PROVIDER_CAPABILITY: "This image service can't run that job.",
   PROVIDER_HTTP_ERROR: "The image service rejected this request.",
+  PROVIDER_INSUFFICIENT_BALANCE: "The image service is out of credits. Try again after balance is restored.",
+  PROVIDER_RATE_LIMIT: "The image service is rate-limiting requests. Try again in a moment.",
   PROVIDER_TIMEOUT: "The image service took too long. Try again.",
   NETWORK_ERROR: "Network error talking to the image service. Try again.",
   GENERATE_STILL_FAILED: "Still generation failed. Try again from Create.",
+  GENERATE_POLICY_REJECT: "This still was blocked by the image service policy. Change chips and try again.",
   TRAIN_PACK_FAILED: "Training failed. You can try Train & lock again.",
   TRAIN_POLL_TIMEOUT: "Training took too long. You can try Train & lock again.",
   TRAIN_NO_ADAPTER: "Training finished without a Soul ID adapter. Try Train & lock again.",
@@ -128,6 +134,8 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.INVALID_PACK_STATE ||
     code === JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED ||
     code === JOB_ERROR_CODES.PROVIDER_CAPABILITY ||
+    code === JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE ||
+    code === JOB_ERROR_CODES.GENERATE_POLICY_REJECT ||
     code === JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT ||
     code === JOB_ERROR_CODES.TRAIN_NO_ADAPTER ||
     code === JOB_ERROR_CODES.TRAIN_SUBMIT_IN_FLIGHT ||
@@ -342,12 +350,18 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
     if (status === 401 || status === 403) {
       return classified(JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED, false);
     }
+    if (status === 402) {
+      return classified(JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE, false);
+    }
+    if (status === 429) {
+      return classified(JOB_ERROR_CODES.PROVIDER_RATE_LIMIT, true);
+    }
     if (httpRetryable) {
-      const busyMessage =
-        status === 429
-          ? "The image service is rate-limiting requests. Try again in a moment."
-          : "The image service is temporarily unavailable. Try again in a moment.";
-      return classified(JOB_ERROR_CODES.PROVIDER_HTTP_ERROR, true, busyMessage);
+      return classified(
+        JOB_ERROR_CODES.PROVIDER_HTTP_ERROR,
+        true,
+        "The image service is temporarily unavailable. Try again in a moment.",
+      );
     }
     return classified(JOB_ERROR_CODES.PROVIDER_HTTP_ERROR, false);
   }

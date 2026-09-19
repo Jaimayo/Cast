@@ -162,7 +162,14 @@ function userMessageForTrainFail(code: string, keepLocked: boolean, fallback: st
   if (code === JOB_ERROR_CODES.TRAIN_POLL_TIMEOUT) return trainPackTimeoutMessage(keepLocked);
   if (code === JOB_ERROR_CODES.JOB_STALLED) return trainPackStalledMessage(keepLocked);
   if (code === JOB_ERROR_CODES.TRAIN_PACK_FAILED) return trainPackFailureMessage(keepLocked);
-  if (keepLocked && (code === JOB_ERROR_CODES.NETWORK_ERROR || code === JOB_ERROR_CODES.PROVIDER_HTTP_ERROR || code === JOB_ERROR_CODES.PROVIDER_TIMEOUT)) {
+  if (
+    keepLocked &&
+    (code === JOB_ERROR_CODES.NETWORK_ERROR ||
+      code === JOB_ERROR_CODES.PROVIDER_HTTP_ERROR ||
+      code === JOB_ERROR_CODES.PROVIDER_TIMEOUT ||
+      code === JOB_ERROR_CODES.PROVIDER_RATE_LIMIT ||
+      code === JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE)
+  ) {
     return `${fallback} Your previous Locked Soul ID is unchanged.`;
   }
   return fallback;
