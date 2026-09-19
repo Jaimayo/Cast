@@ -85,6 +85,23 @@ pnpm worker
 
 Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` → `/age` → `/app/characters`.
 
+## Product review on Vercel (`cast-stage1-review`)
+
+Stub cookie-only preview. Deploy this Next.js app (not static HTML). Project build command is `pnpm vercel-build`.
+
+Leave `PROVIDER_MODE=stub`. Do **not** set `DATABASE_URL`, `REDIS_URL`, S3/R2, Venice, or RunPod keys. Studio identity lives in the signed session cookie.
+
+| Key | Value | Required? |
+| --- | --- | --- |
+| `PROVIDER_MODE` | `stub` | Recommended (defaults to stub) |
+| `SESSION_SECRET` | any 32+ character string | Optional in stub (built-in review default) |
+| `REVIEW_INVITE_CODE` | `castreview` | Optional (this is the default) |
+| `APP_BASE_URL` | public review URL | Optional |
+
+If `DATABASE_URL` is unset, `vercel-build` skips migrate/bootstrap and runs `next build` (memory preview). Setting `DATABASE_URL` turns the cookie-only path off and expects Postgres.
+
+Click-through: `/` → invite `castreview` → age **I confirm I am 18+.** → `/app/characters`.
+
 ### Commands
 
 | Script | Purpose |
@@ -93,6 +110,8 @@ Open http://localhost:3000 — landing is non-explicit. Path: `/` → `/invite` 
 | `pnpm worker` | BullMQ workers (`generateStill`, `trainPack`) |
 | `pnpm db:migrate` | Apply Drizzle SQL migrations |
 | `pnpm invite:create` | Mint an invite code |
+| `pnpm review:bootstrap` | Stub-only: mint/keep the product-review invite when Postgres is set |
+| `pnpm vercel-build` | Vercel: migrate+bootstrap if `DATABASE_URL`, then `next build` |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm test` | Prompt-compiler unit tests |
 | `pnpm build` | Production Next.js build |

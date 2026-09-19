@@ -1,6 +1,8 @@
 import { classifyInvite, normalizeInviteCode, type InviteIssue } from "@/lib/invite-status";
 
 export const DEFAULT_REVIEW_INVITE_CODE = "castreview";
+export const REVIEW_INVITE_MAX_USES = 50;
+export const REVIEW_INVITE_NOTE = "stub product-review";
 
 /** Known invite for Stage 1 product review when PROVIDER_MODE=stub (no mint required). */
 export function stubReviewInviteCode(providerMode: string, envCode?: string): string | null {

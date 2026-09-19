@@ -1,6 +1,7 @@
 "use client";
 
 import { StillPreview } from "@/components/still-preview";
+import { CastMark } from "@/components/wordmark";
 
 type Tile = {
   id: string;
@@ -17,7 +18,7 @@ export function ContactSheet(props: {
   if (props.tiles.length === 0) {
     return (
       <div className="empty-state is-compact" role="status">
-        <div className="empty-state-mark" aria-hidden="true" />
+        <CastMark className="empty-state-mark" />
         <h2>Contact sheet is empty</h2>
         <p className="muted">Generate a face or body vibe above. Stills land here so you can add them as references.</p>
       </div>

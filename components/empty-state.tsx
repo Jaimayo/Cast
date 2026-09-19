@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CastMark } from "@/components/wordmark";
 
 export function EmptyState(props: {
   kicker?: string;
@@ -10,7 +11,7 @@ export function EmptyState(props: {
 }) {
   return (
     <div className={props.compact ? "empty-state is-compact" : "empty-state"} role="status">
-      <div className="empty-state-mark" aria-hidden="true" />
+      <CastMark className="empty-state-mark" />
       {props.kicker ? <p className="kicker">{props.kicker}</p> : null}
       <h2>{props.title}</h2>
       <p className="muted">{props.body}</p>

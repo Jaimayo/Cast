@@ -1,11 +1,12 @@
 import { StillPreview } from "@/components/still-preview";
+import { CastMark } from "@/components/wordmark";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { GENERATE_IN_PROGRESS_COPY } from "@/lib/generate-affordances";
 
 export function CharacterRequiredEmpty(props: { packId?: string | null; training?: boolean }) {
   return (
     <div className="hero-frame empty-state">
-      <div className="empty-state-mark" aria-hidden="true" />
+      <CastMark className="empty-state-mark" />
       <div>
         <h2>Lock a character to create</h2>
         <p className="muted">Composer needs a Locked Soul ID and a Pose. No camera. No raw prompt.</p>
