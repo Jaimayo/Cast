@@ -1,20 +1,22 @@
-import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+import { generateButtonLabel, GENERATE_REASON_UNLOCKED } from "@/lib/generate-affordances";
 
 export function GenerateButton(props: {
   disabled: boolean;
   pending: boolean;
+  inProgress?: boolean;
   onClick: () => void;
   disabledReason?: string;
 }) {
+  const label = generateButtonLabel({ pending: props.pending, inProgress: Boolean(props.inProgress) });
   return (
     <button
       className="btn"
       type="button"
       disabled={props.disabled || props.pending}
-      title={props.disabled ? (props.disabledReason ?? LOCK_SOUL_ID_FIRST) : undefined}
+      title={props.disabled ? (props.disabledReason ?? GENERATE_REASON_UNLOCKED) : undefined}
       onClick={props.onClick}
     >
-      {props.pending ? "Queueing…" : "Generate"}
+      {label}
     </button>
   );
 }

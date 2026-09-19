@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { characterPacks, generationJobs, mediaAssets, trainingSetAssets } from "@/db/schema";
 import {
   packAlreadyHasThisAdapter,
@@ -92,7 +92,8 @@ export async function processTrainPackJob(
       .select({ storageKey: mediaAssets.storageKey })
       .from(trainingSetAssets)
       .innerJoin(mediaAssets, eq(mediaAssets.id, trainingSetAssets.mediaAssetId))
-      .where(eq(trainingSetAssets.characterPackId, pack.id));
+      .where(eq(trainingSetAssets.characterPackId, pack.id))
+      .orderBy(asc(trainingSetAssets.sortOrder), asc(trainingSetAssets.createdAt));
 
     const adapter = getTrainPackAdapter();
     jobLog("trainPack.start", {

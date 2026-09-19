@@ -3,18 +3,22 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ContactSheet } from "@/components/contact-sheet";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { RefCountMeter } from "@/components/ref-count-meter";
+import { RefTray, type TrayRef } from "@/components/ref-tray";
+import { RefUploader } from "@/components/ref-uploader";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { PACK_MIN_REFS } from "@/lib/constants";
+import { moveRefId } from "@/lib/pack-ref-order";
 import { soulStatusLabel } from "@/lib/soul";
 
 type Preset = { id: string; kind: string; label: string };
 type Pack = { id: string; name: string; status: string; origin: string; hasAdapter?: boolean };
 type Starter = { id: string; presetId: string | null; vibeKind: string; selected: boolean; previewUrl?: string | null };
 type LibraryItem = { id: string; kind: string; previewUrl?: string | null };
-
-type Ref = { mediaAssetId: string };
+type PackRef = TrayRef & { mediaAssetId: string };
 
 export function PackWizard(props: { initialPackId?: string }) {
   const router = useRouter();
@@ -25,11 +29,14 @@ export function PackWizard(props: { initialPackId?: string }) {
   const [starters, setStarters] = useState<Starter[]>([]);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [selectedLibrary, setSelectedLibrary] = useState<Set<string>>(new Set());
+  const [refs, setRefs] = useState<PackRef[]>([]);
   const [refCount, setRefCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [pendingRefId, setPendingRefId] = useState<string | null>(null);
   const [awaitingStarters, setAwaitingStarters] = useState(false);
+  const [loadingPack, setLoadingPack] = useState(Boolean(props.initialPackId));
 
   async function loadPack(id: string) {
     const data = await api<{
@@ -37,13 +44,14 @@ export function PackWizard(props: { initialPackId?: string }) {
       refCount: number;
       starters: Starter[];
       library: LibraryItem[];
-      refs: Ref[];
+      refs: PackRef[];
     }>(`/api/packs/${id}`);
     setPack(data.pack);
     setName(data.pack.name);
     setRefCount(data.refCount);
     setStarters(data.starters);
     setLibrary(data.library);
+    setRefs(data.refs);
     setSelectedLibrary(new Set(data.refs.map((ref) => ref.mediaAssetId)));
     return data.pack;
   }
@@ -57,7 +65,8 @@ export function PackWizard(props: { initialPackId?: string }) {
         })
         .catch((err: unknown) => {
           setError(err instanceof Error ? err.message : "Failed to load pack");
-        });
+        })
+        .finally(() => setLoadingPack(false));
     }
   }, [props.initialPackId]);
 
@@ -120,6 +129,7 @@ export function PackWizard(props: { initialPackId?: string }) {
   }) {
     if (!pack) return;
     setError(null);
+    setPendingRefId(input.mediaAssetId);
     try {
       const result = await api<{ refCount: number }>(`/api/packs/${pack.id}/refs`, {
         method: "POST",
@@ -129,6 +139,42 @@ export function PackWizard(props: { initialPackId?: string }) {
       await loadPack(pack.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update refs");
+    } finally {
+      setPendingRefId(null);
+    }
+  }
+
+  async function removeRef(mediaAssetId: string) {
+    const fromStarter = starters.find((row) => row.id === mediaAssetId);
+    await toggleRef({
+      mediaAssetId,
+      selected: false,
+      kind: fromStarter ? (fromStarter.vibeKind === "body" ? "starter_body" : "starter_face") : "still",
+      source: fromStarter ? "generate_starter" : "in_app_still",
+      starterPresetId: fromStarter?.presetId,
+    });
+  }
+
+  async function moveRef(mediaAssetId: string, delta: -1 | 1) {
+    if (!pack) return;
+    const next = moveRefId(
+      refs.map((ref) => ref.mediaAssetId),
+      mediaAssetId,
+      delta,
+    );
+    if (next.join() === refs.map((ref) => ref.mediaAssetId).join()) return;
+    setError(null);
+    setPendingRefId(mediaAssetId);
+    try {
+      await api(`/api/packs/${pack.id}/refs`, {
+        method: "PATCH",
+        body: JSON.stringify({ order: next }),
+      });
+      await loadPack(pack.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reorder pictures");
+    } finally {
+      setPendingRefId(null);
     }
   }
 
@@ -155,6 +201,10 @@ export function PackWizard(props: { initialPackId?: string }) {
     (pack?.status === "draft" || pack?.status === "failed") &&
     !training;
 
+  if (loadingPack) {
+    return <LoadingState label="Loading character pack…" />;
+  }
+
   return (
     <section>
       <div className="row-between">
@@ -165,7 +215,8 @@ export function PackWizard(props: { initialPackId?: string }) {
         <span className="fictional-badge">Fictional only</span>
       </div>
       <p className="muted">
-        Status: {status}. No device face upload. Starters are not Composer templates.
+        Status: {status}. Add fictional reference pictures, then Train & lock Soul ID. Starters are not
+        Composer templates.
       </p>
 
       <label htmlFor="name">Name</label>
@@ -175,6 +226,25 @@ export function PackWizard(props: { initialPackId?: string }) {
         onChange={(event) => setName(event.target.value)}
         disabled={Boolean(pack)}
         required
+      />
+
+      <RefUploader
+        packId={pack?.id}
+        refCount={refCount}
+        disabled={pending || training}
+        onNeedPack={ensurePack}
+        onUploaded={async (packId) => {
+          await loadPack(packId);
+        }}
+        onError={(message) => setError(message || null)}
+      />
+
+      <h3>Selected</h3>
+      <RefTray
+        refs={refs}
+        pendingId={pendingRefId}
+        onRemove={(id) => void removeRef(id)}
+        onMove={(id, delta) => void moveRef(id, delta)}
       />
 
       <div className="tabs">
@@ -197,7 +267,8 @@ export function PackWizard(props: { initialPackId?: string }) {
       {tab === "starters" ? (
         <>
           <p className="muted">
-            Generate face and body vibes, pick at least {PACK_MIN_REFS} stills, then Train & lock Soul ID.
+            Generate face and body vibes, then tap stills onto the sheet. Pick at least {PACK_MIN_REFS} to
+            lock.
           </p>
           <h3>Face starters</h3>
           <div className="chips">
@@ -228,6 +299,7 @@ export function PackWizard(props: { initialPackId?: string }) {
             ))}
           </div>
           <h3>Contact sheet</h3>
+          {awaitingStarters ? <LoadingState compact label="Waiting for starter stills…" /> : null}
           <ContactSheet
             tiles={starters}
             onToggle={(id, selected, vibeKind, presetId) =>
@@ -243,11 +315,14 @@ export function PackWizard(props: { initialPackId?: string }) {
         </>
       ) : (
         <>
-          <p className="muted">
-            Pick in-app stills you already made in Create. Device uploads are not available.
-          </p>
+          <p className="muted">Pick in-app stills you already made in Create.</p>
           {library.length === 0 ? (
-            <p className="muted">Library is empty until you generate stills in Create with a Locked pack.</p>
+            <EmptyState
+              kicker="Library"
+              title="No stills yet"
+              body="Generate in Create with a Locked pack, then those stills can join this training set."
+              action={{ href: "/app/create", label: "Open Create" }}
+            />
           ) : (
             <div className="contact-sheet">
               {library.map((item) => {

@@ -143,6 +143,7 @@ export const trainingSetAssets = pgTable(
     kind: trainingAssetKindEnum("kind").notNull(),
     source: trainingAssetSourceEnum("source").notNull(),
     starterPresetId: text("starter_preset_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

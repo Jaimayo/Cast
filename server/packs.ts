@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { createHash, randomUUID } from "node:crypto";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   characterPacks,
   generationJobs,
@@ -23,6 +23,9 @@ import {
   retrainPackDecision,
   trainPackDecision,
 } from "@/lib/pack-rules";
+import { reorderRefsDecision } from "@/lib/pack-ref-order";
+import { extForPackRefMime, validatePackRefFile } from "@/lib/pack-ref-upload";
+import { mediaKey, putObject } from "@/server/storage";
 import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compiler";
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
@@ -325,6 +328,7 @@ export async function setRefSelected(input: {
           kind: resolved!.kind,
           source: input.source,
           starterPresetId: resolved!.starterPresetId,
+          sortOrder: refCount,
         })
         .onConflictDoNothing({
           target: [trainingSetAssets.characterPackId, trainingSetAssets.mediaAssetId],
@@ -734,15 +738,161 @@ export async function listRefs(userId: string, packId: string) {
       source: trainingSetAssets.source,
       starterPresetId: trainingSetAssets.starterPresetId,
       mediaAssetId: trainingSetAssets.mediaAssetId,
+      sortOrder: trainingSetAssets.sortOrder,
       createdAt: trainingSetAssets.createdAt,
     })
     .from(trainingSetAssets)
     .innerJoin(mediaAssets, eq(mediaAssets.id, trainingSetAssets.mediaAssetId))
-    .where(and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.userId, userId)));
+    .where(and(eq(trainingSetAssets.characterPackId, packId), eq(trainingSetAssets.userId, userId)))
+    .orderBy(asc(trainingSetAssets.sortOrder), asc(trainingSetAssets.createdAt));
   return rows.map((row) => ({
     ...row,
     previewUrl: publicMediaAsset({ id: row.mediaAssetId }).previewUrl,
   }));
+}
+
+export async function uploadPackRef(input: { userId: string; packId: string; bytes: Buffer }) {
+  await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
+  const pack = await getPack(input.userId, input.packId);
+  if (!pack) {
+    throw new JobError({ code: JOB_ERROR_CODES.PACK_NOT_FOUND, retryable: false });
+  }
+  if (pack.status !== "draft" && pack.status !== "failed") {
+    throw new JobError({
+      code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+      userMessage: "Refs can only be changed on a draft pack",
+      retryable: false,
+    });
+  }
+
+  const refCount = await countRefs(pack.id);
+  const gate = validatePackRefFile({ bytes: input.bytes, refCount });
+  if (!gate.ok) {
+    throw new JobError({
+      code: gate.code === "PACK_REFS_FULL" ? JOB_ERROR_CODES.PACK_REFS_FULL : JOB_ERROR_CODES.INVALID_INPUT,
+      userMessage: gate.message,
+      retryable: false,
+    });
+  }
+
+  const mediaId = randomUUID();
+  const storageKey = mediaKey({
+    kind: "pack_ref",
+    userId: input.userId,
+    id: mediaId,
+    ext: extForPackRefMime(gate.mimeType),
+  });
+  await putObject({ key: storageKey, body: input.bytes, mimeType: gate.mimeType });
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const locked = await loadOwnedPackForUpdate(tx, input.userId, input.packId);
+    if (locked.status !== "draft" && locked.status !== "failed") {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+        userMessage: "Refs can only be changed on a draft pack",
+        retryable: false,
+      });
+    }
+    const currentCount = await countRefsOn(tx, locked.id);
+    const again = validatePackRefFile({ bytes: input.bytes, refCount: currentCount });
+    if (!again.ok) {
+      throw new JobError({
+        code: again.code === "PACK_REFS_FULL" ? JOB_ERROR_CODES.PACK_REFS_FULL : JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: again.message,
+        retryable: false,
+      });
+    }
+
+    const mediaRows = await tx
+      .insert(mediaAssets)
+      .values({
+        id: mediaId,
+        userId: input.userId,
+        kind: "pack_ref",
+        storageKey,
+        mimeType: again.mimeType,
+        byteSize: again.byteSize,
+        characterPackId: locked.id,
+      })
+      .returning();
+    const media = mediaRows[0];
+    if (!media) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: "Could not save that still. Try again.",
+        retryable: true,
+      });
+    }
+
+    const refRows = await tx
+      .insert(trainingSetAssets)
+      .values({
+        characterPackId: locked.id,
+        userId: input.userId,
+        mediaAssetId: media.id,
+        kind: "still",
+        source: "in_app_still",
+        sortOrder: currentCount,
+      })
+      .returning();
+    const ref = refRows[0];
+    if (!ref) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: "Could not attach that still. Try again.",
+        retryable: true,
+      });
+    }
+    return {
+      selected: true as const,
+      ref,
+      refCount: currentCount + 1,
+      media: publicMediaAsset(media),
+    };
+  });
+}
+
+export async function reorderRefs(input: { userId: string; packId: string; mediaAssetIds: string[] }) {
+  await recoverStaleJobsSafe({ userId: input.userId, packId: input.packId });
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const pack = await loadOwnedPackForUpdate(tx, input.userId, input.packId);
+    if (pack.status !== "draft" && pack.status !== "failed") {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_PACK_STATE,
+        userMessage: "Refs can only be changed on a draft pack",
+        retryable: false,
+      });
+    }
+    const existing = await tx
+      .select({ mediaAssetId: trainingSetAssets.mediaAssetId })
+      .from(trainingSetAssets)
+      .where(and(eq(trainingSetAssets.characterPackId, pack.id), eq(trainingSetAssets.userId, input.userId)));
+    const decision = reorderRefsDecision(
+      existing.map((row) => row.mediaAssetId),
+      input.mediaAssetIds,
+    );
+    if (!decision.ok) {
+      throw new JobError({
+        code: JOB_ERROR_CODES.INVALID_INPUT,
+        userMessage: decision.message,
+        retryable: false,
+      });
+    }
+    for (const [index, mediaAssetId] of decision.order.entries()) {
+      await tx
+        .update(trainingSetAssets)
+        .set({ sortOrder: index })
+        .where(
+          and(
+            eq(trainingSetAssets.characterPackId, pack.id),
+            eq(trainingSetAssets.mediaAssetId, mediaAssetId),
+          ),
+        );
+    }
+    return { refCount: decision.order.length, order: decision.order };
+  });
 }
 
 export async function listStarterSheet(userId: string, packId: string) {

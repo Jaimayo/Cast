@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RefCountMeter } from "@/components/ref-count-meter";
+import { RefTray, type TrayRef } from "@/components/ref-tray";
 import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
+import { PACK_REF_FICTIONAL_COPY } from "@/lib/pack-ref-upload";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 import { TEST_GRID_SIZE } from "@/lib/test-grid";
 
@@ -13,7 +16,7 @@ type Pack = {
   hasAdapter?: boolean;
 };
 
-export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
+export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: TrayRef[] }) {
   const [status, setStatus] = useState(props.pack.status);
   const [adapterReady, setAdapterReady] = useState(Boolean(props.pack.hasAdapter));
   const [pending, setPending] = useState<"test-grid" | "retrain" | null>(null);
@@ -75,9 +78,12 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number }) {
         <SoulBadge name={props.pack.name} locked={locked} />
       </div>
       <p className="muted">
-        {soulStatusLabel(status)} · refs {props.refCount}/20
+        {soulStatusLabel(status)} · {props.refCount} reference pictures
       </p>
-      <div className="banner">Face upload from a real person is intentionally omitted.</div>
+      <div className="banner">{PACK_REF_FICTIONAL_COPY} These stills train Soul ID — they are not a camera roll.</div>
+      <RefCountMeter count={props.refCount} />
+      <h3>Reference pictures</h3>
+      <RefTray refs={props.refs ?? []} readOnly />
       {status === "training" ? <p className="ok">Training Soul ID…</p> : null}
       {adapterReady ? (
         <p className="ok">Identity adapter saved. Generate uses this Soul ID on stills.</p>

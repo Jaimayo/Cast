@@ -18,7 +18,7 @@ export default async function CharactersPage() {
           + New
         </a>
       </div>
-      <p className="muted">Lock a character before Create. Fictional only — no real-person upload.</p>
+      <p className="muted">Lock a character before Create. Fictional adults only.</p>
       <CharacterRoster packs={packs} />
     </section>
   );

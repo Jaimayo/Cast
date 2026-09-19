@@ -15,7 +15,13 @@ export function ContactSheet(props: {
   onToggle: (id: string, selected: boolean, vibeKind: string, presetId: string | null) => void;
 }) {
   if (props.tiles.length === 0) {
-    return <p className="muted">No starter stills yet. Generate face or body vibes above.</p>;
+    return (
+      <div className="empty-state is-compact" role="status">
+        <div className="empty-state-mark" aria-hidden="true" />
+        <h2>Contact sheet is empty</h2>
+        <p className="muted">Generate a face or body vibe above. Stills land here so you can add them as references.</p>
+      </div>
+    );
   }
   return (
     <div className="contact-sheet">
