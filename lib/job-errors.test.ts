@@ -149,6 +149,9 @@ describe("classifyJobError", () => {
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_TIMEOUT)).toBe(true);
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_NO_IMAGE)).toBe(true);
     expect(isPermanentCode(JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_CANCELED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED)).toBe(true);
+    expect(isPermanentCode(JOB_ERROR_CODES.JOB_ALREADY_FINISHED)).toBe(true);
   });
 
   it("does not retry 4xx provider rejections (except rate-limit / timeout)", () => {
@@ -231,6 +234,13 @@ describe("classifyJobError", () => {
       userMessage: "This still was blocked by the image service policy. Change chips and try again.",
       retryable: false,
     });
+    expect(
+      classifyJobError(new JobError({ code: JOB_ERROR_CODES.JOB_CANCELED, retryable: false })),
+    ).toMatchObject({
+      code: JOB_ERROR_CODES.JOB_CANCELED,
+      retryable: false,
+      userMessage: "This still was canceled.",
+    });
     const timeout = new Error("Provider request timed out");
     timeout.name = "ProviderTimeoutError";
     expect(classifyJobError(timeout)).toMatchObject({
@@ -293,15 +303,17 @@ describe("train failure copy", () => {
 });
 
 describe("idempotent BullMQ ids and train submit", () => {
-  it("keys generate/train jobs on generationJobId", () => {
-    expect(generateStillBullJobId("job-1")).toBe("generateStill:job-1");
-    expect(trainPackBullJobId("job-1")).toBe("trainPack:job-1");
-    expect(trainPackBullJobId("job-1", 3)).toBe("trainPack:job-1:poll:3");
-    expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);
+  it("keys generate/train jobs on generationJobId without colons (BullMQ custom ids)", () => {
+    expect(generateStillBullJobId("job-1")).toBe("generateStill-job-1");
+    expect(trainPackBullJobId("job-1")).toBe("trainPack-job-1");
+    expect(trainPackBullJobId("job-1", 3)).toBe("trainPack-job-1-poll-3");
+    expect(generateStillBullJobId("job-1")).not.toContain(":");
+    expect(trainPackBullJobId("job-1", 3)).not.toContain(":");
+    expect(isDuplicateBullJobError(new Error("Job trainPack-job-1 already exists"))).toBe(true);
   });
 
   it("reuses the first-submit job id for stale train poll recovery", () => {
-    expect(trainPackBullJobId("job-stale", 0)).toBe("trainPack:job-stale");
+    expect(trainPackBullJobId("job-stale", 0)).toBe("trainPack-job-stale");
   });
 
   it("does not resubmit trainPack after the first /run", () => {
@@ -368,6 +380,10 @@ describe("jobs observability helpers", () => {
     ).toBe("Still generation failed. Try again from Create.");
     expect(userSafeLastError("GENERATE_STILL_FAILED", "compiled prompt: a woman in pose x")).toBe(
       "Still generation failed. Try again from Create.",
+    );
+    expect(userSafeLastError("JOB_CANCELED", "This still was canceled.")).toBe("This still was canceled.");
+    expect(userSafeLastError("JOB_CANCEL_NOT_SUPPORTED", "Train & lock can't be canceled from Jobs.")).toBe(
+      "Train & lock can't be canceled from Jobs.",
     );
   });
 

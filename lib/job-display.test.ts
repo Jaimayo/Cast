@@ -165,3 +165,75 @@ describe("retrying vs terminal Jobs copy", () => {
     expect(JSON.stringify(view)).not.toMatch(/providerJobId|inputJson|compiled prompt/);
   });
 });
+
+describe("in-progress and canceled Jobs copy", () => {
+  it("shows queue-wait copy for a queued still without treating it as a failure", () => {
+    const fresh = jobQueuePresentation({
+      kind: "generate_still",
+      status: "queued",
+      ageSeconds: 3,
+    });
+    expect(fresh.statusLabel).toBe("Queued");
+    expect(fresh.statusTone).toBe("gold");
+    expect(fresh.note).toBe("Waiting in queue.");
+    expect(fresh.noteTone).toBe("info");
+    expect(fresh.noteCaption).toBeNull();
+
+    const waiting = jobQueuePresentation({
+      kind: "generate_still",
+      status: "queued",
+      ageSeconds: 12,
+    });
+    expect(waiting.statusLabel).toBe("Waiting");
+    expect(waiting.note).toBe("Still waiting in queue.");
+
+    const slow = jobQueuePresentation({
+      kind: "generate_still",
+      status: "queued",
+      ageSeconds: 50,
+    });
+    expect(slow.note).toBe("This is taking longer than usual. You can cancel and try Generate again.");
+    expect(slow.note).not.toMatch(/provider|venice|runpod|stack/i);
+  });
+
+  it("labels a running still as Generating with user-safe progress copy", () => {
+    const view = jobQueuePresentation({
+      kind: "generate_still",
+      status: "running",
+      ageSeconds: 6,
+      attemptCount: 1,
+    });
+    expect(view.statusLabel).toBe("Generating");
+    expect(view.statusTone).toBe("gold");
+    expect(view.note).toBe("Generating this still…");
+    expect(view.noteTone).toBe("info");
+    expect(view.noteCaption).toBeNull();
+  });
+
+  it("keeps canceled distinct from Failed and never leaks provider ids", () => {
+    const view = jobQueuePresentation({
+      kind: "generate_still",
+      status: "canceled",
+      lastErrorCode: "JOB_CANCELED",
+      lastError: "This still was canceled.",
+      errorMessage: "providerJobId venice-secret-99",
+    });
+    expect(view.statusLabel).toBe("Canceled");
+    expect(view.statusTone).toBe("muted");
+    expect(view.note).toBe("This still was canceled.");
+    expect(view.noteTone).toBe("info");
+    expect(view.noteCaption).toBe("Generate again from Create.");
+    expect(JSON.stringify(view)).not.toMatch(/venice-secret|providerJobId/);
+  });
+
+  it("disables Train cancel copy in the catalog without showing a cancel note on running Train", () => {
+    const view = jobQueuePresentation({
+      kind: "train_pack",
+      status: "running",
+      ageSeconds: 20,
+    });
+    expect(view.statusLabel).toBe("Training");
+    expect(view.note).toBe("Training is in progress.");
+    expect(view.noteTone).toBe("info");
+  });
+});

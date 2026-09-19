@@ -119,6 +119,33 @@ describe("jsonError media failures", () => {
       code: JOB_ERROR_CODES.GENERATE_MISSING_ADAPTER,
     });
     expect(JSON.stringify(missingPayload)).not.toMatch(/lora|prompt|Bearer/i);
+
+    const finished = jsonError(
+      new JobError({
+        code: JOB_ERROR_CODES.JOB_ALREADY_FINISHED,
+        retryable: false,
+        httpStatus: 409,
+      }),
+    );
+    expect(finished.status).toBe(409);
+    expect(await bodyOf(finished)).toEqual({
+      error: "This job already finished.",
+      code: JOB_ERROR_CODES.JOB_ALREADY_FINISHED,
+    });
+    const unsupported = jsonError(
+      new JobError({
+        code: JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED,
+        userMessage: "Train & lock can't be canceled from Jobs.",
+        retryable: false,
+      }),
+    );
+    expect(unsupported.status).toBe(400);
+    const unsupportedPayload = await bodyOf(unsupported);
+    expect(unsupportedPayload).toEqual({
+      error: "Train & lock can't be canceled from Jobs.",
+      code: JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED,
+    });
+    expect(JSON.stringify(unsupportedPayload)).not.toMatch(/venice|runpod|providerJobId|stack/i);
   });
 
   it("redacts filesystem and bucket errors", async () => {
@@ -146,6 +173,12 @@ describe("jsonError media failures", () => {
 
     const missingEnv = jsonError(new Error("Missing required environment variable DATABASE_URL"));
     expect(await bodyOf(missingEnv)).toEqual({ error: "Could not continue." });
+
+    const customId = jsonError(new Error("Custom Id cannot contain :"));
+    expect(customId.status).toBe(500);
+    const customPayload = await bodyOf(customId);
+    expect(customPayload).toEqual({ error: "Could not continue." });
+    expect(JSON.stringify(customPayload)).not.toMatch(/Custom Id/);
 
     const noDb = jsonError(new DatabaseRequiredError());
     expect(noDb.status).toBe(503);

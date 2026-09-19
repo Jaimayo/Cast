@@ -1,5 +1,6 @@
 import { publicAdapterFields, readAdapterIdentity, type AdapterSource, type AdapterStatus } from "@/lib/adapter-identity";
 import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
+import { jobCancelState } from "@/lib/job-cancel";
 import { jobAgeSeconds, jobAttemptCount, userSafeLastError } from "@/lib/job-errors";
 
 export { MEDIA_PRESIGN_TTL_SECONDS };
@@ -228,6 +229,8 @@ export type PublicJobFields = {
   lastError: string | null;
   errorCode: string | null;
   errorMessage: string | null;
+  cancelSupported: boolean;
+  cancelDisabledReason: string | null;
 };
 
 export function publicJob<
@@ -254,6 +257,9 @@ export function publicJob<
   void providerJobId;
   const safeMessage = userSafeLastError(errorCode, errorMessage);
   const safeCode = errorCode ?? null;
+  const kind = "kind" in job && typeof job.kind === "string" ? job.kind : "";
+  const status = "status" in job && typeof job.status === "string" ? job.status : "";
+  const cancel = jobCancelState({ kind, status });
   return {
     ...rest,
     previewUrl: job.previewUrl ?? null,
@@ -263,6 +269,8 @@ export function publicJob<
     lastError: safeMessage,
     errorCode: safeCode,
     errorMessage: safeMessage,
+    cancelSupported: cancel.cancelSupported,
+    cancelDisabledReason: cancel.cancelDisabledReason,
   };
 }
 

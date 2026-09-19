@@ -19,6 +19,7 @@ export function CharacterRequiredEmpty(props: { packId?: string | null; training
 export function HeroCanvas(props: {
   locked: boolean;
   message?: string | null;
+  progress?: string | null;
   previewUrl?: string | null;
   packId?: string | null;
   training?: boolean;
@@ -30,13 +31,19 @@ export function HeroCanvas(props: {
   return (
     <div className={props.generating ? "hero-frame is-loading" : "hero-frame"}>
       {props.previewUrl ? (
-        <StillPreview src={props.previewUrl} alt="Generated still" />
+        <>
+          <StillPreview src={props.previewUrl} alt="Generated still" />
+          {props.progress ? <p className="hero-progress">{props.progress}</p> : null}
+        </>
       ) : (
-        <span>{props.generating ? GENERATE_IN_PROGRESS_COPY : (props.message ?? "Hero Frame still. Generate to fill this canvas.")}</span>
+        <span>
+          {props.progress ??
+            (props.generating ? GENERATE_IN_PROGRESS_COPY : (props.message ?? "Hero Frame still. Generate to fill this canvas."))}
+        </span>
       )}
       {props.generating && props.previewUrl ? (
         <div className="hero-generating" aria-live="polite">
-          {GENERATE_IN_PROGRESS_COPY}
+          {props.progress ?? GENERATE_IN_PROGRESS_COPY}
         </div>
       ) : null}
     </div>

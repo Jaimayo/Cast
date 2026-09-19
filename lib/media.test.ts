@@ -282,6 +282,8 @@ describe("public preview DTOs", () => {
     expect(job.attemptCount).toBe(0);
     expect(job.lastErrorCode).toBeNull();
     expect(job.lastError).toBeNull();
+    expect(job.cancelSupported).toBe(false);
+    expect(job.cancelDisabledReason).toBeNull();
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey/);
     expect("attemptsMade" in job).toBe(false);
 
@@ -367,6 +369,29 @@ describe("job observability DTO", () => {
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|rp-secret|compiledPrompt|adapters\//);
     expect("inputJson" in job).toBe(false);
     expect("providerJobId" in job).toBe(false);
+    expect(job.cancelSupported).toBe(false);
+  });
+
+  it("exposes cancelSupported for queued stills and a Train disable reason", () => {
+    const queued = publicJob({
+      id: "job-q",
+      kind: "generate_still",
+      status: "queued",
+      providerJobId: "venice-secret",
+    });
+    expect(queued.cancelSupported).toBe(true);
+    expect(queued.cancelDisabledReason).toBeNull();
+    expect(JSON.stringify(queued)).not.toMatch(/venice-secret|providerJobId/);
+
+    const train = publicJob({
+      id: "job-t",
+      kind: "train_pack",
+      status: "running",
+      providerJobId: "rp-train-1",
+    });
+    expect(train.cancelSupported).toBe(false);
+    expect(train.cancelDisabledReason).toBe("Train & lock can't be canceled from Jobs.");
+    expect(JSON.stringify(train)).not.toMatch(/rp-train|providerJobId/);
   });
 
   it("exposes timeout, missing adapter, and stall copy for Jobs list/detail", () => {

@@ -541,6 +541,7 @@ input[type="checkbox"] {
   text-align: center;
   overflow: hidden;
   padding: 0;
+  position: relative;
 }
 
 .hero-frame > div,
@@ -585,6 +586,34 @@ input[type="checkbox"] {
   aspect-ratio: 3 / 4;
   height: auto;
   border-radius: 8px;
+}
+
+.history-item.is-progress {
+  border: 1px solid rgba(226, 182, 87, 0.35);
+  border-radius: 10px;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.history-item .btn.compact {
+  margin-top: 6px;
+}
+
+.hero-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 10px 12px;
+  background: rgba(12, 10, 6, 0.72);
+  color: var(--gold);
+  font-size: 13px;
+}
+
+.btn.compact {
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 .job-thumb {
@@ -680,6 +709,10 @@ input[type="checkbox"] {
 
 .job-note.is-retry {
   color: var(--gold);
+}
+
+.job-note.is-info {
+  color: var(--ink-dim);
 }
 
 .job-detail {

@@ -52,6 +52,10 @@ export const JOB_ERROR_CODES = {
   GENERATE_MISSING_ADAPTER: "GENERATE_MISSING_ADAPTER",
   POSE_REQUIRED: "POSE_REQUIRED",
   JOB_STALLED: "JOB_STALLED",
+  JOB_CANCELED: "JOB_CANCELED",
+  JOB_CANCEL_NOT_SUPPORTED: "JOB_CANCEL_NOT_SUPPORTED",
+  JOB_ALREADY_FINISHED: "JOB_ALREADY_FINISHED",
+  JOB_ENQUEUE_FAILED: "JOB_ENQUEUE_FAILED",
   PACK_REFS_TOO_FEW: "PACK_REFS_TOO_FEW",
   PACK_REFS_FULL: "PACK_REFS_FULL",
 } as const;
@@ -88,6 +92,10 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
     "This character's Soul ID adapter is missing. Retrain, or lock without Train to generate without identity.",
   POSE_REQUIRED: "Pose is required",
   JOB_STALLED: "This job stopped unexpectedly. Try again.",
+  JOB_CANCELED: "This still was canceled.",
+  JOB_CANCEL_NOT_SUPPORTED: "This job can't be canceled.",
+  JOB_ALREADY_FINISHED: "This job already finished.",
+  JOB_ENQUEUE_FAILED: "Could not queue this still. Try Generate again.",
   PACK_REFS_TOO_FEW: "Need at least 12 training refs to lock Soul ID.",
   PACK_REFS_FULL: "This pack already has 20 training refs. Remove one to add another.",
 };
@@ -109,14 +117,22 @@ export class JobError extends Error {
   readonly code: JobErrorCode;
   readonly userMessage: string;
   readonly retryable: boolean;
+  readonly httpStatus: number;
 
-  constructor(input: { code: JobErrorCode; userMessage?: string; retryable?: boolean; cause?: unknown }) {
+  constructor(input: {
+    code: JobErrorCode;
+    userMessage?: string;
+    retryable?: boolean;
+    cause?: unknown;
+    httpStatus?: number;
+  }) {
     const userMessage = input.userMessage ?? USER_JOB_MESSAGES[input.code];
     super(userMessage);
     this.name = "JobError";
     this.code = input.code;
     this.userMessage = userMessage;
     this.retryable = input.retryable ?? !isPermanentCode(input.code);
+    this.httpStatus = input.httpStatus ?? 400;
     if (input.cause !== undefined) {
       this.cause = input.cause;
     }
@@ -146,6 +162,10 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.GENERATE_NO_IMAGE ||
     code === JOB_ERROR_CODES.POSE_REQUIRED ||
     code === JOB_ERROR_CODES.JOB_STALLED ||
+    code === JOB_ERROR_CODES.JOB_CANCELED ||
+    code === JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED ||
+    code === JOB_ERROR_CODES.JOB_ALREADY_FINISHED ||
+    code === JOB_ERROR_CODES.JOB_ENQUEUE_FAILED ||
     code === JOB_ERROR_CODES.PACK_REFS_TOO_FEW ||
     code === JOB_ERROR_CODES.PACK_REFS_FULL
   );
@@ -439,15 +459,15 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
 }
 
 export function generateStillBullJobId(generationJobId: string): string {
-  return `generateStill:${generationJobId}`;
+  return `generateStill-${generationJobId}`;
 }
 
 export function trainPackBullJobId(generationJobId: string, attempt = 0): string {
-  return attempt <= 0 ? `trainPack:${generationJobId}` : `trainPack:${generationJobId}:poll:${attempt}`;
+  return attempt <= 0 ? `trainPack-${generationJobId}` : `trainPack-${generationJobId}-poll-${attempt}`;
 }
 
 export function deadLetterBullJobId(sourceQueue: string, generationJobId: string): string {
-  return `deadLetter:${sourceQueue}:${generationJobId}`;
+  return `deadLetter-${sourceQueue}-${generationJobId}`;
 }
 
 export function isDuplicateBullJobError(err: unknown): boolean {

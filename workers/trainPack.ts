@@ -50,6 +50,10 @@ export async function processTrainPackJob(
     jobLog("trainPack.skip_succeeded", { jobId: job.id, packId: characterPackId });
     return;
   }
+  if (job.status === "canceled" || job.status === "failed") {
+    jobLog("trainPack.skip_terminal", { jobId: job.id, packId: characterPackId, status: job.status });
+    return;
+  }
 
   const retrain = isRetrainJob(job.inputJson);
   let keepLockedOnFail = false;
