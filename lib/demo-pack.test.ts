@@ -32,6 +32,7 @@ import {
 } from "@/lib/demo-pack";
 import { parseMediaId } from "@/lib/media";
 import { isLockedSoul } from "@/lib/soul";
+import { TEST_GRID_FICTIONAL_COPY } from "@/lib/test-grid";
 
 describe("stub demo Character Packs", () => {
   it("only appears in stub / REVIEW — never live", () => {
@@ -110,6 +111,7 @@ describe("stub demo Character Packs", () => {
       DEMO_PACK_READ_ONLY_MESSAGE,
       DEMO_PACK_CREATE_MESSAGE,
       DEMO_LIBRARY_COPY,
+      TEST_GRID_FICTIONAL_COPY,
     ]) {
       expect(demoCopyIsFictionalOnly(text)).toBe(true);
       expect(text).not.toMatch(/celebrity|deepfake|upload a (photo|face) of yourself/i);

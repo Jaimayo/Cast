@@ -8,7 +8,8 @@ import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
 import { PACK_REF_FICTIONAL_COPY } from "@/lib/pack-ref-upload";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
-import { TEST_GRID_SIZE } from "@/lib/test-grid";
+import { TestGridPanel } from "@/components/test-grid-panel";
+import { TEST_GRID_SIZE, type TestGridJob } from "@/lib/test-grid";
 
 type Pack = {
   id: string;
@@ -25,6 +26,7 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: Tr
   const [pending, setPending] = useState<"test-grid" | "retrain" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gridJobs, setGridJobs] = useState<TestGridJob[]>([]);
 
   useEffect(() => {
     if (status !== "training") return;
@@ -48,8 +50,11 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: Tr
     setError(null);
     setMessage(null);
     try {
-      const result = await api<{ count: number }>(`/api/packs/${props.pack.id}/test-grid`, { method: "POST" });
-      setMessage(`Queued ${result.count} identity stills. Same path as Create → Generate.`);
+      const result = await api<{ count: number; jobs: TestGridJob[] }>(`/api/packs/${props.pack.id}/test-grid`, {
+        method: "POST",
+      });
+      setGridJobs(result.jobs ?? []);
+      setMessage(`Queued ${result.count} identity stills at 3:4. Same path as Create → Generate.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Test grid failed");
     } finally {
@@ -101,6 +106,15 @@ export function PackStatusPanel(props: { pack: Pack; refCount: number; refs?: Tr
         Test grid queues {TEST_GRID_SIZE} stills (Create → Generate) so you can check identity. Retrain runs
         Train & lock again on the same refs.
       </p>
+      {locked ? (
+        <TestGridPanel
+          packId={props.pack.id}
+          packName={props.pack.name}
+          jobs={gridJobs}
+          pending={pending === "test-grid"}
+          onJobs={setGridJobs}
+        />
+      ) : null}
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       <div className="actions">

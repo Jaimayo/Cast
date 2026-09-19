@@ -35,7 +35,7 @@ import { compileComposerPrompt, compileStarterPrompt } from "@/lib/prompt-compil
 import { requireStarterPreset } from "@/lib/starters";
 import { requireLockedSoulForGenerate } from "@/lib/soul";
 import { stillGenerateSize, type StillAspectId } from "@/lib/still-aspect";
-import { TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
+import { TEST_GRID_ASPECT_ID, TEST_GRID_SELECTIONS, TEST_GRID_SIZE } from "@/lib/test-grid";
 import { assertGenerateStillAllowed } from "@/lib/generate-policy";
 import { jobLog } from "@/lib/job-log";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
@@ -674,6 +674,7 @@ export async function enqueueTestGrid(userId: string, packId: string) {
         userId,
         packId: pack.id,
         poseChipId: selection.poseChipId,
+        source: "test_grid",
       }).job,
     );
     return { jobs, count: jobs.length };
@@ -689,6 +690,7 @@ export async function enqueueTestGrid(userId: string, packId: string) {
       outfitChipId: selection.outfitChipId,
       sceneChipId: selection.sceneChipId,
       lightingChipId: selection.lightingChipId,
+      aspectRatio: TEST_GRID_ASPECT_ID,
       source: "test_grid",
       skipAbuseGuard: true,
     });

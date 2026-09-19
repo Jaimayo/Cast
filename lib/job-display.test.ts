@@ -14,6 +14,8 @@ import {
 describe("job kind and age", () => {
   it("uses product kind labels", () => {
     expect(jobKindLabel("generate_still")).toBe("Still");
+    expect(jobKindLabel("generate_still", "test_grid")).toBe("Test grid");
+    expect(jobKindLabel("generate_still", "composer")).toBe("Still");
     expect(jobKindLabel("train_pack")).toBe("Train");
     expect(jobKindLabel("generate_starter")).toBe("Starter");
   });
@@ -150,6 +152,18 @@ describe("retrying vs terminal Jobs copy", () => {
         lastError: "Training stopped unexpectedly. Your previous Locked Soul ID is unchanged.",
       }),
     ).toMatch(/previous Locked Soul ID/);
+  });
+
+  it("labels Test grid stills without changing failure copy", () => {
+    const view = jobQueuePresentation({
+      kind: "generate_still",
+      status: "succeeded",
+      stillSource: "test_grid",
+      poseChipId: "seated",
+    });
+    expect(view.kindLabel).toBe("Test grid");
+    expect(view.statusLabel).toBe("Succeeded");
+    expect(view.note).toBeNull();
   });
 
   it("never surfaces stacks, prompts, or provider payloads as the Jobs note", () => {

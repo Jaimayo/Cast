@@ -26,9 +26,29 @@ import { demoPlaceholderSvg } from "@/lib/demo-placeholder";
 import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { publicJob, publicPack } from "@/lib/media";
 import { MEDIA_PRESIGN_TTL_SECONDS } from "@/lib/constants";
+import { TEST_GRID_ASPECT_ID, TEST_GRID_SELECTIONS } from "@/lib/test-grid";
 import { getEnv } from "@/server/env";
 
 const DEMO_CREATED_AT = new Date("2026-09-01T12:00:00.000Z");
+
+type DemoPublicJob = {
+  id: string;
+  kind: string;
+  status: string;
+  characterPackId?: string | null;
+  previewUrl?: string | null;
+  stillSource?: string | null;
+  poseChipId?: string | null;
+  createdAt?: Date | string | null;
+};
+
+/** Stub review only: Test grid / Generate jobs returned from POST, so Jobs + the sheet can poll. */
+const demoSessionJobs = new Map<string, DemoPublicJob[]>();
+
+export function rememberDemoGenerateJobs(userId: string, jobs: DemoPublicJob[]) {
+  const existing = demoSessionJobs.get(userId) ?? [];
+  demoSessionJobs.set(userId, [...jobs, ...existing].slice(0, 24));
+}
 
 export function servingDemoPacks(): boolean {
   return shouldServeDemoPacks({ providerMode: getEnv().providerMode });
@@ -147,7 +167,7 @@ export function demoJobId(still: DemoStill): string {
 }
 
 export function listPublicDemoJobs(userId: string) {
-  return demoLibraryStills()
+  const seeded = demoLibraryStills()
     .slice(0, 3)
     .map((still, index) =>
       publicJob({
@@ -169,15 +189,19 @@ export function listPublicDemoJobs(userId: string) {
         previewUrl: demoPreviewUrl(still.id),
       }),
     );
+  return [...(demoSessionJobs.get(userId) ?? []), ...seeded];
 }
 
 export function demoGenerateStillJob(input: {
   userId: string;
   packId: string;
   poseChipId: string;
+  source?: "demo" | "test_grid";
 }) {
   const library = demoLibraryStills();
-  const still = library[0]!;
+  const poseIndex = TEST_GRID_SELECTIONS.findIndex((row) => row.poseChipId === input.poseChipId);
+  const still = library[poseIndex >= 0 ? poseIndex : 0]!;
+  const source = input.source ?? "demo";
   const job = publicJob({
     id: randomUUID(),
     userId: input.userId,
@@ -186,7 +210,7 @@ export function demoGenerateStillJob(input: {
     provider: "venice" as const,
     characterPackId: input.packId,
     recipeId: null,
-    inputJson: { source: "demo", poseChipId: input.poseChipId },
+    inputJson: { source, poseChipId: input.poseChipId, aspectRatio: TEST_GRID_ASPECT_ID },
     resultAssetKey: null,
     errorCode: null,
     errorMessage: null,
@@ -196,6 +220,9 @@ export function demoGenerateStillJob(input: {
     updatedAt: new Date(),
     previewUrl: demoPreviewUrl(still.id),
   });
+  if (source === "test_grid") {
+    rememberDemoGenerateJobs(input.userId, [job]);
+  }
   return { job, recipeId: "00000000-0000-4000-a000-000000006001" };
 }
 

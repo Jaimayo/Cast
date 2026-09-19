@@ -284,6 +284,8 @@ describe("public preview DTOs", () => {
     expect(job.lastError).toBeNull();
     expect(job.cancelSupported).toBe(false);
     expect(job.cancelDisabledReason).toBeNull();
+    expect(job.stillSource).toBeNull();
+    expect(job.poseChipId).toBeNull();
     expect(JSON.stringify(job)).not.toMatch(/still\/u1|resultAssetKey/);
     expect("attemptsMade" in job).toBe(false);
 
@@ -370,6 +372,40 @@ describe("job observability DTO", () => {
     expect("inputJson" in job).toBe(false);
     expect("providerJobId" in job).toBe(false);
     expect(job.cancelSupported).toBe(false);
+    expect(job.stillSource).toBeNull();
+    expect(job.poseChipId).toBeNull();
+  });
+
+  it("whitelists stillSource and poseChipId from inputJson and survives a second publicJob wrap", () => {
+    const job = publicJob({
+      id: "job-grid",
+      kind: "generate_still",
+      status: "queued",
+      inputJson: {
+        source: "test_grid",
+        poseChipId: "seated",
+        compiledPrompt: "secret pose",
+        adapterStorageKey: "adapters/u1/p.lora",
+      },
+    });
+    expect(job.stillSource).toBe("test_grid");
+    expect(job.poseChipId).toBe("seated");
+    expect("inputJson" in job).toBe(false);
+    expect(JSON.stringify(job)).not.toMatch(/compiledPrompt|secret pose|adapters\//);
+
+    const wrapped = publicJob(job);
+    expect(wrapped.stillSource).toBe("test_grid");
+    expect(wrapped.poseChipId).toBe("seated");
+    expect(wrapped.stillSource).not.toBe("venice-secret");
+
+    const ignored = publicJob({
+      id: "job-bad",
+      kind: "generate_still",
+      status: "queued",
+      inputJson: { source: "venice-secret", poseChipId: "not-a-chip", compiledPrompt: "secret pose" },
+    });
+    expect(ignored.stillSource).toBeNull();
+    expect(ignored.poseChipId).toBeNull();
   });
 
   it("exposes cancelSupported for queued stills and a Train disable reason", () => {
