@@ -303,15 +303,17 @@ describe("train failure copy", () => {
 });
 
 describe("idempotent BullMQ ids and train submit", () => {
-  it("keys generate/train jobs on generationJobId", () => {
-    expect(generateStillBullJobId("job-1")).toBe("generateStill:job-1");
-    expect(trainPackBullJobId("job-1")).toBe("trainPack:job-1");
-    expect(trainPackBullJobId("job-1", 3)).toBe("trainPack:job-1:poll:3");
-    expect(isDuplicateBullJobError(new Error("Job trainPack:job-1 already exists"))).toBe(true);
+  it("keys generate/train jobs on generationJobId without colons (BullMQ custom ids)", () => {
+    expect(generateStillBullJobId("job-1")).toBe("generateStill-job-1");
+    expect(trainPackBullJobId("job-1")).toBe("trainPack-job-1");
+    expect(trainPackBullJobId("job-1", 3)).toBe("trainPack-job-1-poll-3");
+    expect(generateStillBullJobId("job-1")).not.toContain(":");
+    expect(trainPackBullJobId("job-1", 3)).not.toContain(":");
+    expect(isDuplicateBullJobError(new Error("Job trainPack-job-1 already exists"))).toBe(true);
   });
 
   it("reuses the first-submit job id for stale train poll recovery", () => {
-    expect(trainPackBullJobId("job-stale", 0)).toBe("trainPack:job-stale");
+    expect(trainPackBullJobId("job-stale", 0)).toBe("trainPack-job-stale");
   });
 
   it("does not resubmit trainPack after the first /run", () => {

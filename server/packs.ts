@@ -15,7 +15,7 @@ import {
   isCancelableStillKind,
   jobErrorFromCancelDecision,
 } from "@/lib/job-cancel";
-import { JOB_ERROR_CODES, JobError, type JobErrorCode } from "@/lib/job-errors";
+import { JOB_ERROR_CODES, JobError, USER_JOB_MESSAGES, type JobErrorCode } from "@/lib/job-errors";
 import {
   readAdapterIdentity,
   snapshotAdapterIdentity,
@@ -37,7 +37,7 @@ import { jobLog } from "@/lib/job-log";
 import { publicJob, publicMediaAsset, publicPack } from "@/lib/media";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
-import { markJobCanceledIfActive, recoverStaleJobsSafe } from "@/server/jobs";
+import { markJobCanceledIfActive, markJobFailedIfActive, recoverStaleJobsSafe } from "@/server/jobs";
 import { isMemoryPreview } from "@/server/memory-preview";
 import { discardGenerateStillJob, enqueueGenerateStillJob, enqueueTrainPackJob } from "@/server/queue";
 import { assertUserInFlightCap, consumeUserActionLimit } from "@/server/rate-limit";
@@ -468,7 +468,20 @@ export async function enqueueGenerateStill(input: {
     throw new Error("Failed to create job");
   }
 
-  await enqueueGenerateStillJob(job.id);
+  try {
+    await enqueueGenerateStillJob(job.id);
+  } catch {
+    await markJobFailedIfActive({
+      jobId: job.id,
+      errorCode: JOB_ERROR_CODES.JOB_ENQUEUE_FAILED,
+      errorMessage: USER_JOB_MESSAGES.JOB_ENQUEUE_FAILED,
+    });
+    throw new JobError({
+      code: JOB_ERROR_CODES.JOB_ENQUEUE_FAILED,
+      retryable: true,
+      httpStatus: 503,
+    });
+  }
   return { job, recipeId: recipe.id };
 }
 
@@ -511,7 +524,20 @@ export async function enqueueGenerateStarter(input: {
     });
   }
 
-  await enqueueGenerateStillJob(job.id);
+  try {
+    await enqueueGenerateStillJob(job.id);
+  } catch {
+    await markJobFailedIfActive({
+      jobId: job.id,
+      errorCode: JOB_ERROR_CODES.JOB_ENQUEUE_FAILED,
+      errorMessage: USER_JOB_MESSAGES.JOB_ENQUEUE_FAILED,
+    });
+    throw new JobError({
+      code: JOB_ERROR_CODES.JOB_ENQUEUE_FAILED,
+      retryable: true,
+      httpStatus: 503,
+    });
+  }
   return { job, preset };
 }
 

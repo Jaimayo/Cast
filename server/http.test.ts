@@ -174,6 +174,12 @@ describe("jsonError media failures", () => {
     const missingEnv = jsonError(new Error("Missing required environment variable DATABASE_URL"));
     expect(await bodyOf(missingEnv)).toEqual({ error: "Could not continue." });
 
+    const customId = jsonError(new Error("Custom Id cannot contain :"));
+    expect(customId.status).toBe(500);
+    const customPayload = await bodyOf(customId);
+    expect(customPayload).toEqual({ error: "Could not continue." });
+    expect(JSON.stringify(customPayload)).not.toMatch(/Custom Id/);
+
     const noDb = jsonError(new DatabaseRequiredError());
     expect(noDb.status).toBe(503);
     expect(await bodyOf(noDb)).toEqual({ error: "Studio data needs a database." });

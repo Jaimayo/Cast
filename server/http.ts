@@ -13,7 +13,7 @@ function looksLikeStorageLeak(message: string): boolean {
 }
 
 function looksLikeInternalLeak(message: string): boolean {
-  return /postgres:\/\/|ECONNREFUSED|ECONNRESET|ENOTFOUND|SASL|password authentication|relation ".+" does not exist|connect E|idle_in_transaction|duplicate key value|violates unique constraint|syntax error at|DATABASE_URL|SESSION_SECRET|at Object\.|at Module\.|Redis|BullMQ|stack:/i.test(
+  return /postgres:\/\/|ECONNREFUSED|ECONNRESET|ENOTFOUND|SASL|password authentication|relation ".+" does not exist|connect E|idle_in_transaction|duplicate key value|violates unique constraint|syntax error at|DATABASE_URL|SESSION_SECRET|at Object\.|at Module\.|Redis|BullMQ|Custom Id cannot|stack:/i.test(
     message,
   );
 }

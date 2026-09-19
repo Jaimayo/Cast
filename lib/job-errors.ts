@@ -55,6 +55,7 @@ export const JOB_ERROR_CODES = {
   JOB_CANCELED: "JOB_CANCELED",
   JOB_CANCEL_NOT_SUPPORTED: "JOB_CANCEL_NOT_SUPPORTED",
   JOB_ALREADY_FINISHED: "JOB_ALREADY_FINISHED",
+  JOB_ENQUEUE_FAILED: "JOB_ENQUEUE_FAILED",
   PACK_REFS_TOO_FEW: "PACK_REFS_TOO_FEW",
   PACK_REFS_FULL: "PACK_REFS_FULL",
 } as const;
@@ -94,6 +95,7 @@ export const USER_JOB_MESSAGES: Record<JobErrorCode, string> = {
   JOB_CANCELED: "This still was canceled.",
   JOB_CANCEL_NOT_SUPPORTED: "This job can't be canceled.",
   JOB_ALREADY_FINISHED: "This job already finished.",
+  JOB_ENQUEUE_FAILED: "Could not queue this still. Try Generate again.",
   PACK_REFS_TOO_FEW: "Need at least 12 training refs to lock Soul ID.",
   PACK_REFS_FULL: "This pack already has 20 training refs. Remove one to add another.",
 };
@@ -163,6 +165,7 @@ export function isPermanentCode(code: JobErrorCode): boolean {
     code === JOB_ERROR_CODES.JOB_CANCELED ||
     code === JOB_ERROR_CODES.JOB_CANCEL_NOT_SUPPORTED ||
     code === JOB_ERROR_CODES.JOB_ALREADY_FINISHED ||
+    code === JOB_ERROR_CODES.JOB_ENQUEUE_FAILED ||
     code === JOB_ERROR_CODES.PACK_REFS_TOO_FEW ||
     code === JOB_ERROR_CODES.PACK_REFS_FULL
   );
@@ -456,15 +459,15 @@ export function classifyJobError(err: unknown): ClassifiedJobError {
 }
 
 export function generateStillBullJobId(generationJobId: string): string {
-  return `generateStill:${generationJobId}`;
+  return `generateStill-${generationJobId}`;
 }
 
 export function trainPackBullJobId(generationJobId: string, attempt = 0): string {
-  return attempt <= 0 ? `trainPack:${generationJobId}` : `trainPack:${generationJobId}:poll:${attempt}`;
+  return attempt <= 0 ? `trainPack-${generationJobId}` : `trainPack-${generationJobId}-poll-${attempt}`;
 }
 
 export function deadLetterBullJobId(sourceQueue: string, generationJobId: string): string {
-  return `deadLetter:${sourceQueue}:${generationJobId}`;
+  return `deadLetter-${sourceQueue}-${generationJobId}`;
 }
 
 export function isDuplicateBullJobError(err: unknown): boolean {
