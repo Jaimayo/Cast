@@ -33,7 +33,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/invite`, `app/age` | Invite redeem / sign-in; age+policy (18+ copy locked) |
 | `app/app/characters*` | Roster, New wizard (Starters \| From library), pack detail |
 | `app/app/create` | Composer chip shell |
-| `app/app/library` | Own stills only (stub review also shows fictional Mara placeholders) |
+| `app/app/library` | Own stills only (stub review also shows fictional Mara placeholders). Tap a tile for the 3:4 detail sheet. Download / Share stay Stage 1 stubs. |
 | `app/api/demo-pack` | Stub seed catalog + drop path for 8–20 fictional refs |
 | `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` |
 | `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |

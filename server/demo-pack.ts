@@ -145,6 +145,8 @@ export function listPublicDemoLibraryStills() {
     label: row.label,
     packName: row.packName,
     demo: true as const,
+    createdAt: DEMO_CREATED_AT.toISOString(),
+    aspectRatio: "3:4" as const,
   }));
 }
 
