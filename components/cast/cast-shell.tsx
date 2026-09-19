@@ -52,7 +52,7 @@ function SidebarChrome(props: { admin?: boolean; email?: string }) {
   return (
     <>
       <div className="px-3 pt-5 pb-4">
-        <Wordmark href="/app/characters" size="sm" />
+        <Wordmark href="/app/characters" size="sm" collapse="none" />
       </div>
       <div className="flex-1 px-2">
         <NavLinks admin={props.admin} />

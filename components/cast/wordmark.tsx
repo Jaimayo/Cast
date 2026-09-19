@@ -1,49 +1,123 @@
 import { cn } from "@/lib/utils";
 
+/** Inter Medium "CAST" at 30px, tracking 0.30em. Matches public/brand/w1-wordmark.svg. */
+const CAST_PATH =
+  "M11.48 22.9Q8.64 22.9 6.42 21.56Q4.2 20.21 2.93 17.7Q1.66 15.2 1.66 11.71Q1.66 8.21 2.94 5.7Q4.22 3.19 6.44 1.84Q8.66 0.49 11.48 0.49Q13.78 0.49 15.69 1.36Q17.59 2.23 18.85 3.88Q20.11 5.53 20.48 7.84H17.12Q16.71 5.76 15.14 4.65Q13.56 3.54 11.51 3.54Q9.64 3.54 8.16 4.48Q6.68 5.43 5.82 7.25Q4.97 9.07 4.97 11.71Q4.97 14.36 5.82 16.18Q6.68 18 8.16 18.93Q9.64 19.86 11.51 19.86Q13.56 19.86 15.14 18.74Q16.71 17.61 17.12 15.53H20.49Q20.16 17.7 18.93 19.36Q17.71 21.01 15.8 21.96Q13.89 22.9 11.48 22.9Z M31.75 22.61 39.51 0.78H43.61L51.52 22.61H47.91L45.9 16.85H37.32L35.37 22.61ZM38.27 14.07H44.92L43.66 10.47Q43.22 9.16 42.71 7.44Q42.19 5.72 41.55 3.41Q40.9 5.75 40.4 7.49Q39.89 9.22 39.48 10.47Z M71.01 22.98Q67.34 22.98 65.15 21.26Q62.97 19.53 62.82 16.55H66.18Q66.33 18.33 67.72 19.19Q69.11 20.05 71 20.05Q73.08 20.05 74.44 19.08Q75.8 18.11 75.8 16.53Q75.8 15.11 74.61 14.41Q73.42 13.72 71.66 13.25L69.11 12.55Q66.43 11.83 64.93 10.42Q63.42 9.02 63.42 6.78Q63.42 4.89 64.44 3.47Q65.46 2.06 67.21 1.27Q68.96 0.49 71.16 0.49Q73.4 0.49 75.11 1.27Q76.81 2.06 77.79 3.43Q78.76 4.8 78.81 6.53H75.55Q75.39 5.03 74.17 4.21Q72.95 3.39 71.09 3.39Q69.11 3.39 67.94 4.29Q66.76 5.19 66.76 6.58Q66.76 7.62 67.39 8.26Q68.02 8.9 68.94 9.27Q69.86 9.65 70.69 9.87L72.81 10.42Q73.85 10.69 74.96 11.13Q76.07 11.58 77 12.29Q77.94 13 78.52 14.05Q79.1 15.1 79.1 16.57Q79.1 18.42 78.15 19.87Q77.19 21.32 75.39 22.15Q73.58 22.98 71.01 22.98Z M90.97 3.65V0.78H107.92V3.65H101.14V22.61H97.78V3.65Z";
+
+type LogoSize = "sm" | "md" | "lg";
+
+const MARK: Record<LogoSize, string> = {
+  sm: "h-7 w-[21px]",
+  md: "h-8 w-6",
+  lg: "h-12 w-9",
+};
+
+const LETTERS: Record<LogoSize, string> = {
+  sm: "h-[13px] w-[61px]",
+  md: "h-[15px] w-[71px]",
+  lg: "h-[22px] w-[104px]",
+};
+
+const GAP: Record<LogoSize, string> = {
+  sm: "gap-2.5",
+  md: "gap-3",
+  lg: "gap-3.5",
+};
+
+/** F1 — simple rounded still-frame with center bar. */
 export function CastMark(props: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 32 40"
+      viewBox="0 0 36 48"
       className={cn("text-primary", props.className)}
       aria-hidden
     >
       <rect
-        x="3.5"
-        y="3.5"
-        width="25"
-        height="33"
-        rx="2.5"
+        x="1.2"
+        y="1.2"
+        width="33.6"
+        height="45.6"
+        rx="5.5"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.4"
+        strokeWidth="2.4"
       />
-      <rect x="8" y="8" width="16" height="12" rx="1" fill="currentColor" opacity="0.18" />
-      <circle cx="16" cy="26" r="1.6" fill="currentColor" />
+      <line
+        x1="8.5"
+        y1="24"
+        x2="27.5"
+        y2="24"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
-export function Wordmark(props: { href?: string; className?: string; size?: "sm" | "md" | "lg" }) {
-  const size = props.size ?? "md";
-  const content = (
-    <span className={cn("inline-flex items-center gap-2 text-foreground", props.className)}>
-      <CastMark
-        className={cn(size === "lg" ? "h-8 w-6" : size === "sm" ? "h-5 w-4" : "h-6 w-5")}
+/** W1 — tracked CAST with hairline underline. */
+export function CastWordmark(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 109.24 29.81"
+      className={cn("text-primary", props.className)}
+      aria-hidden
+    >
+      <path d={CAST_PATH} fill="currentColor" />
+      <line
+        x1="0"
+        y1="28.21"
+        x2="109.24"
+        y2="28.21"
+        stroke="currentColor"
+        strokeWidth="1.2"
       />
-      <span
-        className={cn(
-          "font-heading tracking-tight",
-          size === "lg" ? "text-4xl md:text-5xl" : size === "sm" ? "text-lg" : "text-xl",
-        )}
-      >
-        Cast
-      </span>
+    </svg>
+  );
+}
+
+function CastLetters(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 109.24 23.2"
+      className={cn("text-primary", props.className)}
+      aria-hidden
+    >
+      <path d={CAST_PATH} fill="currentColor" />
+    </svg>
+  );
+}
+
+/** L1 — F1 mark + tracked CAST. Collapses to F1 on very narrow viewports. */
+export function Wordmark(props: {
+  href?: string;
+  className?: string;
+  size?: LogoSize;
+  collapse?: "mark" | "none";
+}) {
+  const size = props.size ?? "md";
+  const collapse = props.collapse ?? "mark";
+  const content = (
+    <span
+      className={cn("inline-flex items-center text-primary", GAP[size], props.className)}
+    >
+      <CastMark className={MARK[size]} />
+      <CastLetters
+        className={cn(LETTERS[size], collapse === "mark" && "max-[22rem]:hidden")}
+      />
     </span>
   );
 
-  if (!props.href) return content;
+  if (!props.href) {
+    return (
+      <span className="inline-flex" role="img" aria-label="Cast">
+        {content}
+      </span>
+    );
+  }
+
   return (
-    <a href={props.href} className="inline-flex">
+    <a href={props.href} className="inline-flex" aria-label="Cast">
       {content}
     </a>
   );

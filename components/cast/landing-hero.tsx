@@ -13,7 +13,7 @@ function EditorialFrame(props: { className?: string }) {
       )}
     >
       <div className="cast-vignette absolute inset-0" />
-      <CastMark className="absolute top-1/2 left-1/2 h-10 w-8 -translate-x-1/2 -translate-y-1/2 opacity-40" />
+      <CastMark className="absolute top-1/2 left-1/2 h-10 w-[30px] -translate-x-1/2 -translate-y-1/2 opacity-40" />
     </div>
   );
 }
@@ -23,7 +23,7 @@ export function LandingHero() {
     <div className="relative flex min-h-dvh flex-col">
       <VoidAtmosphere />
       <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <Wordmark href="/" size="sm" />
+        <Wordmark href="/" size="sm" collapse="none" />
         <StatusBadge left="Access" right="Invite-only" status="warning" />
       </header>
       <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-20 pt-6 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:px-10">
