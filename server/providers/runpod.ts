@@ -99,16 +99,23 @@ export function runpodTrainErrorFromHttp(status: number): JobError {
   });
 }
 
-function requireRunPodTrain() {
+function requireRunPodTrain(): {
+  apiKey: string;
+  baseUrl: string;
+  trainEndpointId: string;
+  generateEndpointId?: string;
+} {
   const env = getEnv().runpod;
-  if (!env.apiKey || !env.trainEndpointId) {
+  const apiKey = env.apiKey;
+  const trainEndpointId = env.trainEndpointId;
+  if (!apiKey || !trainEndpointId) {
     throw new JobError({
       code: JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
       userMessage: TRAIN_NOT_CONFIGURED_MESSAGE,
       retryable: false,
     });
   }
-  return env;
+  return { ...env, apiKey, trainEndpointId };
 }
 
 function mapRunPodTrainCaught(err: unknown): never {

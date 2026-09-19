@@ -162,7 +162,7 @@ describe("RunPod trainPack adapter (mocked HTTP)", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await runpodTrainAdapter.getTrainStatus("rp-train-99");
+    const result = await runpodTrainAdapter.getTrainStatus!("rp-train-99");
     expect(result.status).toBe("succeeded");
     expect(result.adapterMeta).toMatchObject({
       sourceUrl: "https://example.invalid/pack.safetensors",
@@ -177,13 +177,13 @@ describe("RunPod trainPack adapter (mocked HTTP)", () => {
   it("maps failed / timed-out vendor status onto stored train codes", async () => {
     stubRunPodTrainEnv();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ id: "rp-fail", status: "FAILED" })));
-    await expect(runpodTrainAdapter.getTrainStatus("rp-fail")).resolves.toMatchObject({
+    await expect(runpodTrainAdapter.getTrainStatus!("rp-fail")).resolves.toMatchObject({
       status: "failed",
       errorCode: JOB_ERROR_CODES.TRAIN_PACK_FAILED,
     });
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ id: "rp-to", status: "TIMED_OUT" })));
-    await expect(runpodTrainAdapter.getTrainStatus("rp-to")).resolves.toMatchObject({
+    await expect(runpodTrainAdapter.getTrainStatus!("rp-to")).resolves.toMatchObject({
       status: "failed",
       errorCode: JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT,
     });
