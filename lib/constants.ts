@@ -21,6 +21,13 @@ export const SESSION_REFRESH_REMAINING_SECONDS = Math.floor(SESSION_TTL_SECONDS 
  */
 export const MEDIA_PRESIGN_TTL_SECONDS = 120;
 
+/**
+ * Signed GET lifetime for RunPod trainPack reference downloads.
+ * Longer than studio previews: training can sit in queue for many minutes.
+ * Server-to-server only — never sent to the browser or `<img>` tags.
+ */
+export const TRAIN_REF_PRESIGN_TTL_SECONDS = 60 * 60;
+
 export const JOB_QUEUES = {
   generateStill: "generateStill",
   trainPack: "trainPack",

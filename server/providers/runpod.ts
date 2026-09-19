@@ -1,5 +1,5 @@
 import { soulAdapterSourceUrl } from "@/lib/generate-route";
-import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
+import { isRetryableHttpStatus, JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import workflowPlaceholder from "@/server/providers/comfy/train-pack-workflow.json";
 import { getEnv } from "@/server/env";
 import {
@@ -18,7 +18,9 @@ import {
 import { providerFetch } from "@/server/providers/http";
 import {
   ProviderHttpError,
+  ProviderNetworkError,
   ProviderNotConfiguredError,
+  ProviderTimeoutError,
   type GenerateStillAdapter,
   type GenerateStillInput,
   type GenerateStillResult,
@@ -26,6 +28,118 @@ import {
   type TrainPackInput,
   type TrainPackResult,
 } from "@/server/providers/types";
+
+export const TRAIN_NOT_CONFIGURED_MESSAGE = "Training isn't configured on this server.";
+export const TRAIN_BALANCE_MESSAGE = "The training service is out of credits. Try again after balance is restored.";
+export const TRAIN_RATE_LIMIT_MESSAGE = "The training service is rate-limiting requests. Try again in a moment.";
+export const TRAIN_HTTP_UNAVAILABLE_MESSAGE = "The training service is temporarily unavailable. Try again in a moment.";
+export const TRAIN_HTTP_REJECT_MESSAGE = "The training service rejected this request.";
+export const TRAIN_NETWORK_MESSAGE = "Network error talking to the training service. Try again.";
+
+export function runpodTrainRunUrl(baseUrl: string, endpointId: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/${endpointId}/run`;
+}
+
+export function runpodTrainStatusUrl(baseUrl: string, endpointId: string, providerJobId: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/${endpointId}/status/${encodeURIComponent(providerJobId)}`;
+}
+
+/**
+ * Body posted to RunPod `/run` for Soul ID trainPack.
+ * Never attach Venice / generate fields (prompt, LoRA strength, API keys).
+ */
+export function buildRunPodTrainInput(input: TrainPackInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    jobId: input.jobId,
+    characterPackId: input.characterPackId,
+    name: input.name,
+    referenceKeys: input.referenceKeys,
+    workflow: workflowPlaceholder,
+  };
+  if (input.referenceUrls && input.referenceUrls.length > 0) {
+    body.referenceUrls = input.referenceUrls;
+  }
+  return body;
+}
+
+/** Map RunPod HTTP status onto user-safe train JobErrors. Never echo vendor JSON. */
+export function runpodTrainErrorFromHttp(status: number): JobError {
+  if (status === 401 || status === 403) {
+    return new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+      userMessage: TRAIN_NOT_CONFIGURED_MESSAGE,
+      retryable: false,
+    });
+  }
+  if (status === 402) {
+    return new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_INSUFFICIENT_BALANCE,
+      userMessage: TRAIN_BALANCE_MESSAGE,
+      retryable: false,
+    });
+  }
+  if (status === 429) {
+    return new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_RATE_LIMIT,
+      userMessage: TRAIN_RATE_LIMIT_MESSAGE,
+      retryable: true,
+    });
+  }
+  if (isRetryableHttpStatus(status)) {
+    return new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_HTTP_ERROR,
+      userMessage: TRAIN_HTTP_UNAVAILABLE_MESSAGE,
+      retryable: true,
+    });
+  }
+  return new JobError({
+    code: JOB_ERROR_CODES.PROVIDER_HTTP_ERROR,
+    userMessage: TRAIN_HTTP_REJECT_MESSAGE,
+    retryable: false,
+  });
+}
+
+function requireRunPodTrain() {
+  const env = getEnv().runpod;
+  if (!env.apiKey || !env.trainEndpointId) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+      userMessage: TRAIN_NOT_CONFIGURED_MESSAGE,
+      retryable: false,
+    });
+  }
+  return env;
+}
+
+function mapRunPodTrainCaught(err: unknown): never {
+  if (err instanceof JobError) {
+    throw err;
+  }
+  if (err instanceof ProviderNotConfiguredError) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
+      userMessage: TRAIN_NOT_CONFIGURED_MESSAGE,
+      retryable: false,
+    });
+  }
+  if (err instanceof ProviderTimeoutError) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.TRAIN_PACK_TIMEOUT,
+      retryable: false,
+    });
+  }
+  if (err instanceof ProviderNetworkError) {
+    throw new JobError({
+      code: JOB_ERROR_CODES.NETWORK_ERROR,
+      userMessage: TRAIN_NETWORK_MESSAGE,
+      retryable: true,
+    });
+  }
+  if (err instanceof ProviderHttpError) {
+    throw runpodTrainErrorFromHttp(err.status);
+  }
+  throw err;
+}
 
 type RunPodRunResponse = {
   id?: string;
@@ -106,29 +220,22 @@ function toTrainResult(payload: RunPodRunResponse, fallbackJobId: string): Train
 export const runpodTrainAdapter: TrainPackAdapter = {
   name: "runpod",
   async trainPack(input: TrainPackInput): Promise<TrainPackResult> {
-    const env = getEnv().runpod;
-    if (!env.apiKey || !env.trainEndpointId) {
-      throw new ProviderNotConfiguredError("runpod");
+    const env = requireRunPodTrain();
+    try {
+      const result = await runpodPost(env.trainEndpointId, buildRunPodTrainInput(input));
+      return toTrainResult(result, result.id ?? input.jobId);
+    } catch (err) {
+      mapRunPodTrainCaught(err);
     }
-
-    const payload = {
-      jobId: input.jobId,
-      characterPackId: input.characterPackId,
-      name: input.name,
-      referenceKeys: input.referenceKeys,
-      workflow: workflowPlaceholder,
-    };
-
-    const result = await runpodPost(env.trainEndpointId, payload);
-    return toTrainResult(result, result.id ?? input.jobId);
   },
   async getTrainStatus(providerJobId: string): Promise<TrainPackResult> {
-    const env = getEnv().runpod;
-    if (!env.apiKey || !env.trainEndpointId) {
-      throw new ProviderNotConfiguredError("runpod");
+    const env = requireRunPodTrain();
+    try {
+      const result = await runpodStatus(env.trainEndpointId, providerJobId);
+      return toTrainResult(result, providerJobId);
+    } catch (err) {
+      mapRunPodTrainCaught(err);
     }
-    const result = await runpodStatus(env.trainEndpointId, providerJobId);
-    return toTrainResult(result, providerJobId);
   },
 };
 

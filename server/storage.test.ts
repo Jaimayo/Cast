@@ -6,6 +6,7 @@ import {
   mediaKey,
   ObjectNotFoundError,
   presignGetUrl,
+  presignGetUrlForTrain,
   putObject,
   readObject,
 } from "@/server/storage";
@@ -69,6 +70,7 @@ describe("local storage fallback", () => {
 describe("presigned GET expiry", () => {
   it("does not mint an R2 URL when S3 is unset", async () => {
     await expect(presignGetUrl("still/test/x.webp")).rejects.toThrow(/S3 is not configured/);
+    await expect(presignGetUrlForTrain("still/test/x.webp", 3600)).rejects.toThrow(/S3 is not configured/);
   });
 
   it("clamps TTL so callers cannot mint a long-lived GET", () => {
