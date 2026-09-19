@@ -4,6 +4,11 @@ export const APP_NAME = "Cast";
 export const PACK_MIN_REFS = 12;
 export const PACK_TARGET_REFS = 20;
 
+/** Fictional reference pictures — file picker only (no camera). */
+export const PACK_REF_MAX_BYTES = 8 * 1024 * 1024;
+export const PACK_REF_ACCEPT = ["image/jpeg", "image/png", "image/webp"] as const;
+export const PACK_REF_ACCEPT_ATTR = "image/jpeg,image/png,image/webp";
+
 export const SESSION_COOKIE = "cast_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 /** Remint the signed cookie when less than half the TTL remains. */

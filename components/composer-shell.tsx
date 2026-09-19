@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChipRail } from "@/components/chip-rail";
+import { EmptyState } from "@/components/empty-state";
 import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
 import { HeroCanvas } from "@/components/hero-canvas";
+import { LoadingState } from "@/components/loading-state";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
-import { isLockedSoul, LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+import { canGenerateStill, generateDisabledReason, GENERATE_IN_PROGRESS_COPY } from "@/lib/generate-affordances";
+import { isLockedSoul } from "@/lib/soul";
 
 type Chip = { id: string; label: string };
 type Pack = { id: string; name: string; status: string };
@@ -48,9 +51,16 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [watchingId, setWatchingId] = useState<string | null>(null);
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  const [attested, setAttested] = useState(true);
 
   useEffect(() => {
+    void api<{ user: { ageAttestedAt: string | null } | null }>("/api/auth/session")
+      .then((data) => setAttested(Boolean(data.user?.ageAttestedAt)))
+      .catch(() => {
+        /* Layout already gated; keep Generate available if session read fails. */
+      });
     void Promise.all([
       api<{ pose: Chip[]; outfit: Chip[]; scene: Chip[]; lighting: Chip[]; body: Chip[] }>("/api/chips"),
       api<{ packs: Pack[] }>("/api/packs"),
@@ -96,8 +106,10 @@ export function ComposerShell(props: { initialPackId?: string }) {
   const locked = Boolean(selected && isLockedSoul(selected.status));
   const focus = spotlightPack(packs, props.initialPackId);
   const training = focus?.status === "training" || selected?.status === "training";
-  const canGenerate = locked && Boolean(poseChipId);
-  const disabledReason = !locked ? LOCK_SOUL_ID_FIRST : !poseChipId ? "Pick a Pose" : undefined;
+  const generateGate = { attested, locked, poseChipId };
+  const canGenerate = canGenerateStill(generateGate);
+  const disabledReason = generateDisabledReason(generateGate);
+  const generating = Boolean(watchingId);
 
   const characterName = selected?.name;
 
@@ -112,6 +124,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
         setHeroUrl(data.job.previewUrl);
       }
       if (data.job.status === "succeeded" || data.job.status === "failed") {
+        setWatchingId(null);
         if (data.job.status === "failed") {
           setError(data.job.lastError || "Generate failed. Try again.");
         }
@@ -139,8 +152,11 @@ export function ComposerShell(props: { initialPackId?: string }) {
         }),
       });
       setMessage(`Queued still ${result.job.id}. Prompt stays hidden.`);
+      setWatchingId(result.job.id);
       setJobs((prev) => [{ id: result.job.id, kind: "generate_still", status: "queued", previewUrl: null }, ...prev].slice(0, 8));
-      void watchJob(result.job.id);
+      void watchJob(result.job.id).finally(() => {
+        setWatchingId((current) => (current === result.job.id ? null : current));
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed");
     } finally {
@@ -154,7 +170,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
   );
 
   if (!chips) {
-    return <p className="muted">Loading composer…</p>;
+    return <LoadingState label="Loading composer…" />;
   }
 
   return (
@@ -189,12 +205,16 @@ export function ComposerShell(props: { initialPackId?: string }) {
             previewUrl={heroUrl}
             packId={focus?.id}
             training={training}
+            generating={generating}
           />
           {error ? <p className="error">{error}</p> : null}
+          {generating ? <p className="ok">{GENERATE_IN_PROGRESS_COPY}</p> : null}
+          {disabledReason ? <p className="generate-reason">{disabledReason}</p> : null}
           <div className="actions" style={{ marginTop: 0 }}>
             <GenerateButton
               disabled={!canGenerate}
               pending={pending}
+              inProgress={generating}
               disabledReason={disabledReason}
               onClick={() => void generate()}
             />
@@ -208,7 +228,14 @@ export function ComposerShell(props: { initialPackId?: string }) {
         </div>
         <aside className="history-rail">
           <h4>History</h4>
-          {history.length === 0 ? <p>Session stills will land here.</p> : null}
+          {history.length === 0 ? (
+            <EmptyState
+              compact
+              kicker="Session"
+              title="No stills yet"
+              body="Generate a still and it will land here. Prompt stays hidden."
+            />
+          ) : null}
           {history.map((job) => (
             <div key={job.id} className="history-item">
               {job.previewUrl ? (
@@ -216,8 +243,8 @@ export function ComposerShell(props: { initialPackId?: string }) {
                   <StillPreview src={job.previewUrl} alt="Still" />
                 </button>
               ) : (
-                <p>
-                  {job.status} · {job.id.slice(0, 8)}
+                <p className={job.id === watchingId ? "ok" : undefined}>
+                  {job.id === watchingId ? GENERATE_IN_PROGRESS_COPY : `${job.status} · ${job.id.slice(0, 8)}`}
                   {job.status === "failed" && job.lastError ? (
                     <>
                       <br />

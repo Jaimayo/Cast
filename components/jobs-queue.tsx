@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingState } from "@/components/loading-state";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { jobQueuePresentation, type JobDisplayInput } from "@/lib/job-display";
@@ -25,6 +27,7 @@ function noteClass(tone: string | null): string {
 
 export function JobsQueue() {
   const [jobs, setJobs] = useState<StudioJob[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<StudioJob | null>(null);
@@ -46,6 +49,8 @@ export function JobsQueue() {
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load jobs");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
     void load();
@@ -111,11 +116,15 @@ export function JobsQueue() {
         Stub mode never calls vendors. Failures and retries appear in this list.
       </p>
       {error ? <p className="error">{error}</p> : null}
+      {loading ? <LoadingState label="Loading jobs…" /> : null}
 
-      {jobs.length === 0 && !error ? (
-        <p className="muted">
-          No jobs yet. Generate from Create, or Train & lock a character. Failures show up here.
-        </p>
+      {!loading && jobs.length === 0 && !error ? (
+        <EmptyState
+          kicker="Queue"
+          title="No jobs yet"
+          body="Generate from Create, or Train & lock a character. Failures and retries show up here with the same user-safe sentences the queue already stores."
+          action={{ href: "/app/create", label: "Open Create" }}
+        />
       ) : null}
 
       {jobs.length > 0 ? (
