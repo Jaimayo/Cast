@@ -2,17 +2,18 @@ import { cn } from "@/lib/utils";
 
 type LogoSize = "sm" | "md" | "lg";
 
-/** Tight crop of production 280×40 L1 (content occupies the left ~147×40). */
+/** Crop production 280×48 L1 to the mark + CAST (left ~162×48). */
 const LOCKUP: Record<LogoSize, string> = {
-  sm: "h-7 w-[103px]",
-  md: "h-8 w-[118px]",
-  lg: "h-12 w-[176px]",
+  sm: "h-7 w-[95px]",
+  md: "h-8 w-[108px]",
+  lg: "h-12 w-[162px]",
 };
 
+/** Crop production 200×40 W1 to the tracked CAST (left ~96×40). */
 const W1: Record<LogoSize, string> = {
-  sm: "h-[18px] w-[67px]",
-  md: "h-5 w-[74px]",
-  lg: "h-8 w-[118px]",
+  sm: "h-6 w-[58px]",
+  md: "h-7 w-[67px]",
+  lg: "h-9 w-[86px]",
 };
 
 /** F1 — simple rounded still-frame with center bar. */
@@ -27,14 +28,14 @@ export function CastMark(props: { className?: string }) {
   );
 }
 
-/** W1 — tracked CAST with hairline underline. */
+/** W1 — tracked CAST wordmark. */
 export function CastWordmark(props: { className?: string }) {
   return (
     <img
       src="/brand/cast-wordmark-w1-transparent.svg"
       alt=""
       draggable={false}
-      className={cn("select-none", props.className)}
+      className={cn("select-none object-left object-cover", props.className)}
     />
   );
 }
@@ -55,8 +56,7 @@ export function Wordmark(props: {
       alt=""
       draggable={false}
       className={cn(
-        "select-none",
-        l1 ? "object-left object-cover" : "object-contain",
+        "select-none object-left object-cover",
         l1 ? LOCKUP[size] : W1[size],
         props.className,
       )}

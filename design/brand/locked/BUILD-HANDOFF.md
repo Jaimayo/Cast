@@ -1,18 +1,21 @@
-# Build handoff — locked Cast logo
+# Build handoff — Cast L1 logo (LOCKED)
 
-Copy `design/brand/locked/svg/*` into `public/brand/` (same filenames).
+**Copy from:** `/workspace/cast-handoff/design/brand/locked/svg/`  
+**Authority:** `STAGE1-LOGO-LOCKED.md`
 
-## Wire
+## Copy these into the Cast repo
 
-| Surface | Asset |
-| --- | --- |
-| Landing header | L1 transparent (`cast-lockup-l1-transparent.svg`) |
-| Invite + age headers | L1 transparent |
-| Studio sidebar | L1 transparent |
-| Narrow / mobile chrome | W1 transparent (`cast-wordmark-w1-transparent.svg`) |
-| Editorial frames / empty composer | F1 (`cast-mark-f1.svg`) |
-| Favicon | `cast-favicon.svg` (+ 16/32 PNG, `favicon.ico`) |
+1. `cast-lockup-l1-transparent.svg` → landing, invite, age, app header  
+2. `cast-wordmark-w1-transparent.svg` → narrow header fallback  
+3. `cast-favicon.svg` → `public/favicon.svg`  
+4. `cast-favicon-16.svg` / `cast-favicon-32.svg` → rasterize to PNG if needed  
+5. Optional: `cast-mark-f1.svg` for mark-only moments  
 
-Chrome should crop the 280×40 lockup to the left content (`object-left object-cover` on a ~147×40 box) so the empty canvas does not inflate the hit area.
+## Usage rules
 
-Do not invent new marks. Age copy stays exact: **I confirm I am 18+.**
+- Landing / invite / age → **L1**  
+- Chrome → **L1** compact, else **W1**  
+- Favicon → **ICON** (`cast-favicon`)  
+- Colors on void only: champagne `#C4A574`, type `#F4F1EA`  
+
+No new logo directions. Optical polish already applied.
