@@ -32,6 +32,7 @@ import {
 } from "@/lib/demo-pack";
 import { parseMediaId } from "@/lib/media";
 import { isLockedSoul } from "@/lib/soul";
+import { LIBRARY_EMPTY_BODY, LIBRARY_DETAIL_EMPTY_BODY } from "@/lib/library-still";
 import { TEST_GRID_FICTIONAL_COPY } from "@/lib/test-grid";
 
 describe("stub demo Character Packs", () => {
@@ -111,6 +112,8 @@ describe("stub demo Character Packs", () => {
       DEMO_PACK_READ_ONLY_MESSAGE,
       DEMO_PACK_CREATE_MESSAGE,
       DEMO_LIBRARY_COPY,
+      LIBRARY_EMPTY_BODY,
+      LIBRARY_DETAIL_EMPTY_BODY,
       TEST_GRID_FICTIONAL_COPY,
     ]) {
       expect(demoCopyIsFictionalOnly(text)).toBe(true);

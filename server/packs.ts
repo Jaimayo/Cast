@@ -1123,9 +1123,20 @@ export async function listLibraryStills(userId: string) {
   }
   const db = getDb();
   const rows = await db
-    .select()
+    .select({
+      asset: mediaAssets,
+      packName: characterPacks.name,
+    })
     .from(mediaAssets)
+    .leftJoin(characterPacks, eq(characterPacks.id, mediaAssets.characterPackId))
     .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.kind, "still")))
     .orderBy(desc(mediaAssets.createdAt));
-  return [...demo, ...rows.map((row) => publicMediaAsset(row))];
+  return [
+    ...demo,
+    ...rows.map((row) => ({
+      ...publicMediaAsset(row.asset),
+      packName: row.packName ?? null,
+      demo: false as const,
+    })),
+  ];
 }
