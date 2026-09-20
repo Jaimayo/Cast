@@ -8,11 +8,13 @@ function readBrand(name: string) {
 }
 
 describe("locked L1 brand pack", () => {
-  it("serves the aligned L1 lockup on the production filename", () => {
+  it("serves the optical v2 L1 lockup on the production filename", () => {
     const svg = readBrand("cast-lockup-l1-transparent.svg");
     expect(svg).toContain('viewBox="0 0 280 40"');
     expect(svg).toContain('dominant-baseline="central"');
-    expect(svg).toContain("translate(22,20)");
+    expect(svg).toContain('dy="0.06em"');
+    expect(svg).toContain("translate(20,20)");
+    expect(svg).toContain("letter-spacing=\"0.16em\"");
     expect(svg).toContain("#C4A574");
     expect(svg).toContain("#F4F1EA");
     expect(svg).toContain("CAST");
@@ -23,6 +25,16 @@ describe("locked L1 brand pack", () => {
     expect(readBrand("cast-mark-f1.svg")).toContain("Cast F1 mark");
     expect(readBrand("cast-favicon.svg")).toContain("Cast favicon");
     expect(readFileSync(resolve(process.cwd(), "public/favicon.svg"), "utf8")).toContain("Cast favicon");
+  });
+
+  it("renders the header lockup as a block image without object-cover crop", () => {
+    const css = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8");
+    const lockupRule = css.match(/\.cast-lockup\s*\{[^}]+\}/);
+    expect(lockupRule?.[0]).toContain("display: block");
+    expect(lockupRule?.[0]).toContain("width: auto");
+    expect(lockupRule?.[0]).not.toContain("object-fit: cover");
+    expect(css).toMatch(/\.cast-brand\s*\{[^}]*align-items:\s*center/s);
+    expect(css).toMatch(/\.cast-lockup\.is-sm\s*\{[^}]*height:\s*1\.75rem/s);
   });
 
   it("does not change the locked 18+ attest copy", () => {

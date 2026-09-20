@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Cast — private character studio",
-  description: "Invite-only private studio for fictional adult stills. No public gallery.",
+  description: "Private studio for all your imaginations. Invite-only. Consistent characters.",
   applicationName: "Cast",
   icons: {
     icon: [

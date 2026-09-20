@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PRIVACY_TOOLTIP_COPY } from "@/lib/privacy-copy";
 
 export function PrivacyStrip() {
   const [open, setOpen] = useState(false);
@@ -14,9 +15,8 @@ export function PrivacyStrip() {
   }
 
   return (
-    <div className="banner privacy-strip">
-      Generations stay private to your account. Stills are stored briefly so jobs can finish. Credits
-      come later.{" "}
+    <div className="banner privacy-strip" title={PRIVACY_TOOLTIP_COPY}>
+      {PRIVACY_TOOLTIP_COPY}{" "}
       <button
         className="btn secondary"
         type="button"

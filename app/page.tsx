@@ -1,23 +1,31 @@
 import { GateHeader } from "@/components/gate-header";
+import { LandingHeroVisual } from "@/components/landing-hero-visual";
+import { LANDING_BADGES } from "@/lib/landing-copy";
 
 export default function LandingPage() {
   return (
     <>
       <GateHeader />
       <main>
-        <section className="wrap hero">
-          <div className="kicker">Invite only · Adults only · Fictional characters</div>
-          <h1>Private fictional studio for adults.</h1>
-          <p className="lede">
-            Cast is invite-only. Create a consistent fictional character, then direct stills with
-            structured chips — no public gallery, no real-person likeness tools.
-          </p>
-          <div className="actions">
-            <a className="btn" href="/invite">
-              Enter with invite
-            </a>
+        <section className="wrap landing-hero">
+          <div className="landing-copy">
+            <div className="landing-badges" aria-label={LANDING_BADGES.join(" · ")}>
+              <span className="landing-badge">Invite only</span>
+              <span className="landing-badge">Adults only</span>
+              <span className="landing-badge">Consistent characters</span>
+            </div>
+            <h1>Private studio for all your imaginations.</h1>
+            <p className="lede">
+              Cast is invite-only. Create a consistent fictional character, then direct stills with
+              structured chips.
+            </p>
+            <div className="actions">
+              <a className="btn" href="/invite">
+                Enter with invite
+              </a>
+            </div>
           </div>
-          <p className="muted">No public gallery.</p>
+          <LandingHeroVisual />
         </section>
       </main>
     </>
