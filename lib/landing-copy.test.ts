@@ -62,6 +62,7 @@ describe("Stage 1 landing copy", () => {
     expect(visual).toContain("Scene");
     expect(visual).toContain("Lighting");
     expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("toUpperCase");
     expect(visual).not.toMatch(/No public gallery/i);
   });
 
