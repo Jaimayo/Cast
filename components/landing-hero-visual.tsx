@@ -87,7 +87,7 @@ export function LandingHeroVisual() {
             fontSize="13"
             letterSpacing="4.2"
           >
-            {LANDING_VISUAL_NAMES.toUpperCase()}
+            {LANDING_VISUAL_NAMES}
           </text>
           <text
             x="0"
