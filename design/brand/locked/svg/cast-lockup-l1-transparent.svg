@@ -1,8 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="280" height="40" viewBox="0 0 280 40" role="img" aria-label="Cast L1 lockup">
-  <!-- Shared optical mid-line at y=20: mark + CAST centered together -->
-  <g transform="translate(22,20)">
-    <rect x="-18" y="-12" width="36" height="24" rx="3" fill="none" stroke="#C4A574" stroke-width="2"/>
-    <rect x="-7" y="-1.25" width="14" height="2.5" rx="1.25" fill="#C4A574"/>
+  <!-- Mid-line y=20. Mark geometric center on mid-line.
+       CAST uses dominant-baseline=central then dy=0.06em so CAPS optical center hits mid-line
+       (em-box central sits below CAPS visual mid). -->
+  <g transform="translate(20,20)">
+    <rect x="-16" y="-11" width="32" height="22" rx="2.5" fill="none" stroke="#C4A574" stroke-width="1.85"/>
+    <rect x="-6.5" y="-1.15" width="13" height="2.3" rx="1.15" fill="#C4A574"/>
   </g>
-  <text x="52" y="20" dominant-baseline="central" alignment-baseline="middle" font-family="system-ui, -apple-system, 'Helvetica Neue', 'Segoe UI', sans-serif" font-size="26" font-weight="500" letter-spacing="0.18em" fill="#F4F1EA">CAST</text>
+  <text x="48" y="20" dy="0.06em" dominant-baseline="central" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="24" font-weight="500" letter-spacing="0.16em" fill="#F4F1EA">CAST</text>
 </svg>

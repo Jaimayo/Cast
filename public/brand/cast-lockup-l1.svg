@@ -1,9 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-label="Cast L1 lockup">
   <rect width="960" height="540" fill="#07070A"/>
-  <!-- Optical mid at y=270 -->
-  <g transform="translate(330,270)">
+  <g transform="translate(318,270)">
     <rect x="-28" y="-18" width="56" height="36" rx="4" fill="none" stroke="#C4A574" stroke-width="2.5"/>
     <rect x="-10" y="-1.5" width="20" height="3" rx="1.5" fill="#C4A574"/>
   </g>
-  <text x="378" y="270" dominant-baseline="central" alignment-baseline="middle" font-family="system-ui, -apple-system, 'Helvetica Neue', 'Segoe UI', sans-serif" font-size="48" font-weight="500" letter-spacing="0.18em" fill="#F4F1EA">CAST</text>
+  <text x="364" y="270" dy="0.06em" dominant-baseline="central" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="48" font-weight="500" letter-spacing="0.16em" fill="#F4F1EA">CAST</text>
 </svg>

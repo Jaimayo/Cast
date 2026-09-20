@@ -41,22 +41,18 @@ export function Wordmark(props: {
   const content = (
     <img
       src={l1 ? "/brand/cast-lockup-l1-transparent.svg" : "/brand/cast-wordmark-w1-transparent.svg"}
-      alt=""
+      alt="Cast"
       draggable={false}
       className={cx(l1 ? "cast-lockup" : "cast-w1", `is-${size}`, props.className)}
     />
   );
 
   if (!props.href) {
-    return (
-      <span className="cast-brand" role="img" aria-label="Cast">
-        {content}
-      </span>
-    );
+    return <span className="cast-brand">{content}</span>;
   }
 
   return (
-    <a href={props.href} className="cast-brand" aria-label="Cast">
+    <a href={props.href} className="cast-brand">
       {content}
     </a>
   );
