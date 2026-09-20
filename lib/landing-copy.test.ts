@@ -11,6 +11,7 @@ import {
   LANDING_VISUAL_CAPTION,
   LANDING_VISUAL_NAMES,
 } from "@/lib/landing-copy";
+import { PRIVACY_TOOLTIP_COPY } from "@/lib/privacy-copy";
 
 function readRepo(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -68,5 +69,15 @@ describe("Stage 1 landing copy", () => {
     expect(AGE_ATTEST_COPY).toBe("I confirm I am 18+.");
     expect(readRepo("lib/age-attest.ts")).toContain('export const AGE_ATTEST_COPY = "I confirm I am 18+.";');
     expect(readRepo("components/age-policy-attest.tsx")).toContain("AGE_ATTEST_COPY");
+  });
+
+  it("locks the in-app Privacy tooltip and omits gallery wording", () => {
+    expect(PRIVACY_TOOLTIP_COPY).toBe("Generations stay private to your account.");
+    expect(PRIVACY_TOOLTIP_COPY).not.toMatch(/No public gallery/i);
+    const strip = readRepo("components/privacy-strip.tsx");
+    expect(strip).toContain("PRIVACY_TOOLTIP_COPY");
+    expect(strip).not.toMatch(/No public gallery/i);
+    expect(readRepo("components/studio-chrome.tsx")).not.toMatch(/No public gallery/i);
+    expect(readRepo("components/gate-header.tsx")).not.toMatch(/No public gallery/i);
   });
 });
