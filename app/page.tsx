@@ -1,6 +1,6 @@
 import { GateHeader } from "@/components/gate-header";
 import { LandingHeroVisual } from "@/components/landing-hero-visual";
-import { LANDING_BADGES, LANDING_BODY, LANDING_CTA, LANDING_HEADLINE } from "@/lib/landing-copy";
+import { LANDING_BADGES } from "@/lib/landing-copy";
 
 export default function LandingPage() {
   return (
@@ -9,18 +9,19 @@ export default function LandingPage() {
       <main>
         <section className="wrap landing-hero">
           <div className="landing-copy">
-            <div className="landing-badges">
-              {LANDING_BADGES.map((badge) => (
-                <span className="landing-badge" key={badge}>
-                  {badge}
-                </span>
-              ))}
+            <div className="landing-badges" aria-label={LANDING_BADGES.join(" · ")}>
+              <span className="landing-badge">Invite only</span>
+              <span className="landing-badge">Adults only</span>
+              <span className="landing-badge">Consistent characters</span>
             </div>
-            <h1>{LANDING_HEADLINE}</h1>
-            <p className="lede">{LANDING_BODY}</p>
+            <h1>Private studio for all your imaginations.</h1>
+            <p className="lede">
+              Cast is invite-only. Create a consistent fictional character, then direct stills with
+              structured chips.
+            </p>
             <div className="actions">
               <a className="btn" href="/invite">
-                {LANDING_CTA}
+                Enter with invite
               </a>
             </div>
           </div>

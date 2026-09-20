@@ -31,10 +31,14 @@ describe("Stage 1 landing copy", () => {
 
   it("renders those strings on the landing page and omits gallery / likeness marketing", () => {
     const page = readRepo("app/page.tsx");
-    expect(page).toContain("LANDING_BADGES");
-    expect(page).toContain("LANDING_HEADLINE");
-    expect(page).toContain("LANDING_BODY");
-    expect(page).toContain("LANDING_CTA");
+    expect(page).toContain("Invite only");
+    expect(page).toContain("Adults only");
+    expect(page).toContain("Consistent characters");
+    expect(page).toContain("Private studio for all your imaginations.");
+    expect(page).toContain(
+      "Cast is invite-only. Create a consistent fictional character, then direct stills with",
+    );
+    expect(page).toContain("Enter with invite");
     expect(page).toContain("LandingHeroVisual");
     expect(page).not.toMatch(/No public gallery/i);
     expect(page).not.toMatch(/real-person likeness/i);
@@ -46,6 +50,18 @@ describe("Stage 1 landing copy", () => {
     expect(readRepo("app/invite/page.tsx")).not.toMatch(/No public gallery/i);
     expect(readRepo("components/invite-form.tsx")).not.toMatch(/No public gallery/i);
     expect(readRepo("components/invite-form.tsx")).not.toMatch(/real-person likeness/i);
+  });
+
+  it("paints a champagne card stack in the landing right column", () => {
+    const visual = readRepo("components/landing-hero-visual.tsx");
+    expect(visual).toContain("landing-visual-svg");
+    expect(visual).toContain("#C4A574");
+    expect(visual).toContain("#0E0E14");
+    expect(visual).toContain("Pose");
+    expect(visual).toContain("Scene");
+    expect(visual).toContain("Lighting");
+    expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toMatch(/No public gallery/i);
   });
 
   it("does not change the locked 18+ attest copy", () => {

@@ -191,118 +191,18 @@ h3 {
 
 .landing-visual {
   position: relative;
-  min-height: 460px;
+  min-height: 520px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 28px;
+  padding: 4px 8px;
+}
+
+.landing-visual-svg {
+  display: block;
+  width: min(460px, 100%);
+  height: auto;
   overflow: visible;
-}
-
-.landing-visual-glow {
-  position: absolute;
-  width: 92%;
-  height: 90%;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 48% 42%, rgba(196, 165, 116, 0.32), transparent 58%),
-    radial-gradient(circle at 56% 58%, rgba(72, 56, 110, 0.55), transparent 68%);
-  filter: blur(34px);
-  pointer-events: none;
-}
-
-.landing-stack {
-  position: relative;
-  width: min(400px, 100%);
-  aspect-ratio: 3 / 4;
-}
-
-.landing-card {
-  position: absolute;
-  inset: 6% 10% 8% 8%;
-  border-radius: 28px;
-  border: 1px solid rgba(196, 165, 116, 0.38);
-  background: #0e0e14;
-  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.48);
-}
-
-.landing-card.is-back-2 {
-  transform: rotate(9deg) translate(26px, -16px);
-  opacity: 0.7;
-}
-
-.landing-card.is-back-1 {
-  transform: rotate(5deg) translate(14px, -8px);
-  opacity: 0.86;
-}
-
-.landing-card.is-front {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 28px 22px 26px;
-  background:
-    radial-gradient(120% 86% at 50% 28%, #3a3358 0%, #1c182c 46%, #0e0e14 78%);
-  transform: rotate(-0.4deg);
-}
-
-.landing-portrait {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;
-}
-
-.landing-frame-mark {
-  width: min(96px, 42%);
-  color: var(--gold);
-  opacity: 0.88;
-}
-
-.landing-visual-names {
-  margin: 0;
-  color: var(--gold);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  font-size: 12px;
-}
-
-.landing-visual-caption {
-  margin: 8px 0 0;
-  color: var(--ink-dim);
-  font-size: 13px;
-}
-
-.landing-float-chip {
-  position: absolute;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(196, 165, 116, 0.55);
-  background: #07070a;
-  color: var(--gold);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-}
-
-.landing-float-chip.is-pose {
-  left: -4%;
-  top: 38%;
-}
-
-.landing-float-chip.is-scene {
-  right: -2%;
-  top: 22%;
-}
-
-.landing-float-chip.is-light {
-  right: -6%;
-  top: 58%;
 }
 
 @media (max-width: 860px) {
@@ -313,12 +213,12 @@ h3 {
   }
 
   .landing-visual {
-    min-height: 500px;
-    padding: 28px 36px 48px;
+    min-height: 420px;
+    padding: 0 8px 12px;
   }
 
-  .landing-stack {
-    width: min(260px, 72vw);
+  .landing-visual-svg {
+    width: min(340px, 92vw);
   }
 }
 
