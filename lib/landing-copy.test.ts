@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGE_ATTEST_COPY } from "@/lib/age-attest";
@@ -8,6 +8,7 @@ import {
   LANDING_CHIP_LABELS,
   LANDING_CTA,
   LANDING_HEADLINE,
+  LANDING_HERO_SRC,
   LANDING_VISUAL_CAPTION,
   LANDING_VISUAL_NAMES,
 } from "@/lib/landing-copy";
@@ -26,8 +27,10 @@ describe("Stage 1 landing copy", () => {
     );
     expect(LANDING_CTA).toBe("Enter with invite");
     expect([...LANDING_CHIP_LABELS]).toEqual(["Pose", "Scene", "Lighting"]);
-    expect(LANDING_VISUAL_NAMES).toBe("Mara · Iris");
-    expect(LANDING_VISUAL_CAPTION).toBe("Demo characters");
+    expect(LANDING_VISUAL_NAMES).toBe("Jillian");
+    expect(LANDING_VISUAL_CAPTION).toBe("Demo character");
+    expect(LANDING_HERO_SRC).toBe("/demo/landing/jillian-hero-3x4.jpg");
+    expect(existsSync(resolve(process.cwd(), "public/demo/landing/jillian-hero-3x4.jpg"))).toBe(true);
   });
 
   it("renders those strings on the landing page and omits gallery / likeness marketing", () => {
@@ -53,17 +56,20 @@ describe("Stage 1 landing copy", () => {
     expect(readRepo("components/invite-form.tsx")).not.toMatch(/real-person likeness/i);
   });
 
-  it("paints a champagne card stack in the landing right column", () => {
+  it("paints a champagne card stack with the Jillian hero in the landing right column", () => {
     const visual = readRepo("components/landing-hero-visual.tsx");
-    expect(visual).toContain("landing-visual-svg");
-    expect(visual).toContain("#C4A574");
-    expect(visual).toContain("#0E0E14");
-    expect(visual).toContain("Pose");
-    expect(visual).toContain("Scene");
-    expect(visual).toContain("Lighting");
+    const css = readRepo("app/globals.css");
+    expect(visual).toContain("LANDING_HERO_SRC");
+    expect(visual).toContain("landing-visual-card");
+    expect(visual).toContain("LANDING_CHIP_LABELS");
     expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("Iris");
     expect(visual).not.toContain("toUpperCase");
     expect(visual).not.toMatch(/No public gallery/i);
+    expect(css).toContain(".landing-visual-card");
+    expect(css).toContain("#c4a574");
+    expect(css).toContain("#0e0e14");
+    expect(css).toContain(".landing-chip");
   });
 
   it("does not change the locked 18+ attest copy", () => {

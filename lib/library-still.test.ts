@@ -26,7 +26,7 @@ import { TEST_GRID_FICTIONAL_COPY } from "@/lib/test-grid";
 import { DEFAULT_STILL_ASPECT_ID } from "@/lib/still-aspect";
 
 describe("library still detail", () => {
-  it("presents Mara demo stills with 3:4 metadata and no invented face copy", () => {
+  it("presents Jillian demo stills with 3:4 metadata and no invented face copy", () => {
     const still = demoLibraryStills()[0]!;
     const view = libraryStillPresentation({
       id: still.id,
@@ -34,18 +34,20 @@ describe("library still detail", () => {
       label: still.label,
       packName: still.packName,
       demo: true,
+      hasAsset: still.hasAsset,
       kind: "still",
       createdAt: "2026-09-01T12:00:00.000Z",
       aspectRatio: DEFAULT_STILL_ASPECT_ID,
     });
-    expect(still.packId).toBe(DEMO_PACK_IDS.mara);
-    expect(view.title).toBe("Standing · Cyclorama");
-    expect(view.packLine).toBe("Mara · Character Pack");
+    expect(still.packId).toBe(DEMO_PACK_IDS.jillian);
+    expect(still.hasAsset).toBe(true);
+    expect(view.title).toBe("Beach · Sun");
+    expect(view.packLine).toBe("Jillian · Character Pack");
     expect(view.aspectLabel).toBe("3:4 Portrait");
     expect(view.alt).toBe(LIBRARY_DEMO_ALT);
     expect(view.badge).toBe("Demo · fictional");
-    expect(view.placeholderNote).toBe(LIBRARY_PLACEHOLDER_NOTE);
-    expect(view.tileCaption).toContain("Mara");
+    expect(view.placeholderNote).toBeNull();
+    expect(view.tileCaption).toContain("Jillian");
     expect(view.createdLabel).toBe("1 Sep 2026");
     expect(view.privacy).toBe(LIBRARY_PRIVATE_COPY);
     expect(view.alt).not.toMatch(/portrait of|real face|photoreal/i);
@@ -102,7 +104,7 @@ describe("library still detail", () => {
     expect(DEMO_LIBRARY_COPY).toMatch(/fictional/i);
   });
 
-  it("does not draw faces on Mara library placeholders", () => {
+  it("does not draw faces on leftover placeholder tiles", () => {
     const still = demoLibraryStills()[0]!;
     expect(placeholderHasFaceGeometry(demoPlaceholderSvg(still))).toBe(false);
   });

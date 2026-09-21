@@ -28,7 +28,7 @@ export function CharacterRoster(props: { packs: Pack[] }) {
           <div key={pack.id} className={pack.demo ? "card roster-card is-demo" : "card roster-card"}>
             <a href={`/app/characters/${pack.id}`}>
               {pack.previewUrl ? (
-                <StillPreview src={pack.previewUrl} alt={`${pack.name} fictional placeholder`} className="roster-thumb" />
+                <StillPreview src={pack.previewUrl} alt={`${pack.name} fictional character`} className="roster-thumb" />
               ) : null}
               <h3>{pack.name}</h3>
               <p className="muted">

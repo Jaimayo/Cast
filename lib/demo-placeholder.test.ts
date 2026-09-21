@@ -4,9 +4,9 @@ import { demoPlaceholderSvg, placeholderHasFaceGeometry } from "@/lib/demo-place
 
 describe("demo placeholder tiles", () => {
   it("renders champagne F1-mark tiles with fictional labels and no face geometry", () => {
-    const still = demoRefsForPack(DEMO_PACK_IDS.mara)[0]!;
+    const still = demoRefsForPack(DEMO_PACK_IDS.iris)[0]!;
     const svg = demoPlaceholderSvg(still);
-    expect(svg).toContain("Mara");
+    expect(svg).toContain("Iris");
     expect(svg).toContain("FICTIONAL · PLACEHOLDER");
     expect(svg).toContain("#C4A574");
     expect(svg).toContain("#07070A");

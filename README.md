@@ -33,7 +33,7 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/invite`, `app/age` | Invite redeem / sign-in; age+policy (18+ copy locked) |
 | `app/app/characters*` | Roster, New wizard (Starters \| From library), pack detail |
 | `app/app/create` | Composer chip shell |
-| `app/app/library` | Own stills only (stub review also shows fictional Mara placeholders). Tap a tile for the 3:4 detail sheet. Download / Share stay Stage 1 stubs. |
+| `app/app/library` | Own stills only (stub review also shows fictional Jillian stills). Tap a tile for the 3:4 detail sheet. Download / Share stay Stage 1 stubs. |
 | `app/api/demo-pack` | Stub seed catalog + drop path for 8–20 fictional refs |
 | `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` and `/admin` |
 | `app/app/settings` | Per-user Connect Venice. Invite-gated, every signed-in attested account. |
@@ -112,10 +112,10 @@ Stub review seeds two **fictional** Character Packs so Library / roster are not 
 
 | Pack | State | What you see |
 | --- | --- | --- |
-| **Mara** | Locked | Soul ID badge, 12 placeholder refs, **Use in Create**, Library stills |
-| **Iris** | Draft | 4 placeholder refs (below min 12), lock-before-Create, starters contact sheet |
+| **Jillian** | Locked | Soul ID badge, 16 shipped refs, **Use in Create**, Library stills with real faces |
+| **Iris** | Draft stub | 4 placeholder refs (below min 12), lock-before-Create, starters contact sheet |
 
-Tiles are champagne Cast-mark placeholders — not faces. Drop 8–20 fictional Soul ID refs later at `public/demo/refs/{mara,iris}/` (see the README there). `GET`/`POST /api/demo-pack` returns the seed catalog. Demo packs are read-only for attach / Train; Create → Generate on Mara returns a placeholder still.
+Jillian tiles are real 3:4 faces (not Cast-mark placeholders). Iris stays a champagne placeholder stub until her pack lands. Drop extra fictional Soul ID refs at `public/demo/refs/{jillian,iris}/` (see the README there). `GET`/`POST /api/demo-pack` returns the seed catalog. Demo packs are read-only for attach / Train; Create → Generate on Jillian returns a shipped library still.
 
 Live (`PROVIDER_MODE=live`) never injects demo packs.
 

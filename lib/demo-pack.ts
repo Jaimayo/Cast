@@ -4,16 +4,16 @@ import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 
 /** Well-known stub review ids (valid UUID v4 shape). Not user rows. */
 export const DEMO_PACK_IDS = {
-  mara: "00000000-0000-4000-a000-000000000001",
+  jillian: "00000000-0000-4000-a000-000000000001",
   iris: "00000000-0000-4000-a000-000000000002",
 } as const;
 
 export const DEMO_PACK_SLUGS = {
-  [DEMO_PACK_IDS.mara]: "mara",
+  [DEMO_PACK_IDS.jillian]: "jillian",
   [DEMO_PACK_IDS.iris]: "iris",
 } as const;
 
-export type DemoPackSlug = "mara" | "iris";
+export type DemoPackSlug = "jillian" | "iris";
 export type DemoPackState = "locked" | "draft";
 export type DemoStillKind = "still" | "starter_face" | "starter_body" | "pack_ref";
 export type DemoStillRole = "ref" | "library" | "starter";
@@ -28,8 +28,10 @@ export type DemoStill = {
   label: string;
   slot: number;
   selected: boolean;
-  /** Relative to `public/demo/refs/` when Jai drops Soul ID files later. */
+  /** Relative to `public/demo/` (refs, stills). Missing files fall back to the champagne tile. */
   dropFile: string;
+  /** True when Stage 1 ships a real JPEG/WebP for this tile. */
+  hasAsset: boolean;
   starterPresetId: string | null;
 };
 
@@ -48,48 +50,56 @@ export type DemoPackDefinition = {
   summary: string;
 };
 
+export const DEMO_ASSET_DIR = "public/demo";
 export const DEMO_REF_DROP_DIR = "public/demo/refs";
+export const DEMO_STILL_DROP_DIR = "public/demo/stills";
 export const DEMO_REF_DROP_README = "public/demo/refs/README.md";
+export const DEMO_JILLIAN_AVATAR_FILE = "jillian-avatar.jpg";
+export const DEMO_LANDING_HERO_FILE = "landing/jillian-hero-3x4.jpg";
 
-export const DEMO_PACK_FICTIONAL_COPY = "Fictional adults only. Placeholder tiles — not Soul ID refs.";
+export const DEMO_PACK_FICTIONAL_COPY = "Fictional adults only. Jillian is Locked. Iris stays a Draft stub.";
 export const DEMO_PACK_LOCKED_COPY =
-  "Mara is Locked for stub review. Use in Create. Placeholder stills until fictional Soul ID refs land.";
+  "Jillian is Locked for stub review. Fictional adult. Use in Create.";
 export const DEMO_PACK_DRAFT_COPY =
-  "Iris is a Draft demo. Need 12 fictional refs to lock Soul ID. Placeholders only.";
+  "Iris is a Draft demo stub. Need 12 fictional refs to lock Soul ID. Placeholders only.";
 export const DEMO_PACK_READ_ONLY_MESSAGE =
   "This fictional demo pack is for stub review. Attach, Train, and lock run on your own pack.";
 export const DEMO_PACK_CREATE_MESSAGE =
-  "Stub review already includes fictional packs Mara (Locked) and Iris (Draft). Create your own Character Pack when a database is on.";
-export const DEMO_LIBRARY_COPY =
-  "Fictional demo stills for stub review. Champagne placeholders until Soul ID refs are dropped.";
+  "Stub review already includes fictional packs Jillian (Locked) and Iris (Draft). Create your own Character Pack when a database is on.";
+export const DEMO_LIBRARY_COPY = "Fictional demo stills for stub review. Jillian faces ship with the catalog.";
 export const DEMO_SEED_NOTE =
-  "Catalog is already seeded in stub. Drop 8–20 fictional WebP/JPEG/PNG refs under public/demo/refs/{mara,iris}/. No real-person likeness.";
+  "Catalog is already seeded in stub. Jillian Locked fictional refs live under public/demo/refs/jillian/; library stills under public/demo/stills/jillian/. Iris remains a Draft stub. No real-person likeness.";
 
-const MARA_REF_LABELS = [
-  "Face · Warm olive",
-  "Face · Cool fair",
-  "Face · Deep gold",
-  "Face · Freckled",
-  "Face · Three-quarter",
-  "Face · Over-shoulder",
-  "Body · Athletic full",
-  "Body · Soft full",
-  "Body · Lean profile",
-  "Body · Three-quarter",
-  "Still · Standing",
-  "Still · Seated",
-] as const;
+const JILLIAN_REFS: { file: string; label: string; kind: DemoStillKind }[] = [
+  { file: "jillian-01.jpg", label: "Face · Loft", kind: "starter_face" },
+  { file: "jillian-02.jpg", label: "Face · Training", kind: "starter_face" },
+  { file: "jillian-03.jpg", label: "Face · Quiet", kind: "starter_face" },
+  { file: "jillian-04.jpg", label: "Face · Daylight", kind: "starter_face" },
+  { file: "jillian-05.jpg", label: "Face · Soft", kind: "starter_face" },
+  { file: "jillian-06.jpg", label: "Face · Street", kind: "starter_face" },
+  { file: "jillian-07.jpg", label: "Face · Warm", kind: "starter_face" },
+  { file: "jillian-08.jpg", label: "Three-quarter · Window", kind: "starter_body" },
+  { file: "jillian-09.jpg", label: "Three-quarter · Day", kind: "starter_body" },
+  { file: "jillian-10.jpg", label: "Standing · Garden", kind: "starter_body" },
+  { file: "jillian-11.jpg", label: "Standing · Interior", kind: "starter_body" },
+  { file: "jillian-12.jpg", label: "Full · Fountain", kind: "still" },
+  { file: "jillian-13.jpg", label: "Full · Terrace", kind: "still" },
+  { file: "jillian-14.jpg", label: "Body · Knit", kind: "starter_body" },
+  { file: "jillian-15.jpg", label: "Body · Summer", kind: "starter_body" },
+  { file: "jillian-16.jpg", label: "Body · Studio", kind: "starter_body" },
+];
 
-const MARA_LIBRARY_LABELS = [
-  "Standing · Cyclorama",
-  "Seated · Loft",
-  "Reclining · Hotel suite",
-  "Three-quarter · Marble bath",
-  "Over-shoulder · Night interior",
-  "Contrapposto · Outdoor dusk",
-  "Standing · Softbox",
-  "Seated · Window",
-] as const;
+const JILLIAN_LIBRARY: { file: string; label: string }[] = [
+  { file: "jillian-still-beach-selfie-yellow.jpg", label: "Beach · Sun" },
+  { file: "jillian-still-beach-wet-white.jpg", label: "Beach · Surf" },
+  { file: "jillian-still-car-knit-seated.jpg", label: "Seated · Drive" },
+  { file: "jillian-still-kneeling-cherry.jpg", label: "Kneeling · Bloom" },
+  { file: "jillian-still-peach-sheer-robe.jpg", label: "Robe · Peach" },
+  { file: "jillian-still-pool-red-onepiece.jpg", label: "Pool · Evening" },
+  { file: "jillian-still-poolside-white-bikini.jpg", label: "Poolside" },
+  { file: "jillian-still-teal-lounge-bed.jpg", label: "Lounge" },
+  { file: "jillian-still-umbrella-festival.jpg", label: "Festival" },
+];
 
 const IRIS_REF_LABELS = [
   "Face · Warm olive",
@@ -120,6 +130,8 @@ function still(input: {
   label: string;
   slot: number;
   selected: boolean;
+  dropFile?: string;
+  hasAsset?: boolean;
   starterPresetId?: string | null;
 }): DemoStill {
   const folder = input.slug;
@@ -134,36 +146,41 @@ function still(input: {
     label: input.label,
     slot: input.slot,
     selected: input.selected,
-    dropFile: `${folder}/${prefix}-${String(input.slot).padStart(2, "0")}.webp`,
+    dropFile: input.dropFile ?? `refs/${folder}/${prefix}-${String(input.slot).padStart(2, "0")}.webp`,
+    hasAsset: input.hasAsset ?? false,
     starterPresetId: input.starterPresetId ?? null,
   };
 }
 
-const MARA_REFS: DemoStill[] = MARA_REF_LABELS.map((label, index) =>
+const JILLIAN_REF_STILLS: DemoStill[] = JILLIAN_REFS.map((row, index) =>
   still({
     n: 101 + index,
-    packId: DEMO_PACK_IDS.mara,
-    packName: "Mara",
-    slug: "mara",
+    packId: DEMO_PACK_IDS.jillian,
+    packName: "Jillian",
+    slug: "jillian",
     role: "ref",
-    kind: label.startsWith("Body") ? "starter_body" : label.startsWith("Still") ? "still" : "starter_face",
-    label,
+    kind: row.kind,
+    label: row.label,
     slot: index + 1,
     selected: true,
+    dropFile: `refs/jillian/${row.file}`,
+    hasAsset: true,
   }),
 );
 
-const MARA_LIBRARY: DemoStill[] = MARA_LIBRARY_LABELS.map((label, index) =>
+const JILLIAN_LIBRARY_STILLS: DemoStill[] = JILLIAN_LIBRARY.map((row, index) =>
   still({
     n: 201 + index,
-    packId: DEMO_PACK_IDS.mara,
-    packName: "Mara",
-    slug: "mara",
+    packId: DEMO_PACK_IDS.jillian,
+    packName: "Jillian",
+    slug: "jillian",
     role: "library",
     kind: "still",
-    label,
+    label: row.label,
     slot: index + 1,
     selected: false,
+    dropFile: `stills/jillian/${row.file}`,
+    hasAsset: true,
   }),
 );
 
@@ -196,22 +213,27 @@ const IRIS_STARTERS: DemoStill[] = IRIS_STARTER_LABELS.map((row, index) =>
   }),
 );
 
-export const DEMO_STILLS: DemoStill[] = [...MARA_REFS, ...MARA_LIBRARY, ...IRIS_REFS, ...IRIS_STARTERS];
+export const DEMO_STILLS: DemoStill[] = [
+  ...JILLIAN_REF_STILLS,
+  ...JILLIAN_LIBRARY_STILLS,
+  ...IRIS_REFS,
+  ...IRIS_STARTERS,
+];
 
 const stillsById = new Map(DEMO_STILLS.map((row) => [row.id, row]));
 const packsById = new Map<string, DemoPackDefinition>();
 
 export const DEMO_PACKS: DemoPackDefinition[] = [
   {
-    id: DEMO_PACK_IDS.mara,
-    slug: "mara",
-    name: "Mara",
+    id: DEMO_PACK_IDS.jillian,
+    slug: "jillian",
+    name: "Jillian",
     status: "locked",
     origin: "generate_then_lock",
     fictional: true,
     demo: true,
     demoState: "locked",
-    refCount: MARA_REFS.length,
+    refCount: JILLIAN_REF_STILLS.length,
     targetRefCount: PACK_TARGET_REFS,
     minRefCount: PACK_MIN_REFS,
     summary: DEMO_PACK_LOCKED_COPY,
@@ -282,6 +304,10 @@ export function demoPackPreviewUrl(packId: string): string | null {
   return first ? demoPreviewUrl(first.id) : null;
 }
 
+export function demoStillRepoPath(still: Pick<DemoStill, "dropFile">): string {
+  return `${DEMO_ASSET_DIR}/${still.dropFile}`;
+}
+
 /** Client fields so Locked vs Draft demo chrome survives getPack → publicPack. */
 export function demoClientFields(packId: string): {
   demo: true;
@@ -325,10 +351,14 @@ export function demoSeedPayload() {
     fictional: true as const,
     note: DEMO_SEED_NOTE,
     assetDrop: {
-      directory: DEMO_REF_DROP_DIR,
+      directory: DEMO_ASSET_DIR,
+      refs: DEMO_REF_DROP_DIR,
+      stills: DEMO_STILL_DROP_DIR,
       readme: DEMO_REF_DROP_README,
+      hero: `${DEMO_ASSET_DIR}/${DEMO_LANDING_HERO_FILE}`,
+      avatar: `${DEMO_ASSET_DIR}/${DEMO_JILLIAN_AVATAR_FILE}`,
       expected: {
-        mara: { min: PACK_MIN_REFS, target: PACK_TARGET_REFS },
+        jillian: { min: PACK_MIN_REFS, target: PACK_TARGET_REFS, shippedRefs: JILLIAN_REF_STILLS.length },
         iris: { min: 8, target: PACK_TARGET_REFS },
       },
       files: DEMO_STILLS.map((row) => row.dropFile),
