@@ -293,6 +293,11 @@ export function demoLibraryStills(): DemoStill[] {
   return DEMO_STILLS.filter((row) => row.role === "library");
 }
 
+/** Catalog demo stills surfaced on Jobs. Composer Create ignores these so the empty canvas can show. */
+export function demoJobId(still: { slot: number }): string {
+  return `00000000-0000-4000-a000-${(500 + still.slot).toString().padStart(12, "0")}`;
+}
+
 export function demoStartersForPack(packId: string): DemoStill[] {
   return DEMO_STILLS.filter((row) => row.packId === packId && row.role === "starter");
 }

@@ -8,6 +8,7 @@ import {
   DEMO_PACK_IDS,
   DEMO_PACK_READ_ONLY_MESSAGE,
   demoLibraryStills,
+  demoJobId,
   demoClientFields,
   demoPackPreviewUrl,
   demoPreviewUrl,
@@ -164,10 +165,6 @@ export function listPublicDemoStarters(packId: string) {
     label: row.label,
     demo: true as const,
   }));
-}
-
-export function demoJobId(still: DemoStill): string {
-  return `00000000-0000-4000-a000-${(500 + still.slot).toString().padStart(12, "0")}`;
 }
 
 /** Distinct from demoJobId (500 + slot) so Jobs detail does not resolve a Still. */

@@ -881,7 +881,7 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  aspect-ratio: 3 / 4;
+  min-height: 100%;
   padding: 24px 16px;
   border: 1px dashed rgba(196, 165, 116, 0.35);
   border-radius: 18px;
@@ -957,7 +957,7 @@ input[type="checkbox"] {
   margin: 0 0 20px;
 }
 
-.pack-primary-cta {
+.btn.pack-primary-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -976,7 +976,8 @@ input[type="checkbox"] {
 .composer-page {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   flex: 1;
 }
 
@@ -986,12 +987,20 @@ input[type="checkbox"] {
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
+}
+
+.studio:has(.composer-page) {
+  height: 100vh;
+  overflow: hidden;
 }
 
 .studio > div:has(.composer-page) {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 0;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .studio > div:has(.composer-page) > .canvas {
@@ -1001,8 +1010,11 @@ input[type="checkbox"] {
 .composer-shell {
   display: grid;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .chip-rail,
@@ -1013,6 +1025,8 @@ input[type="checkbox"] {
 .chip-rail {
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  min-height: 0;
+  height: 100%;
 }
 
 .history-rail {
@@ -1025,6 +1039,8 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -1035,26 +1051,40 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 32px 24px 16px;
+  padding: 24px 24px 16px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .hero-stage {
-  width: min(420px, 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.hero-canvas {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 32px 20px;
-  min-height: 420px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.hero-frame {
+  width: auto;
+  max-width: min(420px, 100%);
+  height: auto;
+  max-height: calc(100% - 32px);
+  aspect-ratio: 3 / 4;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  text-align: center;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+  background: #07070a;
 }
 
 .contact-sheet {
@@ -1078,53 +1108,6 @@ input[type="checkbox"] {
 .sheet-tile.selected {
   border-color: var(--gold);
   box-shadow: inset 0 0 0 1px var(--gold);
-}
-
-.composer-shell {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 200px;
-  min-height: calc(100vh - 52px);
-}
-
-.chip-rail,
-.history-rail {
-  padding: 20px 16px;
-}
-
-.chip-rail {
-  border-right: 1px solid var(--line);
-}
-
-.history-rail {
-  border-left: 1px solid var(--line);
-  color: var(--ink-dim);
-  font-size: 13px;
-}
-
-.hero-canvas {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 32px 20px;
-  min-height: 420px;
-}
-
-.hero-frame {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  border: 1px dashed var(--line);
-  border-radius: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-dim);
-  text-align: center;
-  overflow: hidden;
-  padding: 0;
-  position: relative;
-  background: #07070a;
 }
 
 .hero-frame > div,
@@ -1611,20 +1594,26 @@ input[type="checkbox"] {
 
 .composer-history-strip {
   display: flex;
-  gap: 10px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 8px;
+  height: 96px;
   max-height: 96px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 12px 24px;
   border-top: 1px solid var(--line);
 }
 
 .history-strip-item {
-  flex: 0 0 auto;
+  flex: 0 0 54px;
   width: 54px;
 }
 
 .history-strip-item .history-thumb,
-.history-strip-item .still-thumb {
+.history-strip-item .still-thumb,
+.history-strip-item img {
   width: 54px;
   height: 72px;
   margin: 0;

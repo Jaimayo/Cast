@@ -17,6 +17,7 @@ import { canGenerateStill, generateDisabledReason } from "@/lib/generate-afforda
 import { jobCanceledMessage } from "@/lib/job-cancel";
 import { isInProgressJob, jobQueuePresentation, type JobDisplayInput } from "@/lib/job-display";
 import { isLockedSoul } from "@/lib/soul";
+import { demoJobId, demoLibraryStills } from "@/lib/demo-pack";
 import {
   DEFAULT_STILL_ASPECT_ID,
   stillAspectFromUnknown,
@@ -32,8 +33,15 @@ type Job = JobDisplayInput & {
   cancelDisabledReason?: string | null;
 };
 
+function catalogDemoStillJobIds(): Set<string> {
+  return new Set(demoLibraryStills().map((still) => demoJobId(still)));
+}
+
 function stillJobs(jobs: Job[]): Job[] {
-  return jobs.filter((job) => job.kind === "generate_still").slice(0, 8);
+  const catalog = catalogDemoStillJobIds();
+  return jobs
+    .filter((job) => job.kind === "generate_still" && !catalog.has(job.id))
+    .slice(0, 8);
 }
 
 function spotlightPack(packs: Pack[], initialPackId?: string): Pack | undefined {

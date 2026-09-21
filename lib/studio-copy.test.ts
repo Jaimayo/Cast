@@ -88,6 +88,11 @@ describe("studio high-end copy lock (rev 2)", () => {
     expect(pack).toContain("PackPrimaryCta");
     expect(pack).toContain("pack-identity");
 
+    const shell = readRepo("components/composer-shell.tsx");
+    expect(shell).toContain("ComposerActionBar");
+    expect(shell).toContain("demoJobId");
+    expect(shell).toContain("composer-history-strip");
+
     const css = readRepo("app/globals.css");
     expect(css).toContain(".pack-primary-cta");
     expect(css).toContain("color: #0a0a0c");
