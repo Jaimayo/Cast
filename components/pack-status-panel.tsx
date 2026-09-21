@@ -145,7 +145,7 @@ export function PackStatusPanel(props: {
           disabled={!locked || Boolean(pending) || Boolean(props.pack.demo)}
           title={
             props.pack.demo
-              ? "Demo packs stay on placeholders — retrain on your own pack"
+              ? "Demo packs are read-only — retrain on your own pack"
               : locked
                 ? "Train again from the existing refs"
                 : "Lock Soul ID first"

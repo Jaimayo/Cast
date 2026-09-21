@@ -13,7 +13,7 @@ export const LIBRARY_EMPTY_HREF = "/app/create";
 export const LIBRARY_DETAIL_KICKER = "Still";
 export const LIBRARY_DETAIL_EMPTY_TITLE = "Select a still";
 export const LIBRARY_DETAIL_EMPTY_BODY =
-  "Open a tile to see the 3:4 still, Character Pack, and Frame. Champagne placeholders until fictional Soul ID refs land.";
+  "Open a tile to see the 3:4 fictional still, Character Pack, and Frame.";
 export const LIBRARY_PLACEHOLDER_NOTE = "Champagne placeholder — not a face.";
 export const LIBRARY_DOWNLOAD_LABEL = "Download";
 export const LIBRARY_SHARE_LABEL = "Share";
@@ -24,7 +24,7 @@ export const LIBRARY_USE_IN_PACK_HREF = "/app/characters";
 export const LIBRARY_CLOSE_LABEL = "Close";
 export const LIBRARY_PREV_LABEL = "Previous still";
 export const LIBRARY_NEXT_LABEL = "Next still";
-export const LIBRARY_DEMO_ALT = "Fictional placeholder still";
+export const LIBRARY_DEMO_ALT = "Fictional still";
 export const LIBRARY_OWN_ALT = "Your still";
 
 export type LibraryStillInput = {
@@ -33,6 +33,7 @@ export type LibraryStillInput = {
   label?: string | null;
   packName?: string | null;
   demo?: boolean;
+  hasAsset?: boolean;
   kind?: string | null;
   createdAt?: Date | string | null;
   aspectRatio?: string | null;
@@ -44,6 +45,7 @@ export function toLibraryStillInput(row: {
   label?: string | null;
   packName?: string | null;
   demo?: boolean;
+  hasAsset?: boolean;
   kind?: string | null;
   createdAt?: Date | string | null;
   aspectRatio?: string | null;
@@ -59,6 +61,7 @@ export function toLibraryStillInput(row: {
     label: row.label ?? null,
     packName: row.packName ?? null,
     demo: Boolean(row.demo),
+    hasAsset: Boolean(row.hasAsset),
     kind: row.kind ?? "still",
     createdAt,
     aspectRatio: row.aspectRatio ?? null,
@@ -100,6 +103,7 @@ export function libraryStillCreatedLabel(createdAt: Date | string | null | undef
 
 export function libraryStillPresentation(still: LibraryStillInput): LibraryStillView {
   const demo = Boolean(still.demo);
+  const hasAsset = Boolean(still.hasAsset);
   const label = still.label?.trim() || null;
   const packName = still.packName?.trim() || null;
   const aspect = stillAspectFromUnknown(still.aspectRatio ?? DEFAULT_STILL_ASPECT_ID);
@@ -116,7 +120,7 @@ export function libraryStillPresentation(still: LibraryStillInput): LibraryStill
     alt: demo ? LIBRARY_DEMO_ALT : LIBRARY_OWN_ALT,
     badge: demo ? "Demo · fictional" : null,
     privacy: LIBRARY_PRIVATE_COPY,
-    placeholderNote: demo ? LIBRARY_PLACEHOLDER_NOTE : null,
+    placeholderNote: demo && !hasAsset ? LIBRARY_PLACEHOLDER_NOTE : null,
     tileCaption: [packName, label].filter(Boolean).join(" · ") || title,
     createdLabel: libraryStillCreatedLabel(still.createdAt),
     kindLabel: still.kind === "still" || !still.kind ? "Still" : still.kind,

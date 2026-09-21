@@ -35,7 +35,7 @@ if (!row) {
     maxUses: REVIEW_INVITE_MAX_USES,
   });
   console.log(`Stub review invite created: ${code} (maxUses=${REVIEW_INVITE_MAX_USES})`);
-  console.log("Fictional demo packs Mara (Locked) and Iris (Draft) are catalog-seeded in stub. Drop Soul ID refs under public/demo/refs/.");
+  console.log("Fictional demo packs Jillian (Locked) and Iris (Draft) are catalog-seeded in stub. Jillian faces live under public/demo/.");
 } else {
   await db
     .update(inviteCodes)
@@ -47,6 +47,6 @@ if (!row) {
     })
     .where(eq(inviteCodes.id, row.id));
   console.log(`Stub review invite ready: ${code}`);
-  console.log("Fictional demo packs Mara (Locked) and Iris (Draft) are catalog-seeded in stub. Drop Soul ID refs under public/demo/refs/.");
+  console.log("Fictional demo packs Jillian (Locked) and Iris (Draft) are catalog-seeded in stub. Jillian faces live under public/demo/.");
 }
 await client.end();
