@@ -1,12 +1,5 @@
-import { ConnectVenicePanel } from "@/components/connect-venice";
+import { redirect } from "next/navigation";
 
-export default function AdminSettingsPage() {
-  return (
-    <section>
-      <ConnectVenicePanel />
-      <p className="muted" style={{ marginTop: 28 }}>
-        <a href="/admin/invites">Invite codes</a>
-      </p>
-    </section>
-  );
+export default function AdminPage() {
+  redirect("/admin/invites");
 }

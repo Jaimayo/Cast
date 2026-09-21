@@ -15,6 +15,8 @@ export type GenerateStillInput = {
   adapterStorageKey?: string | null;
   /** trainPack meta (e.g. sourceUrl). Venice ignores this. */
   adapterMeta?: Record<string, unknown> | null;
+  /** Job owner. Venice generateStill uses this user's stored API key. */
+  userId?: string;
 };
 
 export type GenerateStillResult = {

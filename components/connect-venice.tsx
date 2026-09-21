@@ -17,6 +17,7 @@ import {
   VENICE_KEEP_CONNECTED,
   VENICE_SAVE,
   VENICE_SAVE_SUCCESS,
+  VENICE_SETTINGS_API,
   type VenicePublicStatus,
 } from "@/lib/venice-settings";
 
@@ -31,7 +32,7 @@ export function ConnectVenicePanel() {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   async function refresh() {
-    const data = await api<{ venice: VenicePublicStatus }>("/api/admin/venice");
+    const data = await api<{ venice: VenicePublicStatus }>(VENICE_SETTINGS_API);
     setStatus(data.venice);
   }
 
@@ -56,7 +57,7 @@ export function ConnectVenicePanel() {
     setError(null);
     setNotice(null);
     try {
-      const data = await api<{ venice: VenicePublicStatus }>("/api/admin/venice", {
+      const data = await api<{ venice: VenicePublicStatus }>(VENICE_SETTINGS_API, {
         method: "POST",
         body: JSON.stringify({ apiKey }),
       });
@@ -76,7 +77,7 @@ export function ConnectVenicePanel() {
     setError(null);
     setNotice(null);
     try {
-      const data = await api<{ venice: VenicePublicStatus }>("/api/admin/venice", {
+      const data = await api<{ venice: VenicePublicStatus }>(VENICE_SETTINGS_API, {
         method: "DELETE",
       });
       setApiKey("");

@@ -23,6 +23,9 @@ export const VENICE_DISCONNECT_CONFIRM_TITLE = "Disconnect Venice?";
 export const VENICE_DISCONNECT_CONFIRM_BODY = "Still generation pauses until you reconnect.";
 export const VENICE_DISCONNECT_SUCCESS = "Venice disconnected.";
 export const VENICE_CONNECTED_PLACEHOLDER = "••••••••";
+/** Studio Settings surface — every signed-in (attested) user. */
+export const VENICE_SETTINGS_PATH = "/app/settings";
+export const VENICE_SETTINGS_API = "/api/settings/venice";
 
 export const VENICE_KEY_MIN_LENGTH = 16;
 export const VENICE_KEY_MAX_LENGTH = 512;

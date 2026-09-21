@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/server/auth";
+import { requireAttestedUser } from "@/server/auth";
 import { jsonError } from "@/server/http";
 import { validateVeniceApiKey } from "@/server/providers/venice";
 import {
@@ -13,8 +13,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await requireAdmin();
-    const venice = await getVenicePublicStatus();
+    const user = await requireAttestedUser();
+    const venice = await getVenicePublicStatus(user.id);
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);
@@ -23,11 +23,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const admin = await requireAdmin();
+    const user = await requireAttestedUser();
     const body = (await request.json().catch(() => ({}))) as { apiKey?: unknown };
     const apiKey = assertVeniceApiKeyShape(body.apiKey);
     await validateVeniceApiKey(apiKey);
-    const venice = await saveVeniceApiKey({ apiKey, actorId: admin.id });
+    const venice = await saveVeniceApiKey({ apiKey, userId: user.id });
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);
@@ -36,8 +36,8 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    const admin = await requireAdmin();
-    const venice = await disconnectVeniceApiKey(admin.id);
+    const user = await requireAttestedUser();
+    const venice = await disconnectVeniceApiKey(user.id);
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);

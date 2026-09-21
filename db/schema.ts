@@ -242,6 +242,22 @@ export const generationJobsRelations = relations(generationJobs, ({ one }) => ({
   recipe: one(recipes, { fields: [generationJobs.recipeId], references: [recipes.id] }),
 }));
 
+/**
+ * Per-account secrets (AES-256-GCM via SESSION_SECRET, bound to user id).
+ * Never select ciphertext into an API/RSC payload — return last4 only.
+ */
+export const userSecrets = pgTable("user_secrets", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  ciphertext: text("ciphertext"),
+  iv: text("iv"),
+  authTag: text("auth_tag"),
+  keyLast4: text("key_last4"),
+  disabled: boolean("disabled").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
@@ -251,3 +267,4 @@ export type GenerationJob = typeof generationJobs.$inferSelect;
 export type Recipe = typeof recipes.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type OperatorSecret = typeof operatorSecrets.$inferSelect;
+export type UserSecret = typeof userSecrets.$inferSelect;

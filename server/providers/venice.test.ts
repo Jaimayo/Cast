@@ -214,7 +214,7 @@ describe("Venice generateStill adapter (mocked HTTP)", () => {
     vi.stubEnv("VENICE_API_KEY", "");
     vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
     vi.stubEnv("VENICE_IMAGE_MODEL", "lustify-v8");
-    await saveVeniceApiKey({ apiKey: "settings-only-venice-key", actorId: "admin-1" });
+    await saveVeniceApiKey({ apiKey: "settings-only-venice-key", userId: "admin-1" });
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         id: "generate-image-settings",
@@ -222,10 +222,29 @@ describe("Venice generateStill adapter (mocked HTTP)", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const still = await veniceAdapter.generateStill(generateInput);
+    const still = await veniceAdapter.generateStill({ ...generateInput, userId: "admin-1" });
     expect(still.providerJobId).toBe("generate-image-settings");
     const headers = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
     expect(headers.get("Authorization")).toBe("Bearer settings-only-venice-key");
+  });
+
+  it("uses the job owner's stored key, not another user's", async () => {
+    vi.stubEnv("VENICE_API_KEY", "");
+    vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
+    vi.stubEnv("VENICE_IMAGE_MODEL", "lustify-v8");
+    await saveVeniceApiKey({ apiKey: "settings-user-a-venice-aaaa", userId: "user-a" });
+    await saveVeniceApiKey({ apiKey: "settings-user-b-venice-bbbb", userId: "user-b" });
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: "generate-image-owner",
+        images: [PLACEHOLDER_WEBP.toString("base64")],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await veniceAdapter.generateStill({ ...generateInput, userId: "user-b" });
+    const headers = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
+    expect(headers.get("Authorization")).toBe("Bearer settings-user-b-venice-bbbb");
+    expect(headers.get("Authorization")).not.toContain("aaaa");
   });
 
   it("POSTs native /image/generate and stores the first base64 still", async () => {

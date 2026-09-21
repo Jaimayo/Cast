@@ -89,9 +89,10 @@ describe("stub review admin", () => {
     ).toBe("admin");
   });
 
-  it("keeps Connect Venice on /admin rather than a public /app/settings", () => {
-    expect(existsSync(resolve(process.cwd(), "app/admin/page.tsx"))).toBe(true);
-    expect(existsSync(resolve(process.cwd(), "app/app/settings/page.tsx"))).toBe(false);
-    expect(existsSync(resolve(process.cwd(), "app/settings/page.tsx"))).toBe(false);
+  it("mounts Connect Venice on /app/settings for every signed-in user", () => {
+    expect(existsSync(resolve(process.cwd(), "app/app/settings/page.tsx"))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), "app/api/settings/venice/route.ts"))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), "app/api/admin/venice/route.ts"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "app/admin/invites/page.tsx"))).toBe(true);
   });
 });

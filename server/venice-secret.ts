@@ -2,7 +2,7 @@ import "server-only";
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { operatorSecrets } from "@/db/schema";
+import { userSecrets } from "@/db/schema";
 import { isMemoryPreviewMode } from "@/lib/memory-preview";
 import {
   VENICE_EMPTY,
@@ -21,8 +21,6 @@ import { getEnv } from "@/server/env";
 
 export { VeniceConnectError };
 
-export const VENICE_OPERATOR_SECRET_ID = "venice_api_key";
-
 const ENCRYPTION_VERSION = 1;
 
 type Overlay =
@@ -31,20 +29,33 @@ type Overlay =
   | null;
 
 const globalForSecrets = globalThis as unknown as {
-  veniceOperatorOverlay?: Overlay;
+  veniceUserOverlay?: Record<string, Overlay>;
 };
 
-function encryptionKey(secret: string): Buffer {
-  return createHash("sha256").update(`cast.operator-secret.v${ENCRYPTION_VERSION}:${secret}`).digest();
+function overlayMap(): Record<string, Overlay> {
+  if (!globalForSecrets.veniceUserOverlay) {
+    globalForSecrets.veniceUserOverlay = {};
+  }
+  return globalForSecrets.veniceUserOverlay;
 }
 
-export function encryptOperatorSecret(plaintext: string, sessionSecret: string): {
+function encryptionKey(secret: string, scope: string): Buffer {
+  return createHash("sha256")
+    .update(`cast.secret.v${ENCRYPTION_VERSION}:${scope}:${secret}`)
+    .digest();
+}
+
+export function encryptSecret(
+  plaintext: string,
+  sessionSecret: string,
+  scope = "operator",
+): {
   ciphertext: string;
   iv: string;
   authTag: string;
 } {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(sessionSecret), iv);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(sessionSecret, scope), iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   return {
     ciphertext: encrypted.toString("base64"),
@@ -53,13 +64,14 @@ export function encryptOperatorSecret(plaintext: string, sessionSecret: string):
   };
 }
 
-export function decryptOperatorSecret(
+export function decryptSecret(
   packed: { ciphertext: string; iv: string; authTag: string },
   sessionSecret: string,
+  scope = "operator",
 ): string {
   const decipher = createDecipheriv(
     "aes-256-gcm",
-    encryptionKey(sessionSecret),
+    encryptionKey(sessionSecret, scope),
     Buffer.from(packed.iv, "base64"),
   );
   decipher.setAuthTag(Buffer.from(packed.authTag, "base64"));
@@ -69,16 +81,38 @@ export function decryptOperatorSecret(
   ]).toString("utf8");
 }
 
-function readOverlay(): Overlay {
-  return globalForSecrets.veniceOperatorOverlay ?? null;
+/** @deprecated Use encryptSecret. Kept for round-trip tests. */
+export function encryptOperatorSecret(plaintext: string, sessionSecret: string) {
+  return encryptSecret(plaintext, sessionSecret, "operator");
 }
 
-function writeOverlay(next: Overlay): void {
-  globalForSecrets.veniceOperatorOverlay = next;
+/** @deprecated Use decryptSecret. Kept for round-trip tests. */
+export function decryptOperatorSecret(
+  packed: { ciphertext: string; iv: string; authTag: string },
+  sessionSecret: string,
+) {
+  return decryptSecret(packed, sessionSecret, "operator");
+}
+
+function userSecretScope(userId: string): string {
+  return `user:${userId}`;
+}
+
+function readOverlay(userId: string): Overlay {
+  return overlayMap()[userId] ?? null;
+}
+
+function writeOverlay(userId: string, next: Overlay): void {
+  const map = overlayMap();
+  if (!next) {
+    delete map[userId];
+    return;
+  }
+  map[userId] = next;
 }
 
 export function resetVeniceSecretOverlayForTests(): void {
-  globalForSecrets.veniceOperatorOverlay = null;
+  globalForSecrets.veniceUserOverlay = {};
 }
 
 function envVeniceApiKey(): string | undefined {
@@ -86,7 +120,11 @@ function envVeniceApiKey(): string | undefined {
 }
 
 function durableSecretsEnabled(): boolean {
-  if (process.env.NODE_ENV === "test" && process.env.CAST_TEST_OPERATOR_SECRETS !== "1") {
+  if (
+    process.env.NODE_ENV === "test" &&
+    process.env.CAST_TEST_USER_SECRETS !== "1" &&
+    process.env.CAST_TEST_OPERATOR_SECRETS !== "1"
+  ) {
     return false;
   }
   const env = getEnv();
@@ -96,15 +134,15 @@ function durableSecretsEnabled(): boolean {
   return Boolean(env.databaseUrl);
 }
 
-async function readDurableOverlay(): Promise<Overlay> {
+async function readDurableOverlay(userId: string): Promise<Overlay> {
   if (!durableSecretsEnabled()) {
     return null;
   }
   try {
     const rows = await getDb()
       .select()
-      .from(operatorSecrets)
-      .where(eq(operatorSecrets.id, VENICE_OPERATOR_SECRET_ID))
+      .from(userSecrets)
+      .where(eq(userSecrets.userId, userId))
       .limit(1);
     const row = rows[0];
     if (!row) {
@@ -116,9 +154,10 @@ async function readDurableOverlay(): Promise<Overlay> {
     if (!row.ciphertext || !row.iv || !row.authTag) {
       return null;
     }
-    const key = decryptOperatorSecret(
+    const key = decryptSecret(
       { ciphertext: row.ciphertext, iv: row.iv, authTag: row.authTag },
       getEnv().sessionSecret,
+      userSecretScope(userId),
     );
     return { kind: "key", key, last4: row.keyLast4 || key.slice(-4) };
   } catch {
@@ -126,7 +165,7 @@ async function readDurableOverlay(): Promise<Overlay> {
   }
 }
 
-async function writeDurableOverlay(overlay: Overlay, actorId: string | null): Promise<void> {
+async function writeDurableOverlay(userId: string, overlay: Overlay): Promise<void> {
   if (!durableSecretsEnabled()) {
     return;
   }
@@ -134,29 +173,27 @@ async function writeDurableOverlay(overlay: Overlay, actorId: string | null): Pr
   const values =
     overlay?.kind === "key"
       ? {
-          id: VENICE_OPERATOR_SECRET_ID,
-          ...encryptOperatorSecret(overlay.key, getEnv().sessionSecret),
+          userId,
+          ...encryptSecret(overlay.key, getEnv().sessionSecret, userSecretScope(userId)),
           keyLast4: overlay.last4,
           disabled: false,
           updatedAt: now,
-          updatedByUserId: actorId,
         }
       : {
-          id: VENICE_OPERATOR_SECRET_ID,
+          userId,
           ciphertext: null,
           iv: null,
           authTag: null,
           keyLast4: null,
           disabled: true,
           updatedAt: now,
-          updatedByUserId: actorId,
         };
 
   await getDb()
-    .insert(operatorSecrets)
+    .insert(userSecrets)
     .values(values)
     .onConflictDoUpdate({
-      target: operatorSecrets.id,
+      target: userSecrets.userId,
       set: {
         ciphertext: values.ciphertext,
         iv: values.iv,
@@ -164,38 +201,43 @@ async function writeDurableOverlay(overlay: Overlay, actorId: string | null): Pr
         keyLast4: values.keyLast4,
         disabled: values.disabled,
         updatedAt: values.updatedAt,
-        updatedByUserId: values.updatedByUserId,
       },
     });
 }
 
-async function persistOverlay(overlay: Overlay, actorId: string | null): Promise<void> {
-  const previous = readOverlay();
-  writeOverlay(overlay);
+async function persistOverlay(userId: string, overlay: Overlay): Promise<void> {
+  const previous = readOverlay(userId);
+  writeOverlay(userId, overlay);
   try {
-    await writeDurableOverlay(overlay, actorId);
+    await writeDurableOverlay(userId, overlay);
   } catch {
-    writeOverlay(previous);
+    writeOverlay(userId, previous);
     throw new VeniceConnectError("Could not update Venice settings.", 503);
   }
 }
 
-async function resolvedOverlay(): Promise<Overlay> {
-  const memory = readOverlay();
+async function resolvedOverlay(userId: string): Promise<Overlay> {
+  const memory = readOverlay(userId);
   if (memory) {
     return memory;
   }
-  return readDurableOverlay();
+  return readDurableOverlay(userId);
 }
 
-/** Server-only. Never log the return value. */
-export async function resolveVeniceApiKey(): Promise<string | undefined> {
-  const overlay = await resolvedOverlay();
-  if (overlay?.kind === "disconnected") {
-    return undefined;
-  }
-  if (overlay?.kind === "key") {
-    return overlay.key;
+/**
+ * Server-only. Never log the return value.
+ * Prefers this user's Settings key. Disconnect opts that user out of env.
+ * If the user has never saved, falls back to deploy `VENICE_API_KEY`.
+ */
+export async function resolveVeniceApiKey(userId?: string | null): Promise<string | undefined> {
+  if (userId) {
+    const overlay = await resolvedOverlay(userId);
+    if (overlay?.kind === "disconnected") {
+      return undefined;
+    }
+    if (overlay?.kind === "key") {
+      return overlay.key;
+    }
   }
   return envVeniceApiKey();
 }
@@ -213,44 +255,42 @@ export function assertVeniceApiKeyShape(raw: unknown): string {
 
 export async function saveVeniceApiKey(input: {
   apiKey: string;
-  actorId: string | null;
+  userId: string;
 }): Promise<VenicePublicStatus> {
   const key = assertVeniceApiKeyShape(input.apiKey);
   const overlay: Overlay = { kind: "key", key, last4: key.slice(-4) };
-  await persistOverlay(overlay, input.actorId);
-  return publicVeniceStatusFromResolved(key, "settings");
+  await persistOverlay(input.userId, overlay);
+  return publicVeniceStatusFromUserKey(key);
 }
 
-export async function disconnectVeniceApiKey(actorId: string | null): Promise<VenicePublicStatus> {
-  await persistOverlay({ kind: "disconnected" }, actorId);
-  return publicVeniceStatusFromResolved(undefined, "none");
+export async function disconnectVeniceApiKey(userId: string): Promise<VenicePublicStatus> {
+  await persistOverlay(userId, { kind: "disconnected" });
+  return publicVeniceStatusFromUserKey(undefined);
 }
 
-function publicVeniceStatusFromResolved(
-  key: string | undefined,
-  storage: VeniceSecretStorage,
-): VenicePublicStatus {
+function publicVeniceStatusFromUserKey(key: string | undefined): VenicePublicStatus {
   const env = getEnv();
   const connected = Boolean(key);
+  const storage: VeniceSecretStorage = connected ? "settings" : "none";
   return {
     connected,
     status: veniceStatusLabel(connected),
     maskedKey: key ? maskVeniceApiKey(key) : null,
-    storage: connected ? storage : "none",
+    storage,
     generateStillUsesVenice:
       connected && env.providerMode === "live" && env.generateStillProvider === "venice",
     providerMode: env.providerMode,
   };
 }
 
-export async function getVenicePublicStatus(): Promise<VenicePublicStatus> {
-  const overlay = await resolvedOverlay();
+/** Public status for this user only. Env keys never appear as Connected. */
+export async function getVenicePublicStatus(userId: string): Promise<VenicePublicStatus> {
+  const overlay = await resolvedOverlay(userId);
   if (overlay?.kind === "disconnected") {
-    return publicVeniceStatusFromResolved(undefined, "none");
+    return publicVeniceStatusFromUserKey(undefined);
   }
   if (overlay?.kind === "key") {
-    return publicVeniceStatusFromResolved(overlay.key, "settings");
+    return publicVeniceStatusFromUserKey(overlay.key);
   }
-  const envKey = envVeniceApiKey();
-  return publicVeniceStatusFromResolved(envKey, envKey ? "env" : "none");
+  return publicVeniceStatusFromUserKey(undefined);
 }

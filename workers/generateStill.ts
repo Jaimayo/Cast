@@ -174,6 +174,7 @@ export async function processGenerateStillJob(
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
+        userId: job.userId,
         attempt: attempt.attempt,
         ...(stillSize
           ? { width: stillSize.width, height: stillSize.height, aspectRatio: stillSize.aspectRatio }
@@ -197,6 +198,7 @@ export async function processGenerateStillJob(
         characterPackId: pack.id,
         adapterStorageKey: pack.adapterStorageKey,
         adapterMeta: pack.adapterMeta,
+        userId: job.userId,
         attempt: attempt.attempt,
         ...(stillSize
           ? { width: stillSize.width, height: stillSize.height, aspectRatio: stillSize.aspectRatio }
