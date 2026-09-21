@@ -4,6 +4,10 @@ export type SoulStatus = "Draft" | "Training" | "Locked" | "Failed";
 /** Composer / API copy when Generate is blocked on a non-Locked pack. */
 export const LOCK_SOUL_ID_FIRST = "Lock Soul ID first";
 
+/** Roster / pack chrome when Soul ID is Locked. Exact branding string. */
+export const SOUL_BADGE_LOCKED = "Soul ID";
+export const SOUL_BADGE_UNLOCKED = "No Soul ID";
+
 export function isLockedSoul(status: string): boolean {
   return status === "locked" || status === "ready";
 }

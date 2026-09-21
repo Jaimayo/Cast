@@ -6,6 +6,7 @@ import { RefTray, type TrayRef } from "@/components/ref-tray";
 import { DemoBadge, DemoPackBanner } from "@/components/demo-pack-banner";
 import { SoulBadge } from "@/components/soul-badge";
 import { api } from "@/lib/client";
+import { demoBadgeLabel } from "@/lib/demo-pack";
 import { PACK_REF_FICTIONAL_COPY } from "@/lib/pack-ref-upload";
 import { isLockedSoul, soulStatusLabel } from "@/lib/soul";
 import { TestGridPanel } from "@/components/test-grid-panel";
@@ -89,7 +90,7 @@ export function PackStatusPanel(props: {
       <div className="row-between">
         <h1>{props.pack.name}</h1>
         <div className="roster-badges">
-          {props.pack.demo ? <DemoBadge /> : null}
+          {props.pack.demo ? <DemoBadge label={demoBadgeLabel(props.pack.demoState ?? "locked")} /> : null}
           <SoulBadge name={props.pack.name} locked={locked} />
         </div>
       </div>
@@ -145,7 +146,7 @@ export function PackStatusPanel(props: {
           disabled={!locked || Boolean(pending) || Boolean(props.pack.demo)}
           title={
             props.pack.demo
-              ? "Demo packs stay on placeholders — retrain on your own pack"
+              ? "Demo packs are read-only — retrain on your own pack"
               : locked
                 ? "Train again from the existing refs"
                 : "Lock Soul ID first"

@@ -22,7 +22,7 @@ export async function GET() {
   }
 }
 
-/** Idempotent. Catalog is the seed — drop fictional refs under public/demo/refs later. */
+/** Idempotent. Catalog is the seed — Jillian faces ship under public/demo/; Iris stays a Draft stub. */
 export async function POST() {
   try {
     await requireAttestedUser();
