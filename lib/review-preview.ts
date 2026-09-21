@@ -15,7 +15,7 @@ export function parseAdminEmails(raw: string | undefined | null): string[] {
     .filter(Boolean);
 }
 
-/** Stub always includes the documented review admin so Settings (/admin) is reachable. */
+/** Stub always includes the documented review admin so Invites (/admin/invites) is reachable. */
 export function adminEmailsForMode(providerMode: string, envEmails: readonly string[]): string[] {
   const emails = [...envEmails];
   if (providerMode !== "stub") {
@@ -30,7 +30,7 @@ export function adminEmailsForMode(providerMode: string, envEmails: readonly str
 
 /**
  * Cookie-only stub review (no DATABASE_URL, ADMIN_EMAILS unset): every redeemed
- * invite is admin so the studio rail shows Settings without a secret allow-list.
+ * invite is admin so the studio rail shows Invites without a secret allow-list.
  */
 export function stubReviewGrantsAdmin(input: {
   providerMode: string;

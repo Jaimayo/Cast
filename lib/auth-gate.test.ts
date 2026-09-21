@@ -14,6 +14,7 @@ describe("studio path detection", () => {
   it("treats /app, nested studio routes, and /admin as studio", () => {
     expect(isStudioPath("/app")).toBe(true);
     expect(isStudioPath("/app/create")).toBe(true);
+    expect(isStudioPath("/app/settings")).toBe(true);
     expect(isStudioPath("/admin")).toBe(true);
     expect(isStudioPath("/admin/invites")).toBe(true);
     expect(isStudioPath("/age")).toBe(false);
@@ -21,7 +22,7 @@ describe("studio path detection", () => {
     expect(isStudioPath("/api/media/abc")).toBe(false);
   });
 
-  it("gates exact /admin in middleware so Connect Venice is not public", () => {
+  it("gates exact /admin in middleware so invite tools are not public", () => {
     expect(authPathRedirect("/admin", null)).toBe("/invite");
     expect(authPathRedirect("/admin", attested)).toBeNull();
     expect(readRepo("middleware.ts")).toMatch(/"\/admin"/);
@@ -55,7 +56,7 @@ describe("authPathRedirect", () => {
   });
 
   it("denies every nested /app route without a session or age flag", () => {
-    for (const path of ["/app/library", "/app/jobs", "/app/create", "/app/characters/new"]) {
+    for (const path of ["/app/library", "/app/jobs", "/app/create", "/app/characters/new", "/app/settings"]) {
       expect(authPathRedirect(path, null)).toBe("/invite");
       expect(authPathRedirect(path, waiting)).toBe("/age");
       expect(authPathRedirect(path, attested)).toBeNull();

@@ -347,7 +347,7 @@ export const veniceAdapter: GenerateStillAdapter = {
   name: "venice",
   async generateStill(input: GenerateStillInput): Promise<GenerateStillResult> {
     const env = getEnv().venice;
-    const apiKey = await resolveVeniceApiKey();
+    const apiKey = await resolveVeniceApiKey(input.userId);
     if (!apiKey) {
       throw new ProviderNotConfiguredError("venice");
     }

@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
       { source: "/studio/packs/:id", destination: "/app/characters/:id", permanent: false },
       { source: "/studio/starters", destination: "/app/characters/new", permanent: false },
       { source: "/studio/jobs", destination: "/app/jobs", permanent: false },
-      { source: "/studio/settings", destination: "/admin", permanent: false },
+      { source: "/studio/settings", destination: "/app/settings", permanent: false },
     ];
   },
 };

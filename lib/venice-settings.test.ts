@@ -18,6 +18,8 @@ import {
   VENICE_NETWORK_ERROR,
   VENICE_SAVE,
   VENICE_SAVE_SUCCESS,
+  VENICE_SETTINGS_API,
+  VENICE_SETTINGS_PATH,
   VENICE_STATUS_CONNECTED,
   VENICE_STATUS_DISCONNECTED,
   maskVeniceApiKey,
@@ -59,7 +61,7 @@ describe("Connect Venice copy", () => {
     const ui = [
       readRepo("components/connect-venice.tsx"),
       readRepo("lib/venice-settings.ts"),
-      readRepo("app/admin/page.tsx"),
+      readRepo("app/app/settings/page.tsx"),
     ].join("\n");
     expect(ui).not.toMatch(/Login with Venice|Sign in with Venice|OAuth|Authorize|Sync account|Connect with browser/i);
   });
@@ -97,7 +99,7 @@ describe("Venice key masking", () => {
     expect(normalizeVeniceApiKey(null)).toBe("");
   });
 
-  it("keeps Connect Venice UI client-safe and invite-gated", () => {
+  it("keeps Connect Venice UI client-safe on per-user Settings", () => {
     const ui = readRepo("components/connect-venice.tsx");
     expect(ui).toContain("VENICE_CONNECT_TITLE");
     expect(ui).toContain("VENICE_CONNECT_HELP");
@@ -110,14 +112,31 @@ describe("Venice key masking", () => {
     expect(ui).toContain("disabled={!canSave}");
     expect(ui).toContain("VENICE_CONNECTED_PLACEHOLDER");
     expect(ui.indexOf('htmlFor="venice-api-key"')).toBeLessThan(ui.indexOf("venice-help"));
-    expect(ui).toContain("/api/admin/venice");
+    expect(ui).toContain("VENICE_SETTINGS_API");
+    expect(ui).not.toContain("/api/admin/venice");
     expect(ui).not.toMatch(/venice-secret|resolveVeniceApiKey|encryptOperatorSecret|ciphertext/);
-    expect(readRepo("app/admin/page.tsx")).toContain("ConnectVenicePanel");
-    expect(readRepo("app/api/admin/venice/route.ts")).toContain("requireAdmin");
-    expect(readRepo("components/studio-chrome.tsx")).toContain('href="/admin"');
-    expect(readRepo("components/studio-chrome.tsx")).toContain("{props.admin ? <a href=\"/admin\">Settings</a> : null}");
-    expect(readRepo("components/studio-chrome.tsx")).not.toContain("/app/settings");
+    expect(VENICE_SETTINGS_PATH).toBe("/app/settings");
+    expect(VENICE_SETTINGS_API).toBe("/api/settings/venice");
+    expect(readRepo("app/app/settings/page.tsx")).toContain("ConnectVenicePanel");
+    expect(readRepo("app/api/settings/venice/route.ts")).toContain("requireAttestedUser");
+    expect(readRepo("app/api/settings/venice/route.ts")).not.toContain("requireAdmin");
+    expect(readRepo("app/api/settings/venice/route.ts")).toContain("validateVeniceApiKey");
+    expect(readRepo("app/api/settings/venice/route.ts")).not.toMatch(/image\/generate|generateStill/);
+    expect(readRepo("app/admin/page.tsx")).not.toContain("ConnectVenicePanel");
+    expect(readRepo("components/studio-chrome.tsx")).toContain('href="/app/settings"');
+    expect(readRepo("components/studio-chrome.tsx")).toContain('href="/app/settings">Settings</a>');
+    expect(readRepo("components/studio-chrome.tsx")).not.toContain("{props.admin ? <a href=\"/admin\">Settings</a> : null}");
+    expect(readRepo("components/studio-chrome.tsx")).toContain("{props.admin ? <a href=\"/admin/invites\">Invites</a> : null}");
     expect(readRepo("next.config.ts")).toContain('source: "/studio/settings"');
-    expect(readRepo("next.config.ts")).toContain('destination: "/admin"');
+    expect(readRepo("next.config.ts")).toContain('destination: "/app/settings"');
+    expect(readRepo("workers/generateStill.ts")).toContain("userId: job.userId");
+    expect(readRepo("server/providers/venice.ts")).toContain("resolveVeniceApiKey(input.userId)");
+    expect(readRepo("db/schema.ts")).toContain("user_secrets");
+    expect(readRepo("db/migrations/0011_user_secrets.sql")).toContain("user_secrets");
+    expect(readRepo("server/venice-secret.ts")).toContain("userSecrets");
+    expect(readRepo("server/venice-secret.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("app/api/settings/venice/route.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("workers/generateStill.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("server/providers/venice.ts")).not.toContain("operatorSecrets");
   });
 });
