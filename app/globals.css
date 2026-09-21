@@ -186,7 +186,7 @@ h3 {
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  padding: 22px clamp(20px, 4vw, 48px);
+  padding: 22px clamp(24px, 5vw, 56px);
 }
 
 .landing-copy-wrap {
@@ -195,7 +195,7 @@ h3 {
   flex: 1;
   display: flex;
   align-items: center;
-  padding: 12px clamp(20px, 4vw, 48px) 72px;
+  padding: 12px clamp(24px, 5vw, 56px) 72px;
 }
 
 .landing-copy {
@@ -328,9 +328,10 @@ h3 {
 }
 
 .btn.landing-login {
+  flex-shrink: 0;
   background: transparent;
   color: #F4F1EA;
-  border: 1px solid rgba(196, 165, 116, 0.62);
+  border: 1px solid rgba(196, 165, 116, 0.7);
   border-radius: 999px;
   padding: 8px 18px;
   font-weight: 500;

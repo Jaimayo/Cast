@@ -83,7 +83,7 @@ describe("Stage 1 landing copy", () => {
     expect(visual).toContain("LANDING_HERO_SRC");
     expect(visual).toContain("landing-hero-photo");
     expect(visual).toContain("landing-hero-scrim");
-    expect(visual).toContain("LANDING_VISUAL_ARIA");
+    expect(visual).not.toContain("LANDING_VISUAL_ARIA");
     expect(visual).not.toContain("LANDING_VISUAL_NAMES");
     expect(visual).not.toContain("LANDING_VISUAL_CAPTION");
     expect(visual).not.toContain("landing-credit");
@@ -115,7 +115,7 @@ describe("Stage 1 landing copy", () => {
     expect(css).toContain(".btn.landing-cta");
     expect(css).toContain("background: #C4A574");
     expect(css).toContain("color: #0A0A0C");
-    expect(css).toContain("rgba(196, 165, 116, 0.62)");
+    expect(css).toContain("rgba(196, 165, 116, 0.7)");
     expect(css).not.toContain(".landing-visual-card");
     expect(css).not.toContain(".landing-chip");
     expect(css).not.toMatch(/\.landing-badge\s*\{/);

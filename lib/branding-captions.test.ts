@@ -23,7 +23,7 @@ describe("Jillian branding-canonical captions", () => {
     expect(LANDING_VISUAL_NAMES).not.toBe("JILLIAN");
     expect(`${LANDING_VISUAL_NAMES} · ${LANDING_VISUAL_CAPTION}`).not.toMatch(/Mara|Iris|Demo characters/i);
     const visual = readRepo("components/landing-hero-visual.tsx");
-    expect(visual).toContain("LANDING_VISUAL_ARIA");
+    expect(visual).not.toContain("LANDING_VISUAL_ARIA");
     expect(visual).not.toContain("LANDING_VISUAL_NAMES");
     expect(visual).not.toContain("LANDING_VISUAL_CAPTION");
     expect(visual).not.toContain("LANDING_CHIP_LABELS");
