@@ -300,9 +300,13 @@ h3 {
       );
   }
 
+  .landing-header {
+    padding: 18px 20px;
+  }
+
   .landing-copy-wrap {
     align-items: flex-end;
-    padding: 12px 20px 48px;
+    padding: 12px 20px 40px;
   }
 
   .landing-copy {
@@ -311,12 +315,27 @@ h3 {
     margin-top: 0;
   }
 
+  .landing-copy h1 {
+    font-size: clamp(32px, 8.4vw, 42px);
+    margin: 0 0 14px;
+  }
+
+  .landing-copy .lede {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .landing-badges {
+    margin-bottom: 18px;
+  }
+
   .landing-copy .actions {
-    margin-top: 28px;
+    margin-top: 22px;
   }
 
   .btn.landing-cta {
     width: 100%;
+    min-height: 48px;
   }
 
   .landing-credit {
