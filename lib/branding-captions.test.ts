@@ -20,9 +20,21 @@ describe("Jillian branding-canonical captions", () => {
     expect(LANDING_VISUAL_NAMES).toBe("Jillian");
     expect(LANDING_VISUAL_CAPTION).toBe("Demo character");
     expect(LANDING_VISUAL_ARIA).toBe("Jillian · Demo character");
-    expect([...LANDING_CHIP_LABELS]).toEqual(["Pose", "Scene", "Lighting"]);
     expect(LANDING_VISUAL_NAMES).not.toBe("JILLIAN");
     expect(`${LANDING_VISUAL_NAMES} · ${LANDING_VISUAL_CAPTION}`).not.toMatch(/Mara|Iris|Demo characters/i);
+    const visual = readRepo("components/landing-hero-visual.tsx");
+    expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("LANDING_CHIP_LABELS");
+  });
+
+  it("keeps Pose / Scene / Lighting as Create chip families, not landing chrome", () => {
+    expect([...LANDING_CHIP_LABELS]).toEqual(["Pose", "Scene", "Lighting"]);
+    const rail = readRepo("components/chip-rail.tsx");
+    expect(rail).toContain('title="Pose"');
+    expect(rail).toContain('title="Scene"');
+    expect(rail).toContain('title="Lighting"');
+    expect(readRepo("app/page.tsx")).not.toMatch(/\bPose\b/);
+    expect(readRepo("components/landing-hero-visual.tsx")).not.toMatch(/\bLighting\b/);
   });
 
   it("locks roster / pack chrome for Jillian Locked and Iris Draft", () => {

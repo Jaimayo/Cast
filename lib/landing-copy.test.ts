@@ -9,6 +9,8 @@ import {
   LANDING_CTA,
   LANDING_HEADLINE,
   LANDING_HERO_SRC,
+  LANDING_LOGIN,
+  LANDING_LOGIN_HREF,
   LANDING_VISUAL_ARIA,
   LANDING_VISUAL_CAPTION,
   LANDING_VISUAL_NAMES,
@@ -27,6 +29,8 @@ describe("Stage 1 landing copy", () => {
       "Cast is invite-only. Create a consistent fictional character, then direct stills with structured chips.",
     );
     expect(LANDING_CTA).toBe("Enter with invite");
+    expect(LANDING_LOGIN).toBe("Log in");
+    expect(LANDING_LOGIN_HREF).toBe("/invite?mode=signin");
     expect([...LANDING_CHIP_LABELS]).toEqual(["Pose", "Scene", "Lighting"]);
     expect(LANDING_VISUAL_NAMES).toBe("Jillian");
     expect(LANDING_VISUAL_CAPTION).toBe("Demo character");
@@ -47,11 +51,17 @@ describe("Stage 1 landing copy", () => {
       "Cast is invite-only. Create a consistent fictional character, then direct stills with",
     );
     expect(page).toContain("Enter with invite");
+    expect(page).toContain("Log in");
+    expect(page).toContain("LANDING_LOGIN_HREF");
     expect(page).toContain("LandingHeroVisual");
+    expect(page).toContain("Wordmark");
     expect(page).not.toMatch(/No public gallery/i);
     expect(page).not.toMatch(/real-person likeness/i);
     expect(page).not.toMatch(/Fictional characters/);
     expect(page).not.toMatch(/Private fictional studio for adults/);
+    expect(page).not.toMatch(/\bPose\b/);
+    expect(page).not.toMatch(/\bScene\b/);
+    expect(page).not.toMatch(/\bLighting\b/);
     const layout = readRepo("app/layout.tsx");
     expect(layout).not.toMatch(/No public gallery/i);
     expect(layout).not.toMatch(/real-person likeness/i);
@@ -60,21 +70,38 @@ describe("Stage 1 landing copy", () => {
     expect(readRepo("components/invite-form.tsx")).not.toMatch(/real-person likeness/i);
   });
 
-  it("paints a champagne card stack with the Jillian hero in the landing right column", () => {
+  it("paints a full-bleed Jillian hero with champagne-on-void overlay, not a card stack", () => {
     const visual = readRepo("components/landing-hero-visual.tsx");
+    const page = readRepo("app/page.tsx");
     const css = readRepo("app/globals.css");
     expect(visual).toContain("LANDING_HERO_SRC");
-    expect(visual).toContain("landing-visual-card");
-    expect(visual).toContain("LANDING_CHIP_LABELS");
+    expect(visual).toContain("landing-hero-photo");
+    expect(visual).toContain("landing-hero-scrim");
     expect(visual).toContain("LANDING_VISUAL_ARIA");
     expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("LANDING_CHIP_LABELS");
+    expect(visual).not.toContain("landing-visual-card");
     expect(visual).not.toContain("Iris");
     expect(visual).not.toContain("toUpperCase");
     expect(visual).not.toMatch(/No public gallery/i);
-    expect(css).toContain(".landing-visual-card");
+    expect(visual).not.toMatch(/\bPose\b/);
+    expect(visual).not.toMatch(/\bScene\b/);
+    expect(visual).not.toMatch(/\bLighting\b/);
+    expect(page).toContain("landing-screen");
+    expect(page).toContain("landing-login");
+    expect(page).toContain("landing-cta");
+    expect(page).not.toContain("landing-visual-card");
+    expect(css).toContain(".landing-hero-photo");
+    expect(css).toContain("object-fit: cover");
+    expect(css).toContain("object-position: 68% 16%");
+    expect(css).toContain("rgba(14, 14, 20, 0.92)");
     expect(css).toContain("#c4a574");
     expect(css).toContain("#0e0e14");
-    expect(css).toContain(".landing-chip");
+    expect(css).toContain(".btn.landing-cta");
+    expect(css).toContain("background: var(--gold)");
+    expect(css).not.toContain(".landing-visual-card");
+    expect(css).not.toContain(".landing-chip");
+    expect(css).not.toMatch(/#ff4|#e91|hotpink|deeppink|#ff007f|#ff1493|#ff69b4/i);
     expect(css).not.toMatch(/\.landing-visual-name\s*\{[^}]*text-transform:\s*uppercase/s);
   });
 

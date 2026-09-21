@@ -9,6 +9,12 @@ export const LANDING_BODY =
 
 export const LANDING_CTA = "Enter with invite";
 
+/** Outline secondary on the landing hero (Ashley Madison Log in pattern). */
+export const LANDING_LOGIN = "Log in";
+
+export const LANDING_LOGIN_HREF = "/invite?mode=signin";
+
+/** Composer family labels — not landing chrome. Pose / Scene / Lighting stay in Create. */
 export const LANDING_CHIP_LABELS = ["Pose", "Scene", "Lighting"] as const;
 
 /** Locked primary demo character. Iris stays a Draft stub — do not claim Iris faces here. */
