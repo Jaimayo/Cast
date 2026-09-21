@@ -69,6 +69,8 @@ export const DEMO_PACK_CREATE_MESSAGE =
 export const DEMO_LIBRARY_COPY = "Fictional demo stills for stub review. Jillian faces ship with the catalog.";
 export const DEMO_SEED_NOTE =
   "Catalog is already seeded in stub. Jillian Locked fictional refs live under public/demo/refs/jillian/; library stills under public/demo/stills/jillian/. Iris remains a Draft stub. No real-person likeness.";
+export const DEMO_BADGE_LOCKED = "Demo";
+export const DEMO_BADGE_DRAFT = "Draft";
 
 const JILLIAN_REFS: { file: string; label: string; kind: DemoStillKind }[] = [
   { file: "jillian-01.jpg", label: "Face · Loft", kind: "starter_face" },
@@ -306,6 +308,14 @@ export function demoPackPreviewUrl(packId: string): string | null {
 
 export function demoStillRepoPath(still: Pick<DemoStill, "dropFile">): string {
   return `${DEMO_ASSET_DIR}/${still.dropFile}`;
+}
+
+export function demoBadgeLabel(state: DemoPackState): string {
+  return state === "draft" ? DEMO_BADGE_DRAFT : DEMO_BADGE_LOCKED;
+}
+
+export function demoPackThumbAlt(pack: { name: string; demoState: DemoPackState }): string {
+  return pack.demoState === "draft" ? `${pack.name} (draft)` : `${pack.name} (demo)`;
 }
 
 /** Client fields so Locked vs Draft demo chrome survives getPack → publicPack. */

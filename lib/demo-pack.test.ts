@@ -29,6 +29,8 @@ import {
   demoSeedPayload,
   demoStartersForPack,
   demoStillRepoPath,
+  demoBadgeLabel,
+  demoPackThumbAlt,
   getDemoPack,
   getDemoStill,
   isDemoPackId,
@@ -63,6 +65,11 @@ describe("stub demo Character Packs", () => {
     expect(demoPackStatusLabel(iris.id)).toBe("Draft");
     expect(jillian.fictional).toBe(true);
     expect(iris.fictional).toBe(true);
+    expect(demoBadgeLabel("locked")).toBe("Demo");
+    expect(demoBadgeLabel("draft")).toBe("Draft");
+    expect(demoBadgeLabel("draft")).not.toMatch(/demo/i);
+    expect(demoPackThumbAlt(jillian)).toBe("Jillian (demo)");
+    expect(demoPackThumbAlt(iris)).toBe("Iris (draft)");
   });
 
   it("gives Jillian min-12 shipped refs so Locked is product-real, and Iris stays below lock", () => {
