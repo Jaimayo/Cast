@@ -43,6 +43,9 @@ describe("Stage 1 landing copy", () => {
     expect(LANDING_VISUAL_ARIA).not.toMatch(/Mara|Iris|MARA · IRIS|Demo characters/i);
     expect(LANDING_HERO_SRC).toBe("/demo/landing/jillian-hero-3x4.jpg");
     expect(existsSync(resolve(process.cwd(), "public/demo/landing/jillian-hero-3x4.jpg"))).toBe(true);
+    const hero = readFileSync(resolve(process.cwd(), "public/demo/landing/jillian-hero-3x4.jpg"));
+    const fingerlip = readFileSync(resolve(process.cwd(), "public/demo/refs/jillian/jillian-03.jpg"));
+    expect(hero.equals(fingerlip)).toBe(true);
   });
 
   it("renders those strings on the landing page and omits gallery / likeness marketing", () => {
@@ -103,7 +106,7 @@ describe("Stage 1 landing copy", () => {
     expect(page).not.toContain("landing-visual-card");
     expect(css).toContain(".landing-hero-photo");
     expect(css).toContain("object-fit: cover");
-    expect(css).toContain("object-position: 70% 20%");
+    expect(css).toContain("object-position: 60% 18%");
     expect(css).toContain("rgba(7, 7, 10, 0.42) 58%");
     expect(css).toContain("rgba(7, 7, 10, 0.96) 0%");
     expect(css).toContain("rgba(7, 7, 10, 0.55) 45%");

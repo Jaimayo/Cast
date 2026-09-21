@@ -164,7 +164,7 @@ h3 {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 70% 20%;
+  object-position: 60% 18%;
 }
 
 .landing-hero-scrim {
@@ -244,7 +244,7 @@ h3 {
 
 @media (max-width: 860px) {
   .landing-hero-photo {
-    object-position: 70% 20%;
+    object-position: 58% 18%;
   }
 
   .landing-hero-scrim {
