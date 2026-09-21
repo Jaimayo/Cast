@@ -1,10 +1,11 @@
 import { LOCK_SOUL_ID_FIRST } from "@/lib/soul";
+import { GENERATE_LABEL, GENERATE_REASON_POSE as POSE_HELPER } from "@/lib/studio-copy";
 
 export const GENERATE_REASON_ATTEST = "Confirm you are 18+.";
 export const GENERATE_REASON_UNLOCKED = LOCK_SOUL_ID_FIRST;
-export const GENERATE_REASON_POSE = "Pick a Pose";
+export const GENERATE_REASON_POSE = POSE_HELPER;
 
-export const GENERATE_LABEL_IDLE = "Generate";
+export const GENERATE_LABEL_IDLE = GENERATE_LABEL;
 export const GENERATE_LABEL_QUEUEING = "Queueing…";
 export const GENERATE_LABEL_IN_PROGRESS = "Generating…";
 export const GENERATE_IN_PROGRESS_COPY = "Generating still…";

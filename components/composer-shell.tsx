@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChipRail } from "@/components/chip-rail";
-import { EmptyState } from "@/components/empty-state";
-import { GenerateButton, TeaserAnimateLater } from "@/components/generate-button";
+import { ComposerActionBar } from "@/components/composer-action-bar";
 import { HeroCanvas } from "@/components/hero-canvas";
 import { LoadingState } from "@/components/loading-state";
 import { SoulBadge } from "@/components/soul-badge";
@@ -25,7 +24,7 @@ import {
 } from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
-type Pack = { id: string; name: string; status: string; demo?: boolean };
+type Pack = { id: string; name: string; status: string; demo?: boolean; previewUrl?: string | null };
 type Job = JobDisplayInput & {
   id: string;
   previewUrl?: string | null;
@@ -266,7 +265,7 @@ export function ComposerShell(props: { initialPackId?: string }) {
   }
 
   return (
-    <div>
+    <div className="composer-page">
       <div className="app-header">
         <SoulBadge name={characterName} locked={locked} />
         <span className="muted">Private · credits later</span>
@@ -292,116 +291,87 @@ export function ComposerShell(props: { initialPackId?: string }) {
           onBody={setBodyChipId}
           onAspect={setAspectRatio}
         />
-        <div className="hero-canvas">
-          <HeroCanvas
-            locked={locked}
-            message={message}
-            progress={activeView?.note ?? null}
-            previewUrl={heroUrl}
-            packId={focus?.id}
-            training={training}
-            generating={generating}
-            aspectRatio={aspectRatio}
-          />
-          {error ? <p className="error">{error}</p> : null}
-          {activeView ? (
-            <p className="job-status is-gold" aria-live="polite">
-              {activeView.statusLabel}
-              {activeView.meta ? ` · ${activeView.meta}` : ""}
-              {activeView.note ? ` — ${activeView.note}` : ""}
-            </p>
-          ) : null}
-          {disabledReason ? <p className="generate-reason">{disabledReason}</p> : null}
-          <div className="actions" style={{ marginTop: 0 }}>
-            <GenerateButton
-              disabled={!canGenerate}
-              pending={pending}
-              inProgress={generating}
-              disabledReason={disabledReason}
-              onClick={() => void generate()}
+        <div className="composer-stage">
+          <div className="composer-stage-main">
+            <HeroCanvas
+              locked={locked}
+              message={message}
+              progress={activeView?.note ?? null}
+              previewUrl={heroUrl}
+              packId={focus?.id}
+              training={training}
+              generating={generating}
+              aspectRatio={aspectRatio}
             />
-            {activeJob?.cancelSupported ? (
-              <button
-                className="btn secondary"
-                type="button"
-                disabled={cancelingId === activeJob.id}
-                onClick={() => void cancelJob(activeJob.id)}
-              >
-                {cancelingId === activeJob.id ? "Canceling…" : "Cancel"}
-              </button>
+            {error ? <p className="error">{error}</p> : null}
+            {message ? <p className="ok">{message}</p> : null}
+            {activeView ? (
+              <p className="job-status is-gold" aria-live="polite">
+                {activeView.statusLabel}
+                {activeView.meta ? ` · ${activeView.meta}` : ""}
+                {activeView.note ? ` — ${activeView.note}` : ""}
+              </p>
             ) : null}
-            <TeaserAnimateLater />
           </div>
-          <p className="hidden-note">
-            Generate needs a Locked Soul ID and a Pose. No prompt textarea. No camera. No Advanced.
-            Starters live in the Pack wizard only. Animate later is Phase 1.5.
-          </p>
-        </div>
-        <aside className="history-rail">
-          <h4>History</h4>
-          {history.length === 0 ? (
-            <EmptyState
-              compact
-              kicker="Session"
-              title="No stills yet"
-              body="Generate a still and it lands here."
-            />
-          ) : null}
-          {history.map((job) => {
-            const view = jobQueuePresentation(job);
-            const busy = isInProgressJob(job);
-            return (
-              <div key={job.id} className={busy ? "history-item is-progress" : "history-item"}>
-                {job.previewUrl ? (
-                  <button type="button" className="history-thumb" onClick={() => setHeroUrl(job.previewUrl ?? null)}>
-                    <StillPreview src={job.previewUrl} alt="Still" />
-                  </button>
-                ) : (
-                  <p>
-                    <span
-                      className={
-                        view.statusTone === "gold"
-                          ? "job-status is-gold"
-                          : view.statusTone === "danger"
-                            ? "job-status is-danger"
-                            : "job-status"
-                      }
-                    >
-                      {view.statusLabel}
-                    </span>
-                    {view.meta ? <span className="muted"> · {view.meta}</span> : null}
-                    {view.note ? (
-                      <>
-                        <br />
-                        <span
-                          className={
-                            view.noteTone === "fail"
-                              ? "error"
-                              : view.noteTone === "retry"
-                                ? "job-note is-retry"
-                                : "muted"
-                          }
-                        >
-                          {view.note}
-                        </span>
-                      </>
+          <ComposerActionBar
+            disabled={!canGenerate}
+            pending={pending}
+            inProgress={generating}
+            disabledReason={disabledReason}
+            onGenerate={() => void generate()}
+            cancel={
+              activeJob?.cancelSupported
+                ? {
+                    busy: cancelingId === activeJob.id,
+                    onCancel: () => void cancelJob(activeJob.id),
+                  }
+                : null
+            }
+          />
+          {history.length > 0 ? (
+            <aside className="composer-history-strip" aria-label="History">
+              {history.map((job) => {
+                const view = jobQueuePresentation(job);
+                const busy = isInProgressJob(job);
+                return (
+                  <div key={job.id} className={busy ? "history-strip-item is-progress" : "history-strip-item"}>
+                    {job.previewUrl ? (
+                      <button
+                        type="button"
+                        className="history-thumb"
+                        onClick={() => setHeroUrl(job.previewUrl ?? null)}
+                      >
+                        <StillPreview src={job.previewUrl} alt="Still" />
+                      </button>
+                    ) : (
+                      <span
+                        className={
+                          view.statusTone === "gold"
+                            ? "job-status is-gold"
+                            : view.statusTone === "danger"
+                              ? "job-status is-danger"
+                              : "job-status"
+                        }
+                      >
+                        {view.statusLabel}
+                      </span>
+                    )}
+                    {job.cancelSupported ? (
+                      <button
+                        className="btn secondary compact"
+                        type="button"
+                        disabled={cancelingId === job.id}
+                        onClick={() => void cancelJob(job.id)}
+                      >
+                        {cancelingId === job.id ? "Canceling…" : "Cancel"}
+                      </button>
                     ) : null}
-                  </p>
-                )}
-                {job.cancelSupported ? (
-                  <button
-                    className="btn secondary compact"
-                    type="button"
-                    disabled={cancelingId === job.id}
-                    onClick={() => void cancelJob(job.id)}
-                  >
-                    {cancelingId === job.id ? "Canceling…" : "Cancel"}
-                  </button>
-                ) : null}
-              </div>
-            );
-          })}
-        </aside>
+                  </div>
+                );
+              })}
+            </aside>
+          ) : null}
+        </div>
       </div>
     </div>
   );

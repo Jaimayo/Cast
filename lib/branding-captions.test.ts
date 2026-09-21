@@ -52,7 +52,7 @@ describe("Jillian branding-canonical captions", () => {
     expect(demoBadgeLabel(iris.demoState)).not.toMatch(/demo/i);
     expect(demoPackThumbAlt(iris)).toBe("Iris (draft)");
     const roster = readRepo("components/character-roster.tsx");
-    expect(roster).toContain("Use in Create");
+    expect(roster).toContain("PackPrimaryCta");
     expect(roster).toContain("demoPackThumbAlt");
     expect(roster).toContain("demoBadgeLabel");
     expect(readRepo("components/soul-badge.tsx")).toContain("SOUL_BADGE_LOCKED");

@@ -3,11 +3,13 @@
 import { AspectChipSelect } from "@/components/aspect-chip-select";
 import { ChipSelect } from "@/components/chip-select";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
+import { SoulBadge } from "@/components/soul-badge";
+import { StillPreview } from "@/components/still-preview";
 import { isLockedSoul } from "@/lib/soul";
 import type { StillAspectId } from "@/lib/still-aspect";
 
 type Chip = { id: string; label: string };
-type Pack = { id: string; name: string; status: string; demo?: boolean };
+type Pack = { id: string; name: string; status: string; demo?: boolean; previewUrl?: string | null };
 
 export function ChipRail(props: {
   packs: Pack[];
@@ -38,18 +40,35 @@ export function ChipRail(props: {
         {lockedPacks.length === 0 ? (
           <LockSoulIdFirstCta packId={props.lockPackId} training={props.training} variant="link" />
         ) : (
-          <select value={props.characterPackId} onChange={(event) => props.onCharacter(event.target.value)}>
-            <option value="">Select a Locked pack…</option>
-            {lockedPacks.map((pack) => (
-              <option key={pack.id} value={pack.id}>
-                {pack.demo ? `${pack.name} · demo` : pack.name}
-              </option>
-            ))}
-          </select>
+          <div className="pack-picker" role="listbox" aria-label="Character">
+            {lockedPacks.map((pack) => {
+              const selected = pack.id === props.characterPackId;
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={selected ? "pack-picker-row selected" : "pack-picker-row"}
+                  onClick={() => props.onCharacter(pack.id)}
+                >
+                  {pack.previewUrl ? (
+                    <StillPreview src={pack.previewUrl} alt="" className="pack-picker-thumb" />
+                  ) : (
+                    <span className="pack-picker-thumb is-empty" aria-hidden />
+                  )}
+                  <span className="pack-picker-name">
+                    {pack.name}
+                    {pack.demo ? <span className="pack-picker-demo">demo</span> : null}
+                  </span>
+                  <SoulBadge name={pack.name} locked />
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
       <ChipSelect title="Pose" required chips={props.chips.pose} value={props.poseChipId} onChange={props.onPose} />
-      <AspectChipSelect value={props.aspectRatio} onChange={props.onAspect} />
       <ChipSelect title="Outfit" optional chips={props.chips.outfit} value={props.outfitChipId} onChange={props.onOutfit} />
       <ChipSelect title="Scene" optional chips={props.chips.scene} value={props.sceneChipId} onChange={props.onScene} />
       <ChipSelect
@@ -60,6 +79,7 @@ export function ChipRail(props: {
         onChange={props.onLighting}
       />
       <ChipSelect title="Body" optional chips={props.chips.body} value={props.bodyChipId} onChange={props.onBody} />
+      <AspectChipSelect value={props.aspectRatio} onChange={props.onAspect} />
     </aside>
   );
 }

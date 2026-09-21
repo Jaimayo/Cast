@@ -1,4 +1,5 @@
 import { generateButtonLabel, GENERATE_REASON_UNLOCKED } from "@/lib/generate-affordances";
+import { ANIMATE_LATER_BADGE, ANIMATE_LATER_HELPER, ANIMATE_LATER_LABEL } from "@/lib/studio-copy";
 
 export function GenerateButton(props: {
   disabled: boolean;
@@ -10,7 +11,7 @@ export function GenerateButton(props: {
   const label = generateButtonLabel({ pending: props.pending, inProgress: Boolean(props.inProgress) });
   return (
     <button
-      className="btn"
+      className="btn generate-btn"
       type="button"
       disabled={props.disabled || props.pending}
       title={props.disabled ? (props.disabledReason ?? GENERATE_REASON_UNLOCKED) : undefined}
@@ -23,8 +24,9 @@ export function GenerateButton(props: {
 
 export function TeaserAnimateLater() {
   return (
-    <button className="btn secondary" type="button" disabled title="Phase 1.5 — clips are not in Stage 1">
-      Animate later
+    <button className="btn secondary animate-later" type="button" disabled title={ANIMATE_LATER_HELPER}>
+      <span>{ANIMATE_LATER_LABEL}</span>
+      <span className="phase-badge">{ANIMATE_LATER_BADGE}</span>
     </button>
   );
 }

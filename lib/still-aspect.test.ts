@@ -50,10 +50,12 @@ describe("still aspect (Composer Frame)", () => {
     expect(getStillAspect("3:4").label).toBe("3:4 Portrait");
   });
 
-  it("keeps Hero Frame in empty canvas copy", () => {
+  it("uses the locked empty-canvas line for every frame", () => {
     expect(composerHeroEmptyCopy(getStillAspect("3:4"))).toBe(
-      "Hero Frame · 3:4 Portrait. Generate to fill this canvas.",
+      "Compose a still with the chips, then Generate.",
     );
-    expect(composerHeroEmptyCopy(getStillAspect("1:1"))).toContain("1:1 Square");
+    expect(composerHeroEmptyCopy(getStillAspect("1:1"))).toBe(
+      "Compose a still with the chips, then Generate.",
+    );
   });
 });
