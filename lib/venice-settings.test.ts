@@ -100,6 +100,7 @@ describe("Venice key masking", () => {
   it("keeps Connect Venice UI client-safe and invite-gated", () => {
     const ui = readRepo("components/connect-venice.tsx");
     expect(ui).toContain("VENICE_CONNECT_TITLE");
+    expect(ui).toContain("VENICE_CONNECT_HELP");
     expect(ui).toContain("VENICE_SAVE");
     expect(ui).toContain("VENICE_DISCONNECT");
     expect(ui).toContain("VENICE_KEEP_CONNECTED");

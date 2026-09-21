@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import {
   VENICE_API_SETTINGS_URL,
+  VENICE_CONNECT_HELP,
   VENICE_CONNECT_TITLE,
   VENICE_DISCONNECT,
   VENICE_DISCONNECT_CONFIRM,
@@ -94,11 +95,11 @@ export function ConnectVenicePanel() {
           ) : null}
         </div>
         <p className="muted venice-help">
-          Create a key at{" "}
+          {VENICE_CONNECT_HELP.split("venice.ai/settings/api")[0]}
           <a href={VENICE_API_SETTINGS_URL} target="_blank" rel="noreferrer">
             venice.ai/settings/api
           </a>
-          . Cast uses it only for still generation.
+          {VENICE_CONNECT_HELP.split("venice.ai/settings/api")[1]}
         </p>
         {connected && status?.maskedKey ? <p className="venice-masked">Key {status.maskedKey}</p> : null}
         {!connected ? <p className="muted venice-empty">{VENICE_EMPTY}</p> : null}
