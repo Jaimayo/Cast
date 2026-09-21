@@ -1,6 +1,10 @@
 /** Exact Stage 1 landing marketing copy. Legal lock remains fictional-only in product. */
 
+export const LANDING_LOCKUP_ALT = "Cast";
+
 export const LANDING_BADGES = ["Invite only", "Adults only", "Consistent characters"] as const;
+
+export const LANDING_BADGE_LINE = "Invite only · Adults only · Consistent characters";
 
 export const LANDING_HEADLINE = "Private studio for all your imaginations.";
 

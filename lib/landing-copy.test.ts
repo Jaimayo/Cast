@@ -3,12 +3,14 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGE_ATTEST_COPY } from "@/lib/age-attest";
 import {
+  LANDING_BADGE_LINE,
   LANDING_BADGES,
   LANDING_BODY,
   LANDING_CHIP_LABELS,
   LANDING_CTA,
   LANDING_HEADLINE,
   LANDING_HERO_SRC,
+  LANDING_LOCKUP_ALT,
   LANDING_LOGIN,
   LANDING_LOGIN_HREF,
   LANDING_VISUAL_ARIA,
@@ -23,7 +25,9 @@ function readRepo(path: string) {
 
 describe("Stage 1 landing copy", () => {
   it("locks the exact badge / headline / body / CTA strings", () => {
+    expect(LANDING_LOCKUP_ALT).toBe("Cast");
     expect([...LANDING_BADGES]).toEqual(["Invite only", "Adults only", "Consistent characters"]);
+    expect(LANDING_BADGE_LINE).toBe("Invite only · Adults only · Consistent characters");
     expect(LANDING_HEADLINE).toBe("Private studio for all your imaginations.");
     expect(LANDING_BODY).toBe(
       "Cast is invite-only. Create a consistent fictional character, then direct stills with structured chips.",
@@ -43,9 +47,7 @@ describe("Stage 1 landing copy", () => {
 
   it("renders those strings on the landing page and omits gallery / likeness marketing", () => {
     const page = readRepo("app/page.tsx");
-    expect(page).toContain("Invite only");
-    expect(page).toContain("Adults only");
-    expect(page).toContain("Consistent characters");
+    expect(page).toContain("Invite only · Adults only · Consistent characters");
     expect(page).toContain("Private studio for all your imaginations.");
     expect(page).toContain(
       "Cast is invite-only. Create a consistent fictional character, then direct stills with",
@@ -55,13 +57,17 @@ describe("Stage 1 landing copy", () => {
     expect(page).toContain("LANDING_LOGIN_HREF");
     expect(page).toContain("LandingHeroVisual");
     expect(page).toContain("Wordmark");
+    expect(readRepo("components/wordmark.tsx")).toContain('alt="Cast"');
     expect(page).not.toMatch(/No public gallery/i);
     expect(page).not.toMatch(/real-person likeness/i);
     expect(page).not.toMatch(/Fictional characters/);
     expect(page).not.toMatch(/Private fictional studio for adults/);
+    expect(page).not.toMatch(/Join Now/);
+    expect(page).not.toMatch(/Login with Venice/);
     expect(page).not.toMatch(/\bPose\b/);
     expect(page).not.toMatch(/\bScene\b/);
     expect(page).not.toMatch(/\bLighting\b/);
+    expect(page).not.toMatch(/Jillian|Demo character|Mara|Iris/);
     const layout = readRepo("app/layout.tsx");
     expect(layout).not.toMatch(/No public gallery/i);
     expect(layout).not.toMatch(/real-person likeness/i);
@@ -78,31 +84,44 @@ describe("Stage 1 landing copy", () => {
     expect(visual).toContain("landing-hero-photo");
     expect(visual).toContain("landing-hero-scrim");
     expect(visual).toContain("LANDING_VISUAL_ARIA");
-    expect(visual).toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("LANDING_VISUAL_NAMES");
+    expect(visual).not.toContain("LANDING_VISUAL_CAPTION");
+    expect(visual).not.toContain("landing-credit");
     expect(visual).not.toContain("LANDING_CHIP_LABELS");
     expect(visual).not.toContain("landing-visual-card");
     expect(visual).not.toContain("Iris");
     expect(visual).not.toContain("toUpperCase");
     expect(visual).not.toMatch(/No public gallery/i);
+    expect(visual).not.toMatch(/Join Now/);
     expect(visual).not.toMatch(/\bPose\b/);
     expect(visual).not.toMatch(/\bScene\b/);
     expect(visual).not.toMatch(/\bLighting\b/);
     expect(page).toContain("landing-screen");
     expect(page).toContain("landing-login");
     expect(page).toContain("landing-cta");
+    expect(page).toContain("landing-badges");
     expect(page).not.toContain("landing-visual-card");
     expect(css).toContain(".landing-hero-photo");
     expect(css).toContain("object-fit: cover");
     expect(css).toContain("object-position: 68% 16%");
-    expect(css).toContain("rgba(14, 14, 20, 0.92)");
-    expect(css).toContain("#c4a574");
-    expect(css).toContain("#0e0e14");
+    expect(css).toContain("rgba(7, 7, 10, 0.96) 0%");
+    expect(css).toContain("rgba(7, 7, 10, 0.55) 45%");
+    expect(css).toContain("transparent 72%");
+    expect(css).toContain("#07070A");
+    expect(css).toContain("#C4A574");
+    expect(css).toContain("#0A0A0C");
+    expect(css).toContain("#F4F1EA");
+    expect(css).toContain("#9A958C");
     expect(css).toContain(".btn.landing-cta");
-    expect(css).toContain("background: var(--gold)");
+    expect(css).toContain("background: #C4A574");
+    expect(css).toContain("color: #0A0A0C");
+    expect(css).toContain("rgba(196, 165, 116, 0.62)");
     expect(css).not.toContain(".landing-visual-card");
     expect(css).not.toContain(".landing-chip");
-    expect(css).not.toMatch(/#ff4|#e91|hotpink|deeppink|#ff007f|#ff1493|#ff69b4/i);
-    expect(css).not.toMatch(/\.landing-visual-name\s*\{[^}]*text-transform:\s*uppercase/s);
+    expect(css).not.toMatch(/\.landing-badge\s*\{/);
+    expect(css).not.toContain(".landing-credit");
+    expect(css).not.toMatch(/#ff4|#e91|hotpink|deeppink|#ff007f|#ff1493|#ff69b4|#ff4d|#e91e63|#ff007a/i);
+    expect(css).not.toMatch(/Join Now/);
   });
 
   it("does not change the locked 18+ attest copy", () => {

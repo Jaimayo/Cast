@@ -35,7 +35,7 @@ body {
 
 body:has(.landing-screen) {
   background-image: none;
-  background-color: #0e0e14;
+  background-color: #07070A;
 }
 
 a {
@@ -147,8 +147,8 @@ h3 {
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
-  background: #0e0e14;
-  color: var(--ink);
+  background: #07070A;
+  color: #F4F1EA;
   overflow: hidden;
 }
 
@@ -170,15 +170,12 @@ h3 {
 .landing-hero-scrim {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(14, 14, 20, 0.92) 0%,
-      rgba(14, 14, 20, 0.72) 42%,
-      rgba(14, 14, 20, 0.25) 68%,
-      transparent 100%
-    ),
-    linear-gradient(180deg, rgba(14, 14, 20, 0.22) 0%, transparent 32%, rgba(14, 14, 20, 0.42) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(7, 7, 10, 0.96) 0%,
+    rgba(7, 7, 10, 0.55) 45%,
+    transparent 72%
+  );
 }
 
 .landing-header {
@@ -207,21 +204,13 @@ h3 {
 }
 
 .landing-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
-.landing-badge {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(196, 165, 116, 0.42);
-  color: var(--gold);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
+  margin: 0 0 18px;
+  max-width: 42ch;
+  color: #9A958C;
+  font-size: 14px;
+  font-weight: 400;
   letter-spacing: 0.01em;
+  line-height: 1.45;
 }
 
 .kicker {
@@ -236,9 +225,9 @@ h3 {
 .landing-copy h1 {
   font-size: clamp(40px, 5.6vw, 68px);
   line-height: 1.05;
-  margin: 0 0 22px;
+  margin: 0 0 14px;
   max-width: 11em;
-  color: #f4f1ea;
+  color: #F4F1EA;
 }
 
 .lede {
@@ -249,33 +238,8 @@ h3 {
   margin: 0;
 }
 
-.landing-credit {
-  position: absolute;
-  left: clamp(20px, 4vw, 48px);
-  bottom: 22px;
-  z-index: 1;
-  margin: 0;
-  pointer-events: none;
-}
-
-.landing-visual-name {
-  display: inline;
-  color: #c4a574;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-}
-
-.landing-visual-kicker {
-  display: inline;
-  margin-left: 0.45em;
-  color: #9a958c;
-  font-size: 13px;
-}
-
-.landing-visual-kicker::before {
-  content: "·";
-  margin-right: 0.45em;
-  color: #9a958c;
+.landing-copy .lede {
+  color: #9A958C;
 }
 
 @media (max-width: 860px) {
@@ -287,17 +251,11 @@ h3 {
     background:
       linear-gradient(
         180deg,
-        rgba(14, 14, 20, 0.58) 0%,
-        rgba(14, 14, 20, 0.28) 28%,
-        rgba(14, 14, 20, 0.72) 62%,
-        rgba(14, 14, 20, 0.94) 100%
+        rgba(7, 7, 10, 0.35) 0%,
+        rgba(7, 7, 10, 0.18) 32%,
+        rgba(7, 7, 10, 0.88) 100%
       ),
-      linear-gradient(
-        90deg,
-        rgba(14, 14, 20, 0.55) 0%,
-        rgba(14, 14, 20, 0.22) 48%,
-        transparent 100%
-      );
+      linear-gradient(90deg, rgba(7, 7, 10, 0.96) 0%, rgba(7, 7, 10, 0.55) 45%, transparent 72%);
   }
 
   .landing-header {
@@ -317,7 +275,7 @@ h3 {
 
   .landing-copy h1 {
     font-size: clamp(32px, 8.4vw, 42px);
-    margin: 0 0 14px;
+    margin: 0 0 10px;
   }
 
   .landing-copy .lede {
@@ -326,7 +284,7 @@ h3 {
   }
 
   .landing-badges {
-    margin-bottom: 18px;
+    margin-bottom: 12px;
   }
 
   .landing-copy .actions {
@@ -336,10 +294,6 @@ h3 {
   .btn.landing-cta {
     width: 100%;
     min-height: 48px;
-  }
-
-  .landing-credit {
-    display: none;
   }
 }
 
@@ -375,8 +329,8 @@ h3 {
 
 .btn.landing-login {
   background: transparent;
-  color: #f4f1ea;
-  border: 1px solid rgba(244, 241, 234, 0.55);
+  color: #F4F1EA;
+  border: 1px solid rgba(196, 165, 116, 0.62);
   border-radius: 999px;
   padding: 8px 18px;
   font-weight: 500;
@@ -385,21 +339,25 @@ h3 {
 
 .btn.landing-login:hover,
 .btn.landing-login:focus-visible {
-  border-color: #c4a574;
-  color: #c4a574;
+  background: transparent;
+  border-color: rgba(196, 165, 116, 0.7);
+  color: #F4F1EA;
 }
 
 .btn.landing-cta {
   border-radius: 8px;
   padding: 13px 26px;
-  background: var(--gold);
-  color: #1a1408;
+  background: #C4A574;
+  color: #0A0A0C;
+  border-color: #C4A574;
   font-weight: 600;
 }
 
 .btn.landing-cta:hover,
 .btn.landing-cta:focus-visible {
-  background: #d4b484;
+  background: #C4A574;
+  color: #0A0A0C;
+  filter: brightness(1.06);
 }
 
 .muted a {
