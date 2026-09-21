@@ -386,6 +386,146 @@ input[type="checkbox"] {
   padding: 28px 32px 80px;
 }
 
+.connect-venice {
+  max-width: 36rem;
+}
+
+.connect-venice-panel {
+  padding: 24px;
+}
+
+.connect-venice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.connect-venice-panel h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.status-pill.is-on {
+  border-color: rgba(61, 139, 110, 0.55);
+  color: var(--ok);
+  background: rgba(61, 139, 110, 0.12);
+}
+
+.venice-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.venice-key-row input {
+  margin-bottom: 0;
+}
+
+.connect-venice-panel input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+.venice-reveal {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 12px;
+}
+
+.venice-masked {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+}
+
+.connect-venice .venice-help,
+.connect-venice .venice-success {
+  color: var(--ink-dim);
+  margin: 0 0 12px;
+}
+
+.connect-venice .venice-help a {
+  color: var(--gold);
+}
+
+.connect-venice .venice-error {
+  color: var(--danger);
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.connect-venice .venice-success {
+  color: var(--gold);
+}
+
+.venice-actions {
+  margin-top: 16px;
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: var(--ink);
+  border-color: transparent;
+}
+
+.btn-spinner {
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border: 2px solid rgba(26, 20, 8, 0.25);
+  border-top-color: #1a1408;
+  border-radius: 50%;
+  animation: venice-spin 0.7s linear infinite;
+}
+
+@keyframes venice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.venice-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 7, 10, 0.72);
+}
+
+.venice-dialog-card {
+  width: min(420px, 100%);
+  padding: 24px;
+}
+
+.venice-dialog-card h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

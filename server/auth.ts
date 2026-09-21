@@ -6,12 +6,12 @@ import bcrypt from "bcryptjs";
 import { inviteCodes, users, type InviteCode, type User } from "@/db/schema";
 import { nextPathAfterAuth } from "@/lib/auth-entry";
 import { AuthError } from "@/lib/auth-error";
-import { assertAdmin, assertAttested, assertSignedIn, roleForEmail, sessionAgeFlag } from "@/lib/auth-guards";
+import { assertAdmin, assertAttested, assertSignedIn, sessionAgeFlag } from "@/lib/auth-guards";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/constants";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { newInviteCode } from "@/lib/invite-code";
 import { classifyInvite, normalizeInviteCode, throwIfInviteUnusable } from "@/lib/invite-status";
-import { stubReviewInviteCode } from "@/lib/review-preview";
+import { stubReviewInviteCode, roleForReviewUser } from "@/lib/review-preview";
 import { decodeSession, encodeSession, sessionCookieAttrs, sessionNeedsRefresh } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
@@ -164,7 +164,11 @@ export async function redeemInvite(input: {
   }
 
   const passwordHash = await hashPassword(input.password);
-  const role = roleForEmail(email, getEnv().adminEmails);
+  const env = getEnv();
+  const role = roleForReviewUser(email, {
+    adminEmails: env.adminEmails,
+    stubReviewGrantsAdmin: env.stubReviewGrantsAdmin,
+  });
 
   if (isMemoryPreview()) {
     const expected = stubReviewInviteCode(getEnv().providerMode, process.env.REVIEW_INVITE_CODE);
@@ -262,7 +266,11 @@ export async function signIn(input: { email: string; password: string }): Promis
     throw new AuthError("Invalid email or password", 401);
   }
 
-  const role = roleForEmail(email, getEnv().adminEmails);
+  const env = getEnv();
+  const role = roleForReviewUser(email, {
+    adminEmails: env.adminEmails,
+    stubReviewGrantsAdmin: env.stubReviewGrantsAdmin,
+  });
   if (role === "admin" && user.role !== "admin") {
     await db.update(users).set({ role: "admin", updatedAt: new Date() }).where(eq(users.id, user.id));
     user.role = "admin";

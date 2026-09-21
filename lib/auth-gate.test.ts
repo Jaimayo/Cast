@@ -1,5 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { authPathRedirect, isStudioPath } from "@/lib/auth-gate";
+
+function readRepo(path: string) {
+  return readFileSync(resolve(process.cwd(), path), "utf8");
+}
 
 const attested = { sub: "user-1", age: true };
 const waiting = { sub: "user-1", age: false };
@@ -13,6 +19,12 @@ describe("studio path detection", () => {
     expect(isStudioPath("/age")).toBe(false);
     expect(isStudioPath("/invite")).toBe(false);
     expect(isStudioPath("/api/media/abc")).toBe(false);
+  });
+
+  it("gates exact /admin in middleware so Connect Venice is not public", () => {
+    expect(authPathRedirect("/admin", null)).toBe("/invite");
+    expect(authPathRedirect("/admin", attested)).toBeNull();
+    expect(readRepo("middleware.ts")).toMatch(/"\/admin"/);
   });
 });
 

@@ -37,5 +37,5 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // /invite and /age redirect in the page with a relative Location so a
   // 127.0.0.1 session is not sent to localhost (Next rewrites middleware hosts).
-  matcher: ["/app/:path*", "/app", "/admin/:path*"],
+  matcher: ["/app/:path*", "/app", "/admin/:path*", "/admin"],
 };

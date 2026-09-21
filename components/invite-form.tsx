@@ -4,20 +4,26 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
 import { nextPathAfterAuth } from "@/lib/auth-entry";
+import { STUB_REVIEW_ADMIN_HINT } from "@/lib/review-preview";
 
 type AuthPayload = {
   user: { ageAttestedAt: string | null };
   next?: "/invite" | "/age" | "/app";
 };
 
-export function InviteForm() {
+type StubReviewDefaults = {
+  email: string;
+  inviteCode: string;
+};
+
+export function InviteForm(props: { reviewDefaults?: StubReviewDefaults | null }) {
   const params = useSearchParams();
   const router = useRouter();
   const initialMode = params.get("mode") === "signin" ? "signin" : "invite";
   const [mode, setMode] = useState<"invite" | "signin">(initialMode);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(props.reviewDefaults?.email ?? "");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(props.reviewDefaults?.inviteCode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -54,6 +60,7 @@ export function InviteForm() {
       <div className="kicker">Gated access</div>
       <h1>{title}</h1>
       <p className="muted">Enter your invite code. Invalid, used, or expired codes cannot continue.</p>
+      {props.reviewDefaults ? <p className="muted">{STUB_REVIEW_ADMIN_HINT}</p> : null}
       <form onSubmit={onSubmit}>
         <label htmlFor="email">Email</label>
         <input

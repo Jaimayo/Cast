@@ -35,8 +35,9 @@ This repository is the **Stage 1 scaffold**. Product/architecture locks in the S
 | `app/app/create` | Composer chip shell |
 | `app/app/library` | Own stills only (stub review also shows fictional Mara placeholders). Tap a tile for the 3:4 detail sheet. Download / Share stay Stage 1 stubs. |
 | `app/api/demo-pack` | Stub seed catalog + drop path for 8–20 fictional refs |
-| `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` |
-| `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain) |
+| `middleware.ts` | Invite session **and** `ageAttestedAt` (cookie `age` flag) before `/app/*` and `/admin` |
+| `app/admin` | Operator settings (Connect Venice) · invite mint. Invite-gated, admin role only. |
+| `app/api/*` | Vertical-slice API routes (auth, packs, composer, starters, jobs, pack test-grid / retrain, admin Venice) |
 | `db/schema.ts`, `db/migrations` | User, InviteCode, CharacterPack, TrainingSetAsset, GenerationJob, Recipe, media pointers |
 | `lib/prompt-compiler.ts` | Chips → hidden prompt (unit tested) |
 | `lib/rate-limit.ts` | Per-user enqueue / invite redeem 429 guards (Redis in live; in-memory for stub/tests) |
@@ -65,7 +66,7 @@ cp .env.example .env
 Edit `.env.local` / `.env`:
 
 - Set a long `SESSION_SECRET`
-- Put your email in `ADMIN_EMAILS` so the first redeemed account can open `/admin/invites`
+- Put your email in `ADMIN_EMAILS` so the first redeemed account can open **Settings** (`/admin`) and `/admin/invites`. Stub already treats `jai@cast.review` as admin.
 - Leave `PROVIDER_MODE=stub` until Venice/RunPod keys exist
 - Never commit real keys
 
@@ -97,11 +98,14 @@ Leave `PROVIDER_MODE=stub`. Do **not** set `DATABASE_URL`, `REDIS_URL`, S3/R2, V
 | `PROVIDER_MODE` | `stub` | Recommended (defaults to stub) |
 | `SESSION_SECRET` | any 32+ character string | Optional in stub (built-in review default) |
 | `REVIEW_INVITE_CODE` | `castreview` | Optional (this is the default) |
+| `ADMIN_EMAILS` | `jai@cast.review` | Optional. Unset on cookie-only review: every invite redeem is admin so **Settings** appears. Stub always includes `jai@cast.review`. |
 | `APP_BASE_URL` | public review URL | Optional |
 
 If `DATABASE_URL` is unset, `vercel-build` skips migrate/bootstrap and runs `next build` (memory preview). Setting `DATABASE_URL` turns the cookie-only path off and expects Postgres.
 
-Click-through: `/` → invite `castreview` → age **I confirm I am 18+.** → `/app/characters`.
+Click-through: `/` → invite **`jai@cast.review`** + code **`castreview`** (pre-filled on stub) → age **I confirm I am 18+.** → `/app/characters` → studio rail **Settings** → `/admin` (Connect Venice). Alias: `/studio/settings` → `/admin`. Unauthenticated `/admin` redirects to `/invite` (not a missing route). Non-admin sessions redirect to `/app`.
+
+There is no `/app/settings` or `/settings` — Connect Venice stays admin-only at `/admin`.
 
 Stub review seeds two **fictional** Character Packs so Library / roster are not empty:
 
@@ -137,12 +141,15 @@ Live (`PROVIDER_MODE=live`) never injects demo packs.
 
 `PROVIDER_MODE=live`:
 
-- Flip Generate from stub → Venice: `PROVIDER_MODE=live`, `GENERATE_STILL_PROVIDER=venice`, and a real `VENICE_API_KEY`. `PROVIDER_MODE` is `stub` | `live` (not `venice`). Stub stays the default for preview.
+- **Connect Venice (Settings):** signed-in admins open **Settings** (`/admin`). Paste an API key from [venice.ai/settings/api](https://venice.ai/settings/api), **Save**. Cast validates with `GET {VENICE_API_BASE_URL}/api_keys/rate_limits` (Bearer; Inference Only keys are allowed). `GET /models` is public and is not used to verify a key. A valid key is stored **encrypted** (AES-256-GCM using `SESSION_SECRET`) in Postgres `operator_secrets`. The UI then shows **Connected** and `••••last4` — the full key is never returned to the browser, RSC payload, or logs. **Disconnect** clears the stored key and stops Cast from using a deploy `VENICE_API_KEY` until you save a new one.
+- Flip Generate from stub → Venice: `PROVIDER_MODE=live`, `GENERATE_STILL_PROVIDER=venice` (already the default), and a connected key (Settings **or** `VENICE_API_KEY`). `PROVIDER_MODE` is `stub` | `live` (not `venice`). Stub stays the default for preview deploys without a key — saving a key in stub still validates it, but `generateStill` stays on the stub adapter until you flip live.
+- Where the worker reads the key: `resolveVeniceApiKey()` prefers the Settings row, then `VENICE_API_KEY`. No redeploy is required after **Save** / **Disconnect** when `DATABASE_URL` is set (Next app and `pnpm worker` share Postgres). Cookie-only stub preview has no Postgres — the overlay is in-process only and is lost on cold start; Generate remains stub.
+- Vercel env path: you can still set `VENICE_API_KEY` on the project (Preview/Production) without using Settings. That needs a deploy/env sync for the Next app **and** the worker to see a new env value. Settings is the no-redeploy path. Rotating `SESSION_SECRET` invalidates the encrypted row — save the Venice key again. Unset `VENICE_API_KEY` in Vercel if you want the deploy secret gone as well as Disconnect.
 - Flip Train & lock from stub → RunPod: `PROVIDER_MODE=live`, `TRAIN_PACK_PROVIDER=runpod` (already the default), `RUNPOD_API_KEY`, and `RUNPOD_TRAIN_ENDPOINT_ID`. Optional: `RUNPOD_API_BASE_URL` (default `https://api.runpod.ai/v2`). Restart the Next app **and** `pnpm worker`. Without the key or endpoint, live train throws `PROVIDER_NOT_CONFIGURED` (user-safe: “Training isn't configured on this server.”). Venice **cannot** train — do not set `TRAIN_PACK_PROVIDER=venice`.
-- `GENERATE_STILL_PROVIDER=venice` calls native `POST {VENICE_API_BASE_URL}/image/generate` (not OpenAI-compat `/images/generations`) with `Authorization: Bearer $VENICE_API_KEY`. Default model is **`lustify-v8`** (Private on Venice’s image catalog, uncensored photoreal character stills, pixel 1024×1024). Override with `VENICE_IMAGE_MODEL`; list image models at `GET {VENICE_API_BASE_URL}/models?type=image`. `safe_mode` comes from `VENICE_SAFE_MODE` (default `false` — Cast’s fictional-adult + 18+ preflight is the policy lock; enabling Venice safe_mode would blur adult stills). Composer chips compile to hidden `prompt` / `negative_prompt`; that string is never shown in the UI or job logs. Venice has **no** Soul-ID / train API — do not send LoRAs to Venice. Pilot rate limit is ~20 image req/min; Cast’s Generate enqueue cap (12/min) stays under that. User-safe Generate failures: out of credits (402), rate limit (429), policy reject, timeout — never a stack or prompt.
+- `GENERATE_STILL_PROVIDER=venice` calls native `POST {VENICE_API_BASE_URL}/image/generate` (not OpenAI-compat `/images/generations`) with `Authorization: Bearer` using the Settings key or `$VENICE_API_KEY`. Default model is **`lustify-v8`** (Private on Venice’s image catalog, uncensored photoreal character stills, pixel 1024×1024). Override with `VENICE_IMAGE_MODEL`; list image models at `GET {VENICE_API_BASE_URL}/models?type=image`. `safe_mode` comes from `VENICE_SAFE_MODE` (default `false` — Cast’s fictional-adult + 18+ preflight is the policy lock; enabling Venice safe_mode would blur adult stills). Composer chips compile to hidden `prompt` / `negative_prompt`; that string is never shown in the UI or job logs. Venice has **no** Soul-ID / train API — do not send LoRAs to Venice. Pilot rate limit is ~20 image req/min; Cast’s Generate enqueue cap (12/min) stays under that. User-safe Generate failures: out of credits (402), rate limit (429), policy reject, timeout — never a stack or prompt.
 - Train & lock (stub or live RunPod) persists a ready adapter identity on the Character Pack so later Generate can find it: `adapter_id`, `adapter_storage_key` (path), `adapter_status` (`none` / `pending` / `ready` / `failed`), `adapter_source` (`stub` | `live`). Retrain failure restores Locked and leaves the prior identity unchanged.
 - When a Locked Character Pack has a **ready** trainPack adapter, `generateStill` uses the RunPod generate adapter instead, passing `adapterStorageKey` / source URL so identity can load. No adapter (or `PROVIDER_MODE=stub`) keeps Venice / stub as today.
-- If Venice is **unset** (missing `VENICE_API_KEY`) and there is no Soul ID adapter, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set. Balance/402, rate limit, policy reject, and timeout stay on Venice and are not sent to RunPod. RunPod generate polls `GET .../status/{id}` for image bytes.
+- If Venice is **unset** (no Settings key, disconnected, and no `VENICE_API_KEY`) and there is no Soul ID adapter, the worker may fall back to the RunPod generate adapter when `RUNPOD_GENERATE_ENDPOINT_ID` is set. Balance/402, rate limit, policy reject, and timeout stay on Venice and are not sent to RunPod. RunPod generate polls `GET .../status/{id}` for image bytes.
 - `TRAIN_PACK_PROVIDER=runpod` posts to `POST {RUNPOD_API_BASE_URL}/{RUNPOD_TRAIN_ENDPOINT_ID}/run` with reference object keys (and, when R2 is configured, 1-hour signed GET URLs so the worker can read refs without sharing the bucket) plus the Comfy placeholder, then polls `GET .../status/{id}` until complete. On success the worker stores LoRA/adapter bytes or object-key pointers (including live-shaped nested `output` / `lora_url`). Missing adapters fail closed (`TRAIN_NO_ADAPTER`). User-safe Train failures: not configured, out of credits (402), rate limit (429), timeout, train failed — never a stack, prompt, or RunPod dump. Venice **cannot** be selected for trainPack. Train & lock is **not** cancellable from Jobs (one-at-a-time still applies).
 - Locked pack detail: **Test grid** queues a small set of Composer stills (same `generateStill` path) and shows a 4-cell **3:4** champagne sheet on the character — fictional identity check only. Jobs label those rows **Test grid**. **Retrain** re-queues `trainPack` with the existing refs. Generate is refused unless the pack is **Locked** and a Pose chip is set (server-side).
 - Enqueue abuse: invite redeem, Generate, Train & lock, and generate-starters are per-user (invite also per IP) sliding-window rate limited. Live mode stores the window in **Redis** so multiple app instances share the same caps. Too many queued/running jobs return **429** with a distinct `code` (`GENERATE_STILL_RATE_LIMIT`, `TRAIN_PACK_BUSY`, …) plus `Retry-After`. `PROVIDER_MODE=stub` and unit tests keep the in-memory limiter (no Redis required). If Redis is unreachable in live mode, the limiter falls back to in-memory so the request still succeeds, with caps local to that instance.
@@ -159,7 +166,7 @@ Object storage: set `S3_ENDPOINT`, `S3_BUCKET`, and keys for R2. If those are em
 - Full video / clip generation (button only)
 - Public gallery, social, marketplace, credits/billing
 - Production secrets, live provider keys in git
-- Policy classifiers, C2PA, age-vendor integration, encrypted vault
+- Policy classifiers, C2PA, age-vendor integration, general secrets vault / KMS
 
 ## Build TODOs
 

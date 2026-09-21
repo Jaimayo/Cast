@@ -5,6 +5,7 @@ import { JobError } from "@/lib/job-errors";
 import { RateLimitError } from "@/lib/rate-limit";
 import { ObjectNotFoundError } from "@/server/storage";
 import { DatabaseRequiredError } from "@/lib/db-errors";
+import { VeniceConnectError } from "@/lib/venice-settings";
 
 function looksLikeStorageLeak(message: string): boolean {
   return /ENOENT|EISDIR|ENOTDIR|NoSuchKey|AccessDenied|\.data[/\\]storage|still\/|pack_ref\/|starter\/|adapters\//i.test(
@@ -13,7 +14,7 @@ function looksLikeStorageLeak(message: string): boolean {
 }
 
 function looksLikeInternalLeak(message: string): boolean {
-  return /postgres:\/\/|ECONNREFUSED|ECONNRESET|ENOTFOUND|SASL|password authentication|relation ".+" does not exist|connect E|idle_in_transaction|duplicate key value|violates unique constraint|syntax error at|DATABASE_URL|SESSION_SECRET|at Object\.|at Module\.|Redis|BullMQ|Custom Id cannot|stack:/i.test(
+  return /postgres:\/\/|ECONNREFUSED|ECONNRESET|ENOTFOUND|SASL|password authentication|relation ".+" does not exist|connect E|idle_in_transaction|duplicate key value|violates unique constraint|syntax error at|DATABASE_URL|SESSION_SECRET|VENICE_API_KEY|Bearer |at Object\.|at Module\.|Redis|BullMQ|Custom Id cannot|stack:/i.test(
     message,
   );
 }
@@ -29,6 +30,9 @@ export function jsonError(err: unknown): NextResponse {
     );
   }
   if (err instanceof AuthError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
+  }
+  if (err instanceof VeniceConnectError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
   if (err instanceof JobError) {
