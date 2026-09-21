@@ -108,6 +108,7 @@ describe("Venice key masking", () => {
     expect(ui).toContain("VENICE_DISCONNECT_CONFIRM_BODY");
     expect(ui).toContain('type={showKey ? "text" : "password"}');
     expect(ui).toContain("disabled={!canSave}");
+    expect(ui).toContain("VENICE_CONNECTED_PLACEHOLDER");
     expect(ui.indexOf('htmlFor="venice-api-key"')).toBeLessThan(ui.indexOf("venice-help"));
     expect(ui).toContain("/api/admin/venice");
     expect(ui).not.toMatch(/venice-secret|resolveVeniceApiKey|encryptOperatorSecret|ciphertext/);

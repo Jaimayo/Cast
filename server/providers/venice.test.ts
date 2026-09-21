@@ -14,6 +14,7 @@ import {
   veniceErrorFromHttp,
   veniceImageGenerateUrl,
   veniceModelsUrl,
+  veniceRateLimitsUrl,
   veniceSizingMode,
   validateVeniceApiKey,
 } from "@/server/providers/venice";
@@ -84,6 +85,9 @@ describe("Venice generateStill request mapping", () => {
     );
     expect(veniceModelsUrl("https://api.venice.ai/api/v1/")).toBe(
       "https://api.venice.ai/api/v1/models?type=image",
+    );
+    expect(veniceRateLimitsUrl("https://api.venice.ai/api/v1/")).toBe(
+      "https://api.venice.ai/api/v1/api_keys/rate_limits",
     );
   });
 
@@ -360,17 +364,26 @@ describe("validateVeniceApiKey", () => {
     vi.restoreAllMocks();
   });
 
-  it("accepts a cheap GET /models?type=image success and 402", async () => {
+  it("accepts GET /api_keys/rate_limits success and rejects unauthenticated 402", async () => {
     vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [{ id: "lustify-v8" }] }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ data: { accessPermitted: true, apiTier: "pro", balances: {}, rateLimits: [] } }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     await validateVeniceApiKey("sk-live-valid-key-0001");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://api.venice.ai/api/v1/models?type=image");
+    expect(url).toBe("https://api.venice.ai/api/v1/api_keys/rate_limits");
+    expect(url).not.toContain("/models");
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer sk-live-valid-key-0001");
 
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ code: "INSUFFICIENT_BALANCE" }, { status: 402 })));
-    await expect(validateVeniceApiKey("sk-live-valid-key-0001")).resolves.toBeUndefined();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "Authentication required" }, { status: 402 })),
+    );
+    await expect(validateVeniceApiKey("sk-live-valid-key-0001")).rejects.toBeInstanceOf(VeniceConnectError);
+    await expect(validateVeniceApiKey("sk-live-valid-key-0001")).rejects.toMatchObject({
+      message: VENICE_INVALID_KEY,
+    });
   });
 
   it("maps 401 and vendor dumps to user-safe copy without echoing the key", async () => {

@@ -75,22 +75,30 @@ export function veniceImageGenerateUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/image/generate`;
 }
 
-/** Cheap auth check used by Connect Venice (GET /models?type=image). */
+/** Catalog listing. Public — do not use this to validate a key. */
 export function veniceModelsUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/models?type=image`;
+}
+
+/**
+ * Cheap authenticated check used by Connect Venice.
+ * Inference-only keys are allowed. GET /models is public and cannot reject a bad key.
+ */
+export function veniceRateLimitsUrl(baseUrl: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/api_keys/rate_limits`;
 }
 
 export const VENICE_VALIDATE_TIMEOUT_MS = 12_000;
 
 /**
- * Validate a Bearer key with Venice's own cheap models list.
+ * Validate a Bearer key with GET /api_keys/rate_limits.
  * Never returns or throws vendor JSON / the key.
  */
 export async function validateVeniceApiKey(apiKey: string): Promise<void> {
   const baseUrl = getEnv().venice.baseUrl;
   let response: Response;
   try {
-    response = await fetch(veniceModelsUrl(baseUrl), {
+    response = await fetch(veniceRateLimitsUrl(baseUrl), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -105,10 +113,10 @@ export async function validateVeniceApiKey(apiKey: string): Promise<void> {
     throw new VeniceConnectError(VENICE_NETWORK_ERROR, 503);
   }
 
-  if (response.ok || response.status === 402) {
+  if (response.ok) {
     return;
   }
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401 || response.status === 403 || response.status === 402) {
     throw new VeniceConnectError(VENICE_INVALID_KEY);
   }
   if (response.status >= 500) {
