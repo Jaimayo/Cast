@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const user = await requireAttestedUser();
-    const venice = await getVenicePublicStatus(user.id);
+    const venice = await getVenicePublicStatus({ userId: user.id, email: user.email });
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as { apiKey?: unknown };
     const apiKey = assertVeniceApiKeyShape(body.apiKey);
     await validateVeniceApiKey(apiKey);
-    const venice = await saveVeniceApiKey({ apiKey, userId: user.id });
+    const venice = await saveVeniceApiKey({ apiKey, userId: user.id, email: user.email });
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 export async function DELETE() {
   try {
     const user = await requireAttestedUser();
-    const venice = await disconnectVeniceApiKey(user.id);
+    const venice = await disconnectVeniceApiKey(user.id, user.email);
     return NextResponse.json({ venice });
   } catch (err) {
     return jsonError(err);

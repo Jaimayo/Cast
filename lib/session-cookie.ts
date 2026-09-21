@@ -72,14 +72,14 @@ async function importKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-export async function encodeSession(payload: SessionPayload, secret: string): Promise<string> {
+export async function encodeSignedPayload(payload: unknown, secret: string): Promise<string> {
   const body = bytesToBase64Url(encoder.encode(JSON.stringify(payload)));
   const key = await importKey(secret);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
   return `${body}.${bytesToBase64Url(new Uint8Array(signature))}`;
 }
 
-export async function decodeSession(token: string, secret: string): Promise<SessionPayload | null> {
+export async function decodeSignedPayload(token: string, secret: string): Promise<unknown | null> {
   try {
     const parts = token.split(".");
     if (parts.length !== 2) {
@@ -106,20 +106,30 @@ export async function decodeSession(token: string, secret: string): Promise<Sess
       return null;
     }
 
-    const json = new TextDecoder().decode(base64UrlToBytes(body));
-    const parsed = JSON.parse(json) as Partial<SessionPayload>;
-    if (typeof parsed.sub !== "string" || parsed.sub.length === 0 || typeof parsed.exp !== "number") {
-      return null;
-    }
-    if (!Number.isFinite(parsed.exp) || parsed.exp * 1000 < Date.now()) {
-      return null;
-    }
-    const role = parsed.role === "admin" || parsed.role === "consumer" ? parsed.role : undefined;
-    const email = typeof parsed.email === "string" && parsed.email.includes("@") ? parsed.email : undefined;
-    return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age), email, role };
+    return JSON.parse(new TextDecoder().decode(base64UrlToBytes(body))) as unknown;
   } catch {
     return null;
   }
+}
+
+export async function encodeSession(payload: SessionPayload, secret: string): Promise<string> {
+  return encodeSignedPayload(payload, secret);
+}
+
+export async function decodeSession(token: string, secret: string): Promise<SessionPayload | null> {
+  const parsed = (await decodeSignedPayload(token, secret)) as Partial<SessionPayload> | null;
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  if (typeof parsed.sub !== "string" || parsed.sub.length === 0 || typeof parsed.exp !== "number") {
+    return null;
+  }
+  if (!Number.isFinite(parsed.exp) || parsed.exp * 1000 < Date.now()) {
+    return null;
+  }
+  const role = parsed.role === "admin" || parsed.role === "consumer" ? parsed.role : undefined;
+  const email = typeof parsed.email === "string" && parsed.email.includes("@") ? parsed.email : undefined;
+  return { sub: parsed.sub, exp: parsed.exp, age: Boolean(parsed.age), email, role };
 }
 
 export function sessionNeedsRefresh(

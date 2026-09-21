@@ -15,6 +15,7 @@ import { stubReviewInviteCode, roleForReviewUser } from "@/lib/review-preview";
 import { decodeSession, encodeSession, sessionCookieAttrs, sessionNeedsRefresh } from "@/lib/session-cookie";
 import { getDb } from "@/server/db";
 import { getEnv } from "@/server/env";
+import { stubPreviewUserId } from "@/lib/stub-user-id";
 import { isMemoryPreview, previewUserFromSession } from "@/server/memory-preview";
 
 export { AuthError } from "@/lib/auth-error";
@@ -174,8 +175,9 @@ export async function redeemInvite(input: {
     const expected = stubReviewInviteCode(getEnv().providerMode, process.env.REVIEW_INVITE_CODE);
     throwIfInviteUnusable(expected && code === expected ? "ok" : "invalid");
     const now = new Date();
+    // Cookie-only stub: same email always gets the same user id so Venice settings survive re-login.
     const created: User = {
-      id: crypto.randomUUID(),
+      id: stubPreviewUserId(email),
       email,
       passwordHash,
       role,

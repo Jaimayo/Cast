@@ -1,9 +1,21 @@
 import "server-only";
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { userSecrets } from "@/db/schema";
+import { SESSION_TTL_SECONDS, VENICE_SECRET_COOKIE } from "@/lib/constants";
 import { isMemoryPreviewMode } from "@/lib/memory-preview";
+import { stubPreviewEmailHash } from "@/lib/stub-user-id";
+import type { SessionCookieAttrs } from "@/lib/session-cookie";
+import {
+  decodeVeniceSecretCookie,
+  encodeVeniceSecretCookie,
+  veniceSecretCookieAttrs,
+  veniceSecretCookieMatches,
+  veniceSecretCookieScope,
+  type VeniceSecretCookiePayload,
+} from "@/lib/venice-secret-cookie";
 import {
   VENICE_EMPTY,
   VENICE_INVALID_KEY,
@@ -28,8 +40,19 @@ type Overlay =
   | { kind: "disconnected" }
   | null;
 
+export type VeniceSecretIdentity = {
+  userId: string;
+  email?: string | null;
+};
+
+type VeniceCookieJar = {
+  get(name: string): { value: string } | undefined;
+  set(name: string, value: string, attrs?: SessionCookieAttrs): void;
+};
+
 const globalForSecrets = globalThis as unknown as {
   veniceUserOverlay?: Record<string, Overlay>;
+  veniceCookieJarForTests?: VeniceCookieJar | null;
 };
 
 function overlayMap(): Record<string, Overlay> {
@@ -98,6 +121,24 @@ function userSecretScope(userId: string): string {
   return `user:${userId}`;
 }
 
+function normalizedEmail(email?: string | null): string | undefined {
+  const value = email?.trim().toLowerCase();
+  return value && value.includes("@") ? value : undefined;
+}
+
+function emailOverlayKey(email: string): string {
+  return `email:${stubPreviewEmailHash(email)}`;
+}
+
+function identityOverlayKeys(identity: VeniceSecretIdentity): string[] {
+  const keys = [identity.userId];
+  const email = normalizedEmail(identity.email);
+  if (email && cookieSecretsEnabled()) {
+    keys.push(emailOverlayKey(email));
+  }
+  return keys;
+}
+
 function readOverlay(userId: string): Overlay {
   return overlayMap()[userId] ?? null;
 }
@@ -111,12 +152,37 @@ function writeOverlay(userId: string, next: Overlay): void {
   map[userId] = next;
 }
 
+function writeIdentityOverlay(identity: VeniceSecretIdentity, overlay: Overlay): void {
+  for (const key of identityOverlayKeys(identity)) {
+    writeOverlay(key, overlay);
+  }
+}
+
+function readIdentityOverlay(identity: VeniceSecretIdentity): Overlay {
+  for (const key of identityOverlayKeys(identity)) {
+    const overlay = readOverlay(key);
+    if (overlay) {
+      return overlay;
+    }
+  }
+  return null;
+}
+
 export function resetVeniceSecretOverlayForTests(): void {
   globalForSecrets.veniceUserOverlay = {};
 }
 
+export function setVeniceCookieJarForTests(jar: VeniceCookieJar | null): void {
+  globalForSecrets.veniceCookieJarForTests = jar;
+}
+
 function envVeniceApiKey(): string | undefined {
   return getEnv().venice.apiKey;
+}
+
+function cookieSecretsEnabled(): boolean {
+  const env = getEnv();
+  return isMemoryPreviewMode({ providerMode: env.providerMode, databaseUrl: env.databaseUrl });
 }
 
 function durableSecretsEnabled(): boolean {
@@ -128,6 +194,26 @@ function durableSecretsEnabled(): boolean {
     return false;
   }
   return Boolean(env.databaseUrl);
+}
+
+async function requestCookieJar(): Promise<VeniceCookieJar | null> {
+  if (globalForSecrets.veniceCookieJarForTests) {
+    return globalForSecrets.veniceCookieJarForTests;
+  }
+  if (!cookieSecretsEnabled()) {
+    return null;
+  }
+  try {
+    const jar = await cookies();
+    return {
+      get: (name) => jar.get(name),
+      set: (name, value, attrs) => {
+        jar.set(name, value, attrs);
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function readDurableOverlay(userId: string): Promise<Overlay> {
@@ -201,23 +287,127 @@ async function writeDurableOverlay(userId: string, overlay: Overlay): Promise<vo
     });
 }
 
-async function persistOverlay(userId: string, overlay: Overlay): Promise<void> {
-  const previous = readOverlay(userId);
-  writeOverlay(userId, overlay);
+function packedFromCookie(payload: VeniceSecretCookiePayload, secret: string): Overlay {
+  if (payload.kind === "disconnected") {
+    return { kind: "disconnected" };
+  }
+  if (!payload.ciphertext || !payload.iv || !payload.authTag) {
+    return null;
+  }
+  const scope = veniceSecretCookieScope(payload.sub, payload.emailHash);
+  const key = decryptSecret(
+    { ciphertext: payload.ciphertext, iv: payload.iv, authTag: payload.authTag },
+    secret,
+    scope,
+  );
+  return { kind: "key", key, last4: payload.last4 || key.slice(-4) };
+}
+
+async function cookiePayloadFromOverlay(
+  identity: VeniceSecretIdentity,
+  overlay: Overlay,
+): Promise<VeniceSecretCookiePayload | null> {
+  if (overlay?.kind !== "key") {
+    return null;
+  }
+  const env = getEnv();
+  const email = normalizedEmail(identity.email);
+  const emailHash = email ? stubPreviewEmailHash(email) : undefined;
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const packed = encryptSecret(
+    overlay.key,
+    env.sessionSecret,
+    veniceSecretCookieScope(identity.userId, emailHash),
+  );
+  return {
+    v: 1,
+    sub: identity.userId,
+    emailHash,
+    kind: "key",
+    ...packed,
+    last4: overlay.last4,
+    exp,
+  };
+}
+
+async function readCookieOverlay(identity: VeniceSecretIdentity): Promise<Overlay> {
+  if (!cookieSecretsEnabled()) {
+    return null;
+  }
+  const jar = await requestCookieJar();
+  const token = jar?.get(VENICE_SECRET_COOKIE)?.value;
+  if (!token) {
+    return null;
+  }
+  const env = getEnv();
+  const payload = await decodeVeniceSecretCookie(token, env.sessionSecret);
+  if (!payload) {
+    return null;
+  }
+  const email = normalizedEmail(identity.email);
+  const emailHash = email ? stubPreviewEmailHash(email) : undefined;
+  if (!veniceSecretCookieMatches(payload, { userId: identity.userId, emailHash })) {
+    return null;
+  }
   try {
-    await writeDurableOverlay(userId, overlay);
+    const overlay = packedFromCookie(payload, env.sessionSecret);
+    if (overlay) {
+      writeIdentityOverlay(identity, overlay);
+    }
+    return overlay;
   } catch {
-    writeOverlay(userId, previous);
+    return null;
+  }
+}
+
+async function writeCookieOverlay(identity: VeniceSecretIdentity, overlay: Overlay): Promise<void> {
+  if (!cookieSecretsEnabled()) {
+    return;
+  }
+  const jar = await requestCookieJar();
+  if (!jar) {
+    return;
+  }
+  const env = getEnv();
+  const production = env.nodeEnv === "production";
+  if (!overlay || overlay.kind === "disconnected") {
+    jar.set(
+      VENICE_SECRET_COOKIE,
+      "",
+      veniceSecretCookieAttrs({ production, maxAge: 0 }),
+    );
+    return;
+  }
+  const payload = await cookiePayloadFromOverlay(identity, overlay);
+  if (!payload) {
+    return;
+  }
+  const token = await encodeVeniceSecretCookie(payload, env.sessionSecret);
+  jar.set(VENICE_SECRET_COOKIE, token, veniceSecretCookieAttrs({ production }));
+}
+
+async function persistOverlay(identity: VeniceSecretIdentity, overlay: Overlay): Promise<void> {
+  const previous = readIdentityOverlay(identity);
+  writeIdentityOverlay(identity, overlay);
+  try {
+    await writeDurableOverlay(identity.userId, overlay);
+    await writeCookieOverlay(identity, overlay);
+  } catch {
+    writeIdentityOverlay(identity, previous);
     throw new VeniceConnectError("Could not update Venice settings.", 503);
   }
 }
 
-async function resolvedOverlay(userId: string): Promise<Overlay> {
-  const memory = readOverlay(userId);
+async function resolvedOverlay(identity: VeniceSecretIdentity): Promise<Overlay> {
+  const memory = readIdentityOverlay(identity);
   if (memory) {
     return memory;
   }
-  return readDurableOverlay(userId);
+  const fromCookie = await readCookieOverlay(identity);
+  if (fromCookie) {
+    return fromCookie;
+  }
+  return readDurableOverlay(identity.userId);
 }
 
 /**
@@ -225,9 +415,12 @@ async function resolvedOverlay(userId: string): Promise<Overlay> {
  * Prefers this user's Settings key. Disconnect opts that user out of env.
  * If the user has never saved, falls back to deploy `VENICE_API_KEY`.
  */
-export async function resolveVeniceApiKey(userId?: string | null): Promise<string | undefined> {
+export async function resolveVeniceApiKey(
+  userId?: string | null,
+  email?: string | null,
+): Promise<string | undefined> {
   if (userId) {
-    const overlay = await resolvedOverlay(userId);
+    const overlay = await resolvedOverlay({ userId, email });
     if (overlay?.kind === "disconnected") {
       return undefined;
     }
@@ -252,15 +445,19 @@ export function assertVeniceApiKeyShape(raw: unknown): string {
 export async function saveVeniceApiKey(input: {
   apiKey: string;
   userId: string;
+  email?: string | null;
 }): Promise<VenicePublicStatus> {
   const key = assertVeniceApiKeyShape(input.apiKey);
   const overlay: Overlay = { kind: "key", key, last4: key.slice(-4) };
-  await persistOverlay(input.userId, overlay);
+  await persistOverlay({ userId: input.userId, email: input.email }, overlay);
   return publicVeniceStatusFromUserKey(key);
 }
 
-export async function disconnectVeniceApiKey(userId: string): Promise<VenicePublicStatus> {
-  await persistOverlay(userId, { kind: "disconnected" });
+export async function disconnectVeniceApiKey(
+  userId: string,
+  email?: string | null,
+): Promise<VenicePublicStatus> {
+  await persistOverlay({ userId, email }, { kind: "disconnected" });
   return publicVeniceStatusFromUserKey(undefined);
 }
 
@@ -280,8 +477,15 @@ function publicVeniceStatusFromUserKey(key: string | undefined): VenicePublicSta
 }
 
 /** Public status for this user only. Env keys never appear as Connected. */
-export async function getVenicePublicStatus(userId: string): Promise<VenicePublicStatus> {
-  const overlay = await resolvedOverlay(userId);
+export async function getVenicePublicStatus(
+  userIdOrIdentity: string | VeniceSecretIdentity,
+  email?: string | null,
+): Promise<VenicePublicStatus> {
+  const identity =
+    typeof userIdOrIdentity === "string"
+      ? { userId: userIdOrIdentity, email }
+      : { userId: userIdOrIdentity.userId, email: userIdOrIdentity.email ?? email };
+  const overlay = await resolvedOverlay(identity);
   if (overlay?.kind === "disconnected") {
     return publicVeniceStatusFromUserKey(undefined);
   }

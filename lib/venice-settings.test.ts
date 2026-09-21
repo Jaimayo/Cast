@@ -135,6 +135,12 @@ describe("Venice key masking", () => {
     expect(readRepo("db/migrations/0011_user_secrets.sql")).toContain("user_secrets");
     expect(readRepo("server/venice-secret.ts")).toContain("userSecrets");
     expect(readRepo("server/venice-secret.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("server/venice-secret.ts")).toContain("VENICE_SECRET_COOKIE");
+    expect(readRepo("server/auth.ts")).toContain("stubPreviewUserId");
+    expect(readRepo("server/auth.ts")).toContain("SESSION_COOKIE");
+    expect(readRepo("server/auth.ts")).not.toContain("VENICE_SECRET_COOKIE");
+    expect(readRepo("app/api/auth/sign-out/route.ts")).toContain("revokeSessionCookie");
+    expect(readRepo("app/api/settings/venice/route.ts")).toContain("email: user.email");
     expect(readRepo("app/api/settings/venice/route.ts")).not.toContain("operatorSecrets");
     expect(readRepo("workers/generateStill.ts")).not.toContain("operatorSecrets");
     expect(readRepo("server/providers/venice.ts")).not.toContain("operatorSecrets");

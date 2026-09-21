@@ -10,8 +10,12 @@ import {
   resetVeniceSecretOverlayForTests,
   resolveVeniceApiKey,
   saveVeniceApiKey,
+  setVeniceCookieJarForTests,
 } from "@/server/venice-secret";
 import { VeniceConnectError } from "@/lib/venice-settings";
+import { VENICE_SECRET_COOKIE } from "@/lib/constants";
+import { stubPreviewUserId } from "@/lib/stub-user-id";
+import { decodeVeniceSecretCookie } from "@/lib/venice-secret-cookie";
 
 const SESSION = "test-session-secret-not-for-prod-use-32b";
 const KEY = "sk-live-settings-secret-9f3a";
@@ -120,5 +124,151 @@ describe("per-user Venice secret", () => {
     expect(() => assertVeniceApiKeyShape("short")).toThrow(VeniceConnectError);
     expect(() => assertVeniceApiKeyShape("short")).toThrow(/didn’t work/);
     expect(() => assertVeniceApiKeyShape(KEY)).not.toThrow();
+  });
+});
+
+function memoryCookieJar() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    jar: {
+      get(name: string) {
+        const value = store.get(name);
+        return value === undefined ? undefined : { value };
+      },
+      set(name: string, value: string, attrs?: { maxAge?: number }) {
+        if (!value || attrs?.maxAge === 0) {
+          store.delete(name);
+          return;
+        }
+        store.set(name, value);
+      },
+    },
+  };
+}
+
+describe("stub review Venice cookie persistence", () => {
+  const email = "venice-qa@cast.review";
+
+  afterEach(() => {
+    resetVeniceSecretOverlayForTests();
+    setVeniceCookieJarForTests(null);
+    vi.unstubAllEnvs();
+  });
+
+  function stubReviewEnv() {
+    vi.stubEnv("PROVIDER_MODE", "stub");
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("SESSION_SECRET", SESSION);
+    vi.stubEnv("VENICE_API_KEY", "");
+    vi.stubEnv("NODE_ENV", "test");
+  }
+
+  it("clears globalThis overlay and still reads Connected last4 from the cookie", async () => {
+    stubReviewEnv();
+    const { jar, store } = memoryCookieJar();
+    setVeniceCookieJarForTests(jar);
+    const userId = stubPreviewUserId(email);
+
+    const saved = await saveVeniceApiKey({ apiKey: KEY, userId, email });
+    expect(saved.connected).toBe(true);
+    expect(saved.status).toBe("Connected");
+    expect(saved.maskedKey).toBe("••••9f3a");
+    expect(JSON.stringify(saved)).not.toContain(KEY);
+
+    const token = store.get(VENICE_SECRET_COOKIE);
+    expect(token).toBeTruthy();
+    const packed = await decodeVeniceSecretCookie(token!, SESSION);
+    expect(packed?.kind).toBe("key");
+    expect(packed?.last4).toBe("9f3a");
+    expect(JSON.stringify(packed)).not.toContain(KEY);
+    expect(token).not.toContain(KEY);
+
+    resetVeniceSecretOverlayForTests();
+    expect(store.get(VENICE_SECRET_COOKIE)).toBe(token);
+
+    const afterColdStart = await getVenicePublicStatus({ userId, email });
+    expect(afterColdStart.connected).toBe(true);
+    expect(afterColdStart.status).toBe("Connected");
+    expect(afterColdStart.maskedKey).toBe("••••9f3a");
+    expect(afterColdStart.storage).toBe("settings");
+    expect(JSON.stringify(afterColdStart)).not.toContain(KEY);
+    expect(await resolveVeniceApiKey(userId, email)).toBe(KEY);
+
+    resetVeniceSecretOverlayForTests();
+    const reloginId = stubPreviewUserId("  Venice-QA@cast.review ");
+    expect(reloginId).toBe(userId);
+    const afterRelogin = await getVenicePublicStatus({ userId: reloginId, email: "Venice-QA@cast.review" });
+    expect(afterRelogin.connected).toBe(true);
+    expect(afterRelogin.maskedKey).toBe("••••9f3a");
+  });
+
+  it("keys the stub cookie by email hash when user ids are not reused", async () => {
+    stubReviewEnv();
+    const { jar } = memoryCookieJar();
+    setVeniceCookieJarForTests(jar);
+    await saveVeniceApiKey({
+      apiKey: KEY,
+      userId: "11111111-1111-4111-8111-111111111111",
+      email,
+    });
+    resetVeniceSecretOverlayForTests();
+    const status = await getVenicePublicStatus({
+      userId: "22222222-2222-4222-8222-222222222222",
+      email,
+    });
+    expect(status.connected).toBe(true);
+    expect(status.maskedKey).toBe("••••9f3a");
+    expect(JSON.stringify(status)).not.toContain(KEY);
+    expect(await resolveVeniceApiKey("22222222-2222-4222-8222-222222222222", email)).toBe(KEY);
+  });
+
+  it("does not leak another email's stub cookie", async () => {
+    stubReviewEnv();
+    const { jar } = memoryCookieJar();
+    setVeniceCookieJarForTests(jar);
+    await saveVeniceApiKey({ apiKey: KEY, userId: stubPreviewUserId(email), email });
+    resetVeniceSecretOverlayForTests();
+    const other = await getVenicePublicStatus({
+      userId: stubPreviewUserId("other@cast.review"),
+      email: "other@cast.review",
+    });
+    expect(other.connected).toBe(false);
+    expect(other.status).toBe("Not connected");
+    expect(other.maskedKey).toBeNull();
+    expect(await resolveVeniceApiKey(stubPreviewUserId("other@cast.review"), "other@cast.review")).toBeUndefined();
+  });
+
+  it("Disconnect expires the companion cookie so a new isolate is Not connected", async () => {
+    stubReviewEnv();
+    vi.stubEnv("VENICE_API_KEY", "env-key-after-disconnect-zzzz");
+    const { jar, store } = memoryCookieJar();
+    setVeniceCookieJarForTests(jar);
+    const userId = stubPreviewUserId(email);
+    await saveVeniceApiKey({ apiKey: KEY, userId, email });
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeTruthy();
+
+    const disconnected = await disconnectVeniceApiKey(userId, email);
+    expect(disconnected.connected).toBe(false);
+    expect(disconnected.status).toBe("Not connected");
+    expect(disconnected.maskedKey).toBeNull();
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeUndefined();
+    expect(JSON.stringify(disconnected)).not.toMatch(/env-key-after-disconnect|sk-live/i);
+
+    resetVeniceSecretOverlayForTests();
+    const status = await getVenicePublicStatus({ userId, email });
+    expect(status.connected).toBe(false);
+    expect(status.status).toBe("Not connected");
+    expect(status.maskedKey).toBeNull();
+    expect(JSON.stringify(status)).not.toContain(KEY);
+
+    const reconnected = await saveVeniceApiKey({ apiKey: KEY, userId, email });
+    expect(reconnected.connected).toBe(true);
+    expect(reconnected.maskedKey).toBe("••••9f3a");
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeTruthy();
+    resetVeniceSecretOverlayForTests();
+    const afterReconnect = await getVenicePublicStatus({ userId, email });
+    expect(afterReconnect.connected).toBe(true);
+    expect(afterReconnect.maskedKey).toBe("••••9f3a");
   });
 });

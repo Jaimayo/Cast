@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SESSION_REFRESH_REMAINING_SECONDS, SESSION_TTL_SECONDS } from "@/lib/constants";
+import { SESSION_REFRESH_REMAINING_SECONDS, SESSION_TTL_SECONDS, VENICE_SECRET_COOKIE } from "@/lib/constants";
 import { decodeSession, encodeSession, sessionCookieAttrs, sessionNeedsRefresh } from "@/lib/session-cookie";
 
 const secret = "test-session-secret-not-for-prod-use-32b";
@@ -102,5 +102,7 @@ describe("signed session cookies", () => {
     expect(clear.secure).toBe(set.secure);
     expect(clear.maxAge).toBe(0);
     expect(clear.expires?.getTime()).toBe(0);
+    expect(VENICE_SECRET_COOKIE).toBe("cast_venice");
+    expect(VENICE_SECRET_COOKIE).not.toBe("cast_session");
   });
 });
