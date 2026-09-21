@@ -10,6 +10,8 @@ export const PACK_REF_ACCEPT = ["image/jpeg", "image/png", "image/webp"] as cons
 export const PACK_REF_ACCEPT_ATTR = "image/jpeg,image/png,image/webp";
 
 export const SESSION_COOKIE = "cast_session";
+/** Signed httpOnly overlay for per-user Venice secrets when Postgres is unavailable. */
+export const VENICE_SECRET_COOKIE = "cast_venice";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 /** Remint the signed cookie when less than half the TTL remains. */
 export const SESSION_REFRESH_REMAINING_SECONDS = Math.floor(SESSION_TTL_SECONDS / 2);
