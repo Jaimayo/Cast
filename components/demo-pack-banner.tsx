@@ -5,8 +5,8 @@ import {
   DEMO_PACK_LOCKED_COPY,
 } from "@/lib/demo-pack";
 
-export function DemoBadge() {
-  return <span className="demo-badge">Demo · fictional</span>;
+export function DemoBadge(props: { label?: string }) {
+  return <span className="demo-badge">{props.label ?? "Demo"}</span>;
 }
 
 export function DemoPackBanner(props: { state?: "locked" | "draft" | "library" }) {

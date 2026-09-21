@@ -1,7 +1,12 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGE_ATTEST_COPY } from "@/lib/age-attest";
 import { PACK_MIN_REFS, PACK_TARGET_REFS } from "@/lib/constants";
 import {
+  DEMO_ASSET_DIR,
+  DEMO_JILLIAN_AVATAR_FILE,
+  DEMO_LANDING_HERO_FILE,
   DEMO_LIBRARY_COPY,
   DEMO_PACK_CREATE_MESSAGE,
   DEMO_PACK_DRAFT_COPY,
@@ -9,8 +14,8 @@ import {
   DEMO_PACK_IDS,
   DEMO_PACK_LOCKED_COPY,
   DEMO_PACK_READ_ONLY_MESSAGE,
-  DEMO_REF_DROP_DIR,
   DEMO_SEED_NOTE,
+  DEMO_STILL_DROP_DIR,
   demoClientFields,
   demoCopyIsFictionalOnly,
   demoLibraryStills,
@@ -23,6 +28,9 @@ import {
   demoRefsForPack,
   demoSeedPayload,
   demoStartersForPack,
+  demoStillRepoPath,
+  demoBadgeLabel,
+  demoPackThumbAlt,
   getDemoPack,
   getDemoStill,
   isDemoPackId,
@@ -41,30 +49,49 @@ describe("stub demo Character Packs", () => {
     expect(shouldServeDemoPacks({ providerMode: "live" })).toBe(false);
   });
 
-  it("stocks Mara Locked and Iris Draft with fictional names only", () => {
+  it("stocks Jillian Locked and Iris Draft with fictional names only", () => {
     const packs = listDemoPacks();
-    expect(packs.map((pack) => pack.name)).toEqual(["Mara", "Iris"]);
-    const mara = getDemoPack(DEMO_PACK_IDS.mara)!;
+    expect(packs.map((pack) => pack.name)).toEqual(["Jillian", "Iris"]);
+    const jillian = getDemoPack(DEMO_PACK_IDS.jillian)!;
     const iris = getDemoPack(DEMO_PACK_IDS.iris)!;
-    expect(mara.demoState).toBe("locked");
+    expect(jillian.slug).toBe("jillian");
+    expect(jillian.demoState).toBe("locked");
     expect(iris.demoState).toBe("draft");
-    expect(isLockedSoul(mara.status)).toBe(true);
+    expect(isLockedSoul(jillian.status)).toBe(true);
     expect(isLockedSoul(iris.status)).toBe(false);
-    expect(demoPackLocked(mara.id)).toBe(true);
+    expect(demoPackLocked(jillian.id)).toBe(true);
     expect(demoPackLocked(iris.id)).toBe(false);
-    expect(demoPackStatusLabel(mara.id)).toBe("Locked");
+    expect(demoPackStatusLabel(jillian.id)).toBe("Locked");
     expect(demoPackStatusLabel(iris.id)).toBe("Draft");
-    expect(mara.fictional).toBe(true);
+    expect(jillian.fictional).toBe(true);
     expect(iris.fictional).toBe(true);
+    expect(demoBadgeLabel("locked")).toBe("Demo");
+    expect(demoBadgeLabel("draft")).toBe("Draft");
+    expect(demoBadgeLabel("draft")).not.toMatch(/demo/i);
+    expect(demoPackThumbAlt(jillian)).toBe("Jillian (demo)");
+    expect(demoPackThumbAlt(iris)).toBe("Iris (draft)");
   });
 
-  it("gives Mara min-12 refs so Locked is product-real, and Iris stays below lock", () => {
-    expect(demoRefCount(DEMO_PACK_IDS.mara)).toBe(PACK_MIN_REFS);
+  it("gives Jillian min-12 shipped refs so Locked is product-real, and Iris stays below lock", () => {
+    expect(demoRefCount(DEMO_PACK_IDS.jillian)).toBeGreaterThanOrEqual(PACK_MIN_REFS);
     expect(demoRefCount(DEMO_PACK_IDS.iris)).toBeLessThan(PACK_MIN_REFS);
-    expect(demoRefsForPack(DEMO_PACK_IDS.mara)).toHaveLength(PACK_MIN_REFS);
+    expect(demoRefsForPack(DEMO_PACK_IDS.jillian)).toHaveLength(16);
     expect(demoPackCanTrain(DEMO_PACK_IDS.iris)).toBe(false);
-    expect(demoPackCanTrain(DEMO_PACK_IDS.mara)).toBe(false);
-    expect(getDemoPack(DEMO_PACK_IDS.mara)?.targetRefCount).toBe(PACK_TARGET_REFS);
+    expect(demoPackCanTrain(DEMO_PACK_IDS.jillian)).toBe(false);
+    expect(getDemoPack(DEMO_PACK_IDS.jillian)?.targetRefCount).toBe(PACK_TARGET_REFS);
+  });
+
+  it("ships Jillian faces on disk so stub review is not Cast-mark placeholders", () => {
+    const refs = demoRefsForPack(DEMO_PACK_IDS.jillian);
+    const library = demoLibraryStills();
+    expect(refs.every((row) => row.hasAsset)).toBe(true);
+    expect(library.every((row) => row.hasAsset && row.packName === "Jillian")).toBe(true);
+    for (const still of [...refs, ...library]) {
+      expect(existsSync(resolve(process.cwd(), demoStillRepoPath(still)))).toBe(true);
+    }
+    expect(existsSync(resolve(process.cwd(), DEMO_ASSET_DIR, DEMO_LANDING_HERO_FILE))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), DEMO_ASSET_DIR, DEMO_JILLIAN_AVATAR_FILE))).toBe(true);
+    expect(demoRefsForPack(DEMO_PACK_IDS.iris).every((row) => row.hasAsset)).toBe(false);
   });
 
   it("uses valid media ids and preview paths the Library can render", () => {
@@ -74,11 +101,11 @@ describe("stub demo Character Packs", () => {
       expect(parseMediaId(still.id)).toBe(still.id);
       expect(isDemoStillId(still.id)).toBe(true);
       expect(demoPreviewUrl(still.id)).toBe(`/api/media/${still.id}`);
-      expect(still.packName).toBe("Mara");
+      expect(still.packName).toBe("Jillian");
       expect(still.kind).toBe("still");
     }
-    expect(demoPackPreviewUrl(DEMO_PACK_IDS.mara)).toMatch(/^\/api\/media\//);
-    expect(demoClientFields(DEMO_PACK_IDS.mara)).toMatchObject({ demo: true, demoState: "locked" });
+    expect(demoPackPreviewUrl(DEMO_PACK_IDS.jillian)).toMatch(/^\/api\/media\//);
+    expect(demoClientFields(DEMO_PACK_IDS.jillian)).toMatchObject({ demo: true, demoState: "locked" });
     expect(demoClientFields(DEMO_PACK_IDS.iris)).toMatchObject({ demo: true, demoState: "draft" });
     expect(isDemoPackId("not-a-pack")).toBe(false);
     expect(getDemoStill("missing")).toBeUndefined();
@@ -92,14 +119,20 @@ describe("stub demo Character Packs", () => {
     expect(starters.every((row) => row.starterPresetId)).toBe(true);
   });
 
-  it("documents a drop path for 8–20 fictional Soul ID refs later", () => {
+  it("documents Jillian drop paths and keeps Iris as a Draft stub", () => {
     const seed = demoSeedPayload();
     expect(seed.seeded).toBe(true);
-    expect(seed.assetDrop.directory).toBe(DEMO_REF_DROP_DIR);
-    expect(seed.assetDrop.expected.mara.min).toBe(PACK_MIN_REFS);
-    expect(seed.assetDrop.expected.mara.target).toBe(PACK_TARGET_REFS);
-    expect(seed.assetDrop.files.some((file) => file.startsWith("mara/"))).toBe(true);
-    expect(seed.assetDrop.files.some((file) => file.startsWith("iris/"))).toBe(true);
+    expect(seed.assetDrop.directory).toBe(DEMO_ASSET_DIR);
+    expect(seed.assetDrop.stills).toBe(DEMO_STILL_DROP_DIR);
+    expect(seed.assetDrop.expected.jillian.min).toBe(PACK_MIN_REFS);
+    expect(seed.assetDrop.expected.jillian.target).toBe(PACK_TARGET_REFS);
+    expect(seed.assetDrop.expected.jillian.shippedRefs).toBe(16);
+    expect(seed.assetDrop.files.some((file) => file.startsWith("refs/jillian/"))).toBe(true);
+    expect(seed.assetDrop.files.some((file) => file.startsWith("stills/jillian/"))).toBe(true);
+    expect(seed.assetDrop.files.some((file) => file.includes("iris/"))).toBe(true);
+    expect(seed.assetDrop.files.some((file) => file.startsWith("mara/") || file.includes("/mara/"))).toBe(
+      false,
+    );
     expect(DEMO_SEED_NOTE).toMatch(/fictional/i);
     expect(DEMO_SEED_NOTE).toMatch(/no real-person/i);
   });

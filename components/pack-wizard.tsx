@@ -12,6 +12,7 @@ import { RefUploader } from "@/components/ref-uploader";
 import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { PACK_MIN_REFS } from "@/lib/constants";
+import { demoBadgeLabel } from "@/lib/demo-pack";
 import { moveRefId } from "@/lib/pack-ref-order";
 import { soulStatusLabel } from "@/lib/soul";
 
@@ -225,7 +226,7 @@ export function PackWizard(props: { initialPackId?: string }) {
           <h1>{pack?.name || "Character Pack"}</h1>
         </div>
         <div className="roster-badges">
-          {demo ? <DemoBadge /> : null}
+          {demo ? <DemoBadge label={demoBadgeLabel(pack?.demoState ?? "draft")} /> : null}
           <span className="fictional-badge">Fictional only</span>
         </div>
       </div>

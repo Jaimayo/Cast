@@ -4,9 +4,9 @@ import { extname, join } from "node:path";
 import type { CharacterPack } from "@/db/schema";
 import {
   DEMO_PACK_CREATE_MESSAGE,
+  DEMO_ASSET_DIR,
   DEMO_PACK_IDS,
   DEMO_PACK_READ_ONLY_MESSAGE,
-  DEMO_REF_DROP_DIR,
   demoLibraryStills,
   demoClientFields,
   demoPackPreviewUrl,
@@ -146,6 +146,7 @@ export function listPublicDemoLibraryStills() {
     label: row.label,
     packName: row.packName,
     demo: true as const,
+    hasAsset: row.hasAsset,
     createdAt: DEMO_CREATED_AT.toISOString(),
     aspectRatio: "3:4" as const,
   }));
@@ -195,14 +196,14 @@ export function listPublicDemoJobs(userId: string) {
         previewUrl: demoPreviewUrl(still.id),
       }),
     );
-  // Mara is already Locked in stub. Surface that Train row so Jobs can group Still vs Train
+  // Jillian is already Locked in stub. Surface that Train row so Jobs can group Still vs Train
   // without filling Test grid cells or changing the demo pack catalog.
   const train = publicJob({
     id: DEMO_TRAIN_JOB_ID,
     userId,
     kind: "train_pack" as const,
     status: "succeeded" as const,
-    characterPackId: DEMO_PACK_IDS.mara,
+    characterPackId: DEMO_PACK_IDS.jillian,
     recipeId: null,
     inputJson: { source: "demo" },
     resultAssetKey: null,
@@ -264,7 +265,7 @@ export async function readDemoStillBytes(
   const still = getDemoStill(mediaId);
   if (!still) return null;
   try {
-    const path = join(process.cwd(), DEMO_REF_DROP_DIR, still.dropFile);
+    const path = join(process.cwd(), DEMO_ASSET_DIR, still.dropFile);
     const body = await readFile(path);
     if (body.byteLength > 0) {
       return { body, mimeType: mimeForDrop(still.dropFile) };
