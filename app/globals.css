@@ -726,8 +726,7 @@ input[type="checkbox"] {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .demo-banner {
