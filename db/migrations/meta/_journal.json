@@ -71,6 +71,13 @@
       "when": 1758220000000,
       "tag": "0009_ref_sort_order",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1758230000000,
+      "tag": "0010_operator_secrets",
+      "breakpoints": true
     }
   ]
 }

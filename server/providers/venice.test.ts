@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { VeniceConnectError } from "@/lib/venice-settings";
 import { compileComposerPrompt } from "@/lib/prompt-compiler";
 import { JOB_ERROR_CODES, JobError, classifyJobError } from "@/lib/job-errors";
 import { shouldFallbackGenerateStill } from "@/server/providers/registry";
@@ -12,8 +13,11 @@ import {
   veniceAdapter,
   veniceErrorFromHttp,
   veniceImageGenerateUrl,
+  veniceModelsUrl,
   veniceSizingMode,
+  validateVeniceApiKey,
 } from "@/server/providers/venice";
+import { resetVeniceSecretOverlayForTests, saveVeniceApiKey } from "@/server/venice-secret";
 
 const PLACEHOLDER_WEBP = Buffer.from(
   "UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=",
@@ -77,6 +81,9 @@ describe("Venice generateStill request mapping", () => {
     expect(JSON.stringify(body)).not.toMatch(/lora|adapterStorageKey|soul/i);
     expect(veniceImageGenerateUrl("https://api.venice.ai/api/v1/")).toBe(
       "https://api.venice.ai/api/v1/image/generate",
+    );
+    expect(veniceModelsUrl("https://api.venice.ai/api/v1/")).toBe(
+      "https://api.venice.ai/api/v1/models?type=image",
     );
   });
 
@@ -165,6 +172,7 @@ describe("Venice HTTP error mapping", () => {
 
 describe("Venice generateStill adapter (mocked HTTP)", () => {
   afterEach(() => {
+    resetVeniceSecretOverlayForTests();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -196,6 +204,24 @@ describe("Venice generateStill adapter (mocked HTTP)", () => {
       ),
     ).toBe(false);
     expect(shouldFallbackGenerateStill("runpod", new ProviderNotConfiguredError("venice"))).toBe(false);
+  });
+
+  it("uses a settings-stored key when VENICE_API_KEY env is empty", async () => {
+    vi.stubEnv("VENICE_API_KEY", "");
+    vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
+    vi.stubEnv("VENICE_IMAGE_MODEL", "lustify-v8");
+    await saveVeniceApiKey({ apiKey: "settings-only-venice-key", actorId: "admin-1" });
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: "generate-image-settings",
+        images: [PLACEHOLDER_WEBP.toString("base64")],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const still = await veniceAdapter.generateStill(generateInput);
+    expect(still.providerJobId).toBe("generate-image-settings");
+    const headers = new Headers((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers);
+    expect(headers.get("Authorization")).toBe("Bearer settings-only-venice-key");
   });
 
   it("POSTs native /image/generate and stores the first base64 still", async () => {
@@ -323,6 +349,45 @@ describe("Venice generateStill adapter (mocked HTTP)", () => {
       expect(classifyJobError(err).userMessage).not.toMatch(/compiled|Bearer|test-venice-key/);
       expect(stack).toBeTruthy();
       expect(classifyJobError(err).userMessage).not.toMatch(/\n {4}at /);
+    }
+  });
+});
+
+describe("validateVeniceApiKey", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("accepts a cheap GET /models?type=image success and 402", async () => {
+    vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [{ id: "lustify-v8" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await validateVeniceApiKey("sk-live-valid-key-0001");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.venice.ai/api/v1/models?type=image");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer sk-live-valid-key-0001");
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ code: "INSUFFICIENT_BALANCE" }, { status: 402 })));
+    await expect(validateVeniceApiKey("sk-live-valid-key-0001")).resolves.toBeUndefined();
+  });
+
+  it("maps 401 and vendor dumps to user-safe copy without echoing the key", async () => {
+    vi.stubEnv("VENICE_API_BASE_URL", "https://api.venice.ai/api/v1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({ error: "invalid Authorization Bearer sk-live-valid-key-0001 dump" }, { status: 401 }),
+      ),
+    );
+    await expect(validateVeniceApiKey("sk-live-valid-key-0001")).rejects.toBeInstanceOf(VeniceConnectError);
+    try {
+      await validateVeniceApiKey("sk-live-valid-key-0001");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).toBe("Venice didn't accept that key. Check it at venice.ai/settings/api.");
+      expect(message).not.toMatch(/sk-live-valid-key-0001|Bearer|dump/i);
     }
   });
 });

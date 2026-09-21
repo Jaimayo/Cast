@@ -42,6 +42,21 @@ export const trainingAssetSourceEnum = pgEnum("training_asset_source", [
 ]);
 export const mediaKindEnum = pgEnum("media_kind", ["still", "pack_ref", "starter"]);
 
+/**
+ * Operator-managed secrets (AES-256-GCM via SESSION_SECRET).
+ * Never select ciphertext into an API/RSC payload — return last4 only.
+ */
+export const operatorSecrets = pgTable("operator_secrets", {
+  id: text("id").primaryKey(),
+  ciphertext: text("ciphertext"),
+  iv: text("iv"),
+  authTag: text("auth_tag"),
+  keyLast4: text("key_last4"),
+  disabled: boolean("disabled").notNull().default(false),
+  updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -235,3 +250,4 @@ export type TrainingSetAsset = typeof trainingSetAssets.$inferSelect;
 export type GenerationJob = typeof generationJobs.$inferSelect;
 export type Recipe = typeof recipes.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type OperatorSecret = typeof operatorSecrets.$inferSelect;

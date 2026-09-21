@@ -10,7 +10,7 @@ function StudioNav(props: { admin?: boolean }) {
       <a href="/app/create">Create</a>
       <a href="/app/library">Library</a>
       <a href="/app/jobs">Jobs</a>
-      {props.admin ? <a href="/admin/invites">Admin</a> : null}
+      {props.admin ? <a href="/admin">Settings</a> : null}
     </nav>
   );
 }

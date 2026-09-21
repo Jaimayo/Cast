@@ -184,4 +184,21 @@ describe("jsonError media failures", () => {
     expect(noDb.status).toBe(503);
     expect(await bodyOf(noDb)).toEqual({ error: "Studio data needs a database." });
   });
+
+  it("returns user-safe Venice connect errors without the API key", async () => {
+    const { VeniceConnectError } = await import("@/lib/venice-settings");
+    const rejected = jsonError(
+      new VeniceConnectError("Venice didn't accept that key. Check it at venice.ai/settings/api."),
+    );
+    expect(rejected.status).toBe(400);
+    const payload = await bodyOf(rejected);
+    expect(payload).toEqual({
+      error: "Venice didn't accept that key. Check it at venice.ai/settings/api.",
+    });
+    expect(JSON.stringify(payload)).not.toMatch(/sk-|Bearer|VENICE_API_KEY/i);
+
+    const dumped = jsonError(new Error("VENICE_API_KEY Bearer sk-live-secret"));
+    expect(dumped.status).toBe(500);
+    expect(await bodyOf(dumped)).toEqual({ error: "Could not continue." });
+  });
 });

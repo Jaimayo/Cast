@@ -1,5 +1,6 @@
 import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { stillAspectFromUnknown } from "@/lib/still-aspect";
+import { VeniceConnectError } from "@/lib/venice-settings";
 import { getEnv } from "@/server/env";
 import { providerFetch } from "@/server/providers/http";
 import {
@@ -9,6 +10,7 @@ import {
   type GenerateStillInput,
   type GenerateStillResult,
 } from "@/server/providers/types";
+import { resolveVeniceApiKey } from "@/server/venice-secret";
 
 /**
  * Default Stage 1 still model.
@@ -71,6 +73,50 @@ function formatFromMime(mime: string | null): VeniceImageFormat | null {
 /** Native generate URL. Prefer this over OpenAI-compat `/images/generations`. */
 export function veniceImageGenerateUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/image/generate`;
+}
+
+/** Cheap auth check used by Connect Venice (GET /models?type=image). */
+export function veniceModelsUrl(baseUrl: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/models?type=image`;
+}
+
+export const VENICE_VALIDATE_TIMEOUT_MS = 12_000;
+
+/**
+ * Validate a Bearer key with Venice's own cheap models list.
+ * Never returns or throws vendor JSON / the key.
+ */
+export async function validateVeniceApiKey(apiKey: string): Promise<void> {
+  const baseUrl = getEnv().venice.baseUrl;
+  let response: Response;
+  try {
+    response = await fetch(veniceModelsUrl(baseUrl), {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(VENICE_VALIDATE_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new VeniceConnectError("Venice didn't respond. Try again.", 504);
+    }
+    throw new VeniceConnectError("Could not reach Venice. Try again.", 503);
+  }
+
+  if (response.ok || response.status === 402) {
+    return;
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new VeniceConnectError(
+      "Venice didn't accept that key. Check it at venice.ai/settings/api.",
+    );
+  }
+  if (response.status >= 500) {
+    throw new VeniceConnectError("Venice is unavailable. Try again.", 503);
+  }
+  throw new VeniceConnectError("Venice didn't accept that key. Check it at venice.ai/settings/api.");
 }
 
 /**
@@ -295,7 +341,8 @@ export const veniceAdapter: GenerateStillAdapter = {
   name: "venice",
   async generateStill(input: GenerateStillInput): Promise<GenerateStillResult> {
     const env = getEnv().venice;
-    if (!env.apiKey) {
+    const apiKey = await resolveVeniceApiKey();
+    if (!apiKey) {
       throw new ProviderNotConfiguredError("venice");
     }
 
@@ -315,7 +362,7 @@ export const veniceAdapter: GenerateStillAdapter = {
     const response = await providerFetch(veniceImageGenerateUrl(env.baseUrl), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
