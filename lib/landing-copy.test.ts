@@ -103,7 +103,8 @@ describe("Stage 1 landing copy", () => {
     expect(page).not.toContain("landing-visual-card");
     expect(css).toContain(".landing-hero-photo");
     expect(css).toContain("object-fit: cover");
-    expect(css).toContain("object-position: 68% 16%");
+    expect(css).toContain("object-position: 70% 20%");
+    expect(css).toContain("rgba(7, 7, 10, 0.42) 58%");
     expect(css).toContain("rgba(7, 7, 10, 0.96) 0%");
     expect(css).toContain("rgba(7, 7, 10, 0.55) 45%");
     expect(css).toContain("transparent 72%");
