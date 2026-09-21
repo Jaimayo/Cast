@@ -7,7 +7,8 @@ import {
   VENICE_CONNECT_HELP,
   VENICE_CONNECT_TITLE,
   VENICE_DISCONNECT,
-  VENICE_DISCONNECT_CONFIRM,
+  VENICE_DISCONNECT_CONFIRM_BODY,
+  VENICE_DISCONNECT_CONFIRM_TITLE,
   VENICE_DISCONNECT_SUCCESS,
   VENICE_EMPTY,
   VENICE_FIELD_LABEL,
@@ -48,9 +49,8 @@ describe("Connect Venice copy", () => {
     );
     expect(VENICE_NETWORK_ERROR).toBe("Couldn’t reach Venice. Try again in a moment.");
     expect(VENICE_SAVE_SUCCESS).toBe("Venice connected.");
-    expect(VENICE_DISCONNECT_CONFIRM).toBe(
-      "Disconnect Venice? Still generation pauses until you reconnect.",
-    );
+    expect(VENICE_DISCONNECT_CONFIRM_TITLE).toBe("Disconnect Venice?");
+    expect(VENICE_DISCONNECT_CONFIRM_BODY).toBe("Still generation pauses until you reconnect.");
     expect(VENICE_DISCONNECT_SUCCESS).toBe("Venice disconnected.");
     expect(VENICE_API_SETTINGS_URL).toBe("https://venice.ai/settings/api");
   });
@@ -61,7 +61,7 @@ describe("Connect Venice copy", () => {
       readRepo("lib/venice-settings.ts"),
       readRepo("app/admin/page.tsx"),
     ].join("\n");
-    expect(ui).not.toMatch(/Login with Venice|Sign in with Venice|OAuth|Authorize|Sync account/i);
+    expect(ui).not.toMatch(/Login with Venice|Sign in with Venice|OAuth|Authorize|Sync account|Connect with browser/i);
   });
 
   it("does not change locked 18+ copy or landing strings", () => {
@@ -104,7 +104,11 @@ describe("Venice key masking", () => {
     expect(ui).toContain("VENICE_SAVE");
     expect(ui).toContain("VENICE_DISCONNECT");
     expect(ui).toContain("VENICE_KEEP_CONNECTED");
-    expect(ui).toContain('type="password"');
+    expect(ui).toContain("VENICE_DISCONNECT_CONFIRM_TITLE");
+    expect(ui).toContain("VENICE_DISCONNECT_CONFIRM_BODY");
+    expect(ui).toContain('type={showKey ? "text" : "password"}');
+    expect(ui).toContain("disabled={!canSave}");
+    expect(ui.indexOf('htmlFor="venice-api-key"')).toBeLessThan(ui.indexOf("venice-help"));
     expect(ui).toContain("/api/admin/venice");
     expect(ui).not.toMatch(/venice-secret|resolveVeniceApiKey|encryptOperatorSecret|ciphertext/);
     expect(readRepo("app/admin/page.tsx")).toContain("ConnectVenicePanel");
