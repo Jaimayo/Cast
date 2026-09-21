@@ -252,9 +252,8 @@ h3 {
 .landing-visual-name {
   display: block;
   color: #c4a574;
-  font-size: 13px;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.04em;
 }
 
 .landing-visual-kicker {

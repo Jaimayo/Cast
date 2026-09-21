@@ -16,4 +16,7 @@ export const LANDING_VISUAL_NAMES = "Jillian";
 
 export const LANDING_VISUAL_CAPTION = "Demo character";
 
+/** Exact landing visual accessible name. Title case — not JILLIAN, not Mara · Iris. */
+export const LANDING_VISUAL_ARIA = "Jillian · Demo character";
+
 export const LANDING_HERO_SRC = "/demo/landing/jillian-hero-3x4.jpg";

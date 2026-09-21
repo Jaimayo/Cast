@@ -111,7 +111,7 @@ export function LibrarySheet(props: { stills: LibraryStillInput[] }) {
                 </button>
               </div>
               <h2 id="library-lightbox-title">{view.title}</h2>
-              {view.badge ? <DemoBadge /> : null}
+              {view.badge ? <DemoBadge label={view.badge} /> : null}
               <dl className="library-meta">
                 <div>
                   <dt>Character</dt>

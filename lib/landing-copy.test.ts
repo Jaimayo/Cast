@@ -9,6 +9,7 @@ import {
   LANDING_CTA,
   LANDING_HEADLINE,
   LANDING_HERO_SRC,
+  LANDING_VISUAL_ARIA,
   LANDING_VISUAL_CAPTION,
   LANDING_VISUAL_NAMES,
 } from "@/lib/landing-copy";
@@ -29,6 +30,9 @@ describe("Stage 1 landing copy", () => {
     expect([...LANDING_CHIP_LABELS]).toEqual(["Pose", "Scene", "Lighting"]);
     expect(LANDING_VISUAL_NAMES).toBe("Jillian");
     expect(LANDING_VISUAL_CAPTION).toBe("Demo character");
+    expect(LANDING_VISUAL_ARIA).toBe("Jillian · Demo character");
+    expect(LANDING_VISUAL_NAMES).not.toBe("JILLIAN");
+    expect(LANDING_VISUAL_ARIA).not.toMatch(/Mara|Iris|MARA · IRIS|Demo characters/i);
     expect(LANDING_HERO_SRC).toBe("/demo/landing/jillian-hero-3x4.jpg");
     expect(existsSync(resolve(process.cwd(), "public/demo/landing/jillian-hero-3x4.jpg"))).toBe(true);
   });
@@ -62,6 +66,7 @@ describe("Stage 1 landing copy", () => {
     expect(visual).toContain("LANDING_HERO_SRC");
     expect(visual).toContain("landing-visual-card");
     expect(visual).toContain("LANDING_CHIP_LABELS");
+    expect(visual).toContain("LANDING_VISUAL_ARIA");
     expect(visual).toContain("LANDING_VISUAL_NAMES");
     expect(visual).not.toContain("Iris");
     expect(visual).not.toContain("toUpperCase");
@@ -70,6 +75,7 @@ describe("Stage 1 landing copy", () => {
     expect(css).toContain("#c4a574");
     expect(css).toContain("#0e0e14");
     expect(css).toContain(".landing-chip");
+    expect(css).not.toMatch(/\.landing-visual-name\s*\{[^}]*text-transform:\s*uppercase/s);
   });
 
   it("does not change the locked 18+ attest copy", () => {
