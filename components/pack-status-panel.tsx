@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { RefCountMeter } from "@/components/ref-count-meter";
 import { RefTray, type TrayRef } from "@/components/ref-tray";
 import { DemoBadge, DemoPackBanner } from "@/components/demo-pack-banner";
+import { PackPrimaryCta } from "@/components/pack-primary-cta";
 import { SoulBadge } from "@/components/soul-badge";
+import { StillPreview } from "@/components/still-preview";
 import { api } from "@/lib/client";
 import { demoBadgeLabel } from "@/lib/demo-pack";
 import { PACK_REF_FICTIONAL_COPY } from "@/lib/pack-ref-upload";
@@ -19,6 +21,7 @@ type Pack = {
   hasAdapter?: boolean;
   demo?: boolean;
   demoState?: "locked" | "draft";
+  previewUrl?: string | null;
 };
 
 export function PackStatusPanel(props: {
@@ -85,19 +88,22 @@ export function PackStatusPanel(props: {
   }
 
   return (
-    <section>
-      <div className="kicker">Character Pack</div>
-      <div className="row-between">
+    <section className="pack-detail">
+      <div className="pack-identity">
+        {props.pack.previewUrl ? (
+          <StillPreview src={props.pack.previewUrl} alt={props.pack.name} className="pack-identity-thumb" />
+        ) : null}
         <h1>{props.pack.name}</h1>
+        <p className="pack-meta">
+          {soulStatusLabel(status)} · {props.refCount} refs
+        </p>
         <div className="roster-badges">
           {props.pack.demo ? <DemoBadge label={demoBadgeLabel(props.pack.demoState ?? "locked")} /> : null}
           <SoulBadge name={props.pack.name} locked={locked} />
         </div>
+        {locked ? <PackPrimaryCta packId={props.pack.id} /> : <span className="muted">Lock Soul ID first — Generate stays off until this pack is Locked.</span>}
       </div>
       {props.pack.demo ? <DemoPackBanner state="locked" /> : null}
-      <p className="muted">
-        {soulStatusLabel(status)} · {props.refCount} reference pictures
-      </p>
       <div className="banner">{PACK_REF_FICTIONAL_COPY} These stills train Soul ID — they are not a camera roll.</div>
       <RefCountMeter count={props.refCount} />
       <h3>Reference pictures</h3>
@@ -124,13 +130,6 @@ export function PackStatusPanel(props: {
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       <div className="actions">
-        {locked ? (
-          <a className="btn" href={`/app/create?pack=${props.pack.id}`}>
-            Use in Create
-          </a>
-        ) : (
-          <span className="muted">Lock Soul ID first — Generate stays off until this pack is Locked.</span>
-        )}
         <button
           className="btn secondary"
           type="button"

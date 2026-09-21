@@ -2,7 +2,14 @@ import { StillPreview } from "@/components/still-preview";
 import { CastMark } from "@/components/wordmark";
 import { LockSoulIdFirstCta } from "@/components/lock-soul-id-first";
 import { GENERATE_IN_PROGRESS_COPY } from "@/lib/generate-affordances";
-import { composerHeroEmptyCopy, getStillAspect, type StillAspectId } from "@/lib/still-aspect";
+import { getStillAspect, type StillAspectId } from "@/lib/still-aspect";
+import {
+  CHARACTER_REQUIRED_BODY,
+  CHARACTER_REQUIRED_CTA,
+  CHARACTER_REQUIRED_HREF,
+  CHARACTER_REQUIRED_TITLE,
+  COMPOSER_EMPTY_CANVAS_COPY,
+} from "@/lib/studio-copy";
 
 function frameStyle(aspectRatio: StillAspectId | undefined): { aspectRatio: string } {
   return { aspectRatio: getStillAspect(aspectRatio ?? "3:4").cssRatio };
@@ -17,9 +24,14 @@ export function CharacterRequiredEmpty(props: {
     <div className="hero-frame empty-state" style={frameStyle(props.aspectRatio)}>
       <CastMark className="empty-state-mark" />
       <div>
-        <h2>Lock a character to create</h2>
-        <p className="muted">Composer needs a Locked Soul ID and a Pose. No camera. No raw prompt.</p>
-        <LockSoulIdFirstCta packId={props.packId} training={props.training} />
+        <h2>{CHARACTER_REQUIRED_TITLE}</h2>
+        <p className="muted">{CHARACTER_REQUIRED_BODY}</p>
+        <a className="btn" href={CHARACTER_REQUIRED_HREF}>
+          {CHARACTER_REQUIRED_CTA}
+        </a>
+        {props.packId || props.training ? (
+          <LockSoulIdFirstCta packId={props.packId} training={props.training} variant="link" />
+        ) : null}
       </div>
     </div>
   );
@@ -43,27 +55,34 @@ export function HeroCanvas(props: {
   );
   if (!props.locked) {
     return (
-      <>
+      <div className="hero-stage">
         <CharacterRequiredEmpty packId={props.packId} training={props.training} aspectRatio={aspect.id} />
         {caption}
-      </>
+      </div>
     );
   }
   return (
-    <>
-      <div className={props.generating ? "hero-frame is-loading" : "hero-frame"} style={frameStyle(aspect.id)}>
+    <div className="hero-stage">
+      <div
+        className={
+          props.generating ? "hero-frame is-loading" : props.previewUrl ? "hero-frame" : "hero-frame is-empty"
+        }
+        style={frameStyle(aspect.id)}
+      >
         {props.previewUrl ? (
           <>
             <StillPreview src={props.previewUrl} alt="Generated still" />
             {props.progress ? <p className="hero-progress">{props.progress}</p> : null}
           </>
         ) : (
-          <span>
-            {props.progress ??
-              (props.generating
-                ? GENERATE_IN_PROGRESS_COPY
-                : (props.message ?? composerHeroEmptyCopy(aspect)))}
-          </span>
+          <div className="hero-empty-inner">
+            <CastMark className="hero-empty-mark" />
+            <p className="hero-empty-copy">
+              {props.generating
+                ? (props.progress ?? GENERATE_IN_PROGRESS_COPY)
+                : COMPOSER_EMPTY_CANVAS_COPY}
+            </p>
+          </div>
         )}
         {props.generating && props.previewUrl ? (
           <div className="hero-generating" aria-live="polite">
@@ -72,6 +91,6 @@ export function HeroCanvas(props: {
         ) : null}
       </div>
       {caption}
-    </>
+    </div>
   );
 }

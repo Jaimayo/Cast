@@ -2,6 +2,8 @@
  * Composer still frame. Not a prompt chip and not a camera control —
  * output size only. Default is 3:4 portrait (matches the Hero Frame canvas).
  */
+import { COMPOSER_EMPTY_CANVAS_COPY } from "@/lib/studio-copy";
+
 export const STILL_ASPECT_IDS = ["3:4", "1:1", "9:16", "16:9"] as const;
 export type StillAspectId = (typeof STILL_ASPECT_IDS)[number];
 
@@ -60,6 +62,6 @@ export function stillGenerateSize(inputJson: Record<string, unknown> | null | un
   return { aspectRatio, width, height };
 }
 
-export function composerHeroEmptyCopy(aspect: StillAspect): string {
-  return `Hero Frame · ${aspect.label}. Generate to fill this canvas.`;
+export function composerHeroEmptyCopy(_aspect?: StillAspect): string {
+  return COMPOSER_EMPTY_CANVAS_COPY;
 }

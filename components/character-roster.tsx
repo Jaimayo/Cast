@@ -1,4 +1,6 @@
 import { DemoBadge } from "@/components/demo-pack-banner";
+import { PackPrimaryCta } from "@/components/pack-primary-cta";
+import { RosterCreateTile } from "@/components/roster-create-tile";
 import { SoulBadge } from "@/components/soul-badge";
 import { StillPreview } from "@/components/still-preview";
 import { demoBadgeLabel, demoPackThumbAlt, type DemoPackState } from "@/lib/demo-pack";
@@ -17,11 +19,7 @@ type Pack = {
 export function CharacterRoster(props: { packs: Pack[] }) {
   return (
     <div className="roster-grid">
-      <a className="card roster-card" href="/app/characters/new">
-        <div className="kicker">Empty</div>
-        <h3>Create</h3>
-        <p className="muted">New Character Pack</p>
-      </a>
+      <RosterCreateTile />
       {props.packs.map((pack) => {
         const locked = isLockedSoul(pack.status);
         const refs = pack.refCount ?? 0;
@@ -46,9 +44,7 @@ export function CharacterRoster(props: { packs: Pack[] }) {
               {locked ? <SoulBadge name={pack.name} locked /> : pack.demo ? null : <span className="fictional-badge">Fictional only</span>}
             </div>
             {locked ? (
-              <a className="btn secondary" href={`/app/create?pack=${pack.id}`}>
-                Use in Create
-              </a>
+              <PackPrimaryCta packId={pack.id} />
             ) : (
               <span className="muted">{pack.demo ? "Draft — lock before Create" : "Lock before Create"}</span>
             )}

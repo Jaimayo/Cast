@@ -1,4 +1,5 @@
 import { LOCK_SOUL_ID_FIRST, packDetailPath } from "@/lib/soul";
+import { CHARACTER_REQUIRED_CTA, CHARACTER_REQUIRED_HREF } from "@/lib/studio-copy";
 
 export function LockSoulIdFirstCta(props: {
   packId?: string | null;
@@ -6,16 +7,20 @@ export function LockSoulIdFirstCta(props: {
   /** Button (hero) vs inline text link (next to disabled Generate). */
   variant?: "button" | "link";
 }) {
-  const href = packDetailPath(props.packId);
-  const label = LOCK_SOUL_ID_FIRST;
+  const packHref = packDetailPath(props.packId);
+  const showLockLink = Boolean(props.packId) || Boolean(props.training);
   return (
     <div className="lock-soul-cta">
       {props.training ? <p className="ok">Training Soul ID…</p> : null}
       {props.variant === "link" ? (
-        <a href={href}>{label}</a>
+        showLockLink ? (
+          <a href={packHref}>{LOCK_SOUL_ID_FIRST}</a>
+        ) : (
+          <a href={CHARACTER_REQUIRED_HREF}>{CHARACTER_REQUIRED_CTA}</a>
+        )
       ) : (
-        <a className="btn" href={href}>
-          {label}
+        <a className="btn" href={CHARACTER_REQUIRED_HREF}>
+          {CHARACTER_REQUIRED_CTA}
         </a>
       )}
     </div>
