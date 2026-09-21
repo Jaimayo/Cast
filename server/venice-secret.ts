@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { operatorSecrets } from "@/db/schema";
 import { isMemoryPreviewMode } from "@/lib/memory-preview";
 import {
+  VENICE_EMPTY,
+  VENICE_INVALID_KEY,
   VENICE_KEY_MAX_LENGTH,
   VENICE_KEY_MIN_LENGTH,
   maskVeniceApiKey,
@@ -201,10 +203,10 @@ export async function resolveVeniceApiKey(): Promise<string | undefined> {
 export function assertVeniceApiKeyShape(raw: unknown): string {
   const key = normalizeVeniceApiKey(raw);
   if (!key) {
-    throw new VeniceConnectError("Enter a Venice API key.");
+    throw new VeniceConnectError(VENICE_EMPTY);
   }
   if (key.length < VENICE_KEY_MIN_LENGTH || key.length > VENICE_KEY_MAX_LENGTH) {
-    throw new VeniceConnectError("That Venice API key doesn't look valid.");
+    throw new VeniceConnectError(VENICE_INVALID_KEY);
   }
   return key;
 }

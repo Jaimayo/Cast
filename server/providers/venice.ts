@@ -1,6 +1,6 @@
 import { JOB_ERROR_CODES, JobError } from "@/lib/job-errors";
 import { stillAspectFromUnknown } from "@/lib/still-aspect";
-import { VeniceConnectError } from "@/lib/venice-settings";
+import { VeniceConnectError, VENICE_INVALID_KEY, VENICE_NETWORK_ERROR } from "@/lib/venice-settings";
 import { getEnv } from "@/server/env";
 import { providerFetch } from "@/server/providers/http";
 import {
@@ -100,23 +100,21 @@ export async function validateVeniceApiKey(apiKey: string): Promise<void> {
     });
   } catch (err) {
     if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
-      throw new VeniceConnectError("Venice didn't respond. Try again.", 504);
+      throw new VeniceConnectError(VENICE_NETWORK_ERROR, 504);
     }
-    throw new VeniceConnectError("Could not reach Venice. Try again.", 503);
+    throw new VeniceConnectError(VENICE_NETWORK_ERROR, 503);
   }
 
   if (response.ok || response.status === 402) {
     return;
   }
   if (response.status === 401 || response.status === 403) {
-    throw new VeniceConnectError(
-      "Venice didn't accept that key. Check it at venice.ai/settings/api.",
-    );
+    throw new VeniceConnectError(VENICE_INVALID_KEY);
   }
   if (response.status >= 500) {
-    throw new VeniceConnectError("Venice is unavailable. Try again.", 503);
+    throw new VeniceConnectError(VENICE_NETWORK_ERROR, 503);
   }
-  throw new VeniceConnectError("Venice didn't accept that key. Check it at venice.ai/settings/api.");
+  throw new VeniceConnectError(VENICE_INVALID_KEY);
 }
 
 /**

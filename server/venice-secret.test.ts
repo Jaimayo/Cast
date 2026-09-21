@@ -83,7 +83,8 @@ describe("operator Venice secret", () => {
 
   it("rejects short or empty keys with user-safe copy", () => {
     expect(() => assertVeniceApiKeyShape("")).toThrow(VeniceConnectError);
-    expect(() => assertVeniceApiKeyShape("short")).toThrow(/doesn't look valid/);
+    expect(() => assertVeniceApiKeyShape("short")).toThrow(VeniceConnectError);
+    expect(() => assertVeniceApiKeyShape("short")).toThrow(/didn’t work/);
     expect(() => assertVeniceApiKeyShape(KEY)).not.toThrow();
   });
 });

@@ -6,16 +6,24 @@ import {
   VENICE_API_SETTINGS_URL,
   VENICE_CONNECT_TITLE,
   VENICE_DISCONNECT,
-  VENICE_SAVE_KEY,
+  VENICE_DISCONNECT_CONFIRM,
+  VENICE_DISCONNECT_SUCCESS,
+  VENICE_EMPTY,
+  VENICE_FIELD_LABEL,
+  VENICE_FIELD_PLACEHOLDER,
+  VENICE_KEEP_CONNECTED,
+  VENICE_SAVE,
+  VENICE_SAVE_SUCCESS,
   type VenicePublicStatus,
 } from "@/lib/venice-settings";
 
-export function ConnectVenice() {
+export function ConnectVenicePanel() {
   const [status, setStatus] = useState<VenicePublicStatus | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   async function refresh() {
     const data = await api<{ venice: VenicePublicStatus }>("/api/admin/venice");
@@ -24,12 +32,18 @@ export function ConnectVenice() {
 
   useEffect(() => {
     void refresh().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Could not load Venice status");
+      setError(err instanceof Error ? err.message : VENICE_EMPTY);
     });
   }, []);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    setConfirmDisconnect(false);
+    if (!apiKey.trim()) {
+      setError(VENICE_EMPTY);
+      setNotice(null);
+      return;
+    }
     setPending(true);
     setError(null);
     setNotice(null);
@@ -40,13 +54,9 @@ export function ConnectVenice() {
       });
       setApiKey("");
       setStatus(data.venice);
-      setNotice(
-        data.venice.generateStillUsesVenice
-          ? "Venice key saved. Generate uses Venice on this live server."
-          : "Venice key saved. Generate stays on stub until PROVIDER_MODE=live.",
-      );
+      setNotice(VENICE_SAVE_SUCCESS);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save the Venice key");
+      setError(err instanceof Error ? err.message : VENICE_EMPTY);
     } finally {
       setPending(false);
     }
@@ -61,10 +71,11 @@ export function ConnectVenice() {
         method: "DELETE",
       });
       setApiKey("");
+      setConfirmDisconnect(false);
       setStatus(data.venice);
-      setNotice("Venice disconnected.");
+      setNotice(VENICE_DISCONNECT_SUCCESS);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not disconnect Venice");
+      setError(err instanceof Error ? err.message : VENICE_EMPTY);
     } finally {
       setPending(false);
     }
@@ -75,21 +86,23 @@ export function ConnectVenice() {
   return (
     <section className="connect-venice">
       <div className="kicker">Settings</div>
-      <div className="row-between">
-        <h1>{VENICE_CONNECT_TITLE}</h1>
-        {status ? (
-          <span className={connected ? "status-pill is-on" : "status-pill"}>{status.status}</span>
-        ) : null}
-      </div>
-      <p className="muted">
-        Create an API key at{" "}
-        <a href={VENICE_API_SETTINGS_URL} target="_blank" rel="noreferrer">
-          venice.ai/settings/api
-        </a>. Cast stores it on the server — it never appears in the browser after you save.
-      </p>
-      {status?.maskedKey ? <p className="venice-masked">Key {status.maskedKey}</p> : null}
-      <form onSubmit={(event) => void save(event)} className="card">
-        <label htmlFor="venice-api-key">API key</label>
+      <form onSubmit={(event) => void save(event)} className="card connect-venice-panel">
+        <div className="row-between">
+          <h1>{VENICE_CONNECT_TITLE}</h1>
+          {status ? (
+            <span className={connected ? "status-pill is-on" : "status-pill"}>{status.status}</span>
+          ) : null}
+        </div>
+        <p className="muted venice-help">
+          Create a key at{" "}
+          <a href={VENICE_API_SETTINGS_URL} target="_blank" rel="noreferrer">
+            venice.ai/settings/api
+          </a>
+          . Cast uses it only for still generation.
+        </p>
+        {connected && status?.maskedKey ? <p className="venice-masked">Key {status.maskedKey}</p> : null}
+        {!connected ? <p className="muted venice-empty">{VENICE_EMPTY}</p> : null}
+        <label htmlFor="venice-api-key">{VENICE_FIELD_LABEL}</label>
         <input
           id="venice-api-key"
           name="venice-api-key"
@@ -98,24 +111,49 @@ export function ConnectVenice() {
           spellCheck={false}
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
-          placeholder={connected ? "Enter a new key to replace" : "Paste your Venice API key"}
+          placeholder={VENICE_FIELD_PLACEHOLDER}
         />
-        <div className="actions" style={{ marginTop: 8 }}>
-          <button className="btn" type="submit" disabled={pending || !apiKey.trim()}>
-            {pending ? "Saving…" : VENICE_SAVE_KEY}
-          </button>
-          <button
-            className="btn secondary"
-            type="button"
-            disabled={pending || !connected}
-            onClick={() => void disconnect()}
-          >
-            {VENICE_DISCONNECT}
-          </button>
-        </div>
+        {confirmDisconnect ? (
+          <div className="venice-confirm">
+            <p className="muted">{VENICE_DISCONNECT_CONFIRM}</p>
+            <div className="actions" style={{ marginTop: 8 }}>
+              <button className="btn" type="button" disabled={pending} onClick={() => void disconnect()}>
+                {pending ? "Saving…" : VENICE_DISCONNECT}
+              </button>
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={pending}
+                onClick={() => setConfirmDisconnect(false)}
+              >
+                {VENICE_KEEP_CONNECTED}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="actions" style={{ marginTop: 8 }}>
+            <button className="btn" type="submit" disabled={pending}>
+              {pending ? "Saving…" : VENICE_SAVE}
+            </button>
+            {connected ? (
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  setNotice(null);
+                  setConfirmDisconnect(true);
+                }}
+              >
+                {VENICE_DISCONNECT}
+              </button>
+            ) : null}
+          </div>
+        )}
+        {error ? <p className="error venice-error">{error}</p> : null}
+        {notice ? <p className="ok">{notice}</p> : null}
       </form>
-      {error ? <p className="error">{error}</p> : null}
-      {notice ? <p className="ok">{notice}</p> : null}
     </section>
   );
 }

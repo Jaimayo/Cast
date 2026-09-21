@@ -394,15 +394,14 @@ input[type="checkbox"] {
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
 .status-pill.is-on {
-  border-color: var(--gold);
-  color: var(--gold);
-  background: rgba(196, 165, 116, 0.12);
+  border-color: var(--ok);
+  color: var(--ok);
+  background: rgba(61, 139, 110, 0.16);
 }
 
 .venice-masked {
@@ -412,7 +411,22 @@ input[type="checkbox"] {
   margin: 0 0 16px;
 }
 
-.connect-venice .card {
+.connect-venice-panel h1 {
+  margin: 0;
+}
+
+.connect-venice .venice-help,
+.connect-venice .venice-empty,
+.connect-venice .venice-error,
+.connect-venice .venice-confirm p {
+  color: var(--ink-dim);
+}
+
+.connect-venice .venice-error {
+  margin-top: 12px;
+}
+
+.venice-confirm {
   margin-top: 8px;
 }
 

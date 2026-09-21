@@ -3,14 +3,25 @@
  * Safe to import from client components — never holds the API key.
  */
 
-export const VENICE_CONNECT_TITLE = "Connect Venice";
+export const VENICE_CONNECT_TITLE = "Venice";
 export const VENICE_STATUS_CONNECTED = "Connected";
 export const VENICE_STATUS_DISCONNECTED = "Not connected";
-export const VENICE_SAVE_KEY = "Save key";
+export const VENICE_FIELD_LABEL = "API key";
+export const VENICE_FIELD_PLACEHOLDER = "Paste your API key";
+export const VENICE_SAVE = "Save";
 export const VENICE_DISCONNECT = "Disconnect";
+export const VENICE_KEEP_CONNECTED = "Keep connected";
 export const VENICE_API_SETTINGS_URL = "https://venice.ai/settings/api";
 export const VENICE_CONNECT_HELP =
-  "Create an API key at venice.ai/settings/api. Cast stores it on the server — it never appears in the browser after you save.";
+  "Create a key at venice.ai/settings/api. Cast uses it only for still generation.";
+export const VENICE_EMPTY = "Enter an API key to connect.";
+export const VENICE_INVALID_KEY =
+  "That API key didn’t work. Check it at venice.ai/settings/api and try again.";
+export const VENICE_NETWORK_ERROR = "Couldn’t reach Venice. Try again in a moment.";
+export const VENICE_SAVE_SUCCESS = "Venice connected.";
+export const VENICE_DISCONNECT_CONFIRM =
+  "Disconnect Venice? Still generation pauses until you reconnect.";
+export const VENICE_DISCONNECT_SUCCESS = "Venice disconnected.";
 
 export const VENICE_KEY_MIN_LENGTH = 16;
 export const VENICE_KEY_MAX_LENGTH = 512;

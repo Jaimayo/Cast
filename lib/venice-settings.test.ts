@@ -7,7 +7,16 @@ import {
   VENICE_CONNECT_HELP,
   VENICE_CONNECT_TITLE,
   VENICE_DISCONNECT,
-  VENICE_SAVE_KEY,
+  VENICE_DISCONNECT_CONFIRM,
+  VENICE_DISCONNECT_SUCCESS,
+  VENICE_EMPTY,
+  VENICE_FIELD_LABEL,
+  VENICE_FIELD_PLACEHOLDER,
+  VENICE_INVALID_KEY,
+  VENICE_KEEP_CONNECTED,
+  VENICE_NETWORK_ERROR,
+  VENICE_SAVE,
+  VENICE_SAVE_SUCCESS,
   VENICE_STATUS_CONNECTED,
   VENICE_STATUS_DISCONNECTED,
   maskVeniceApiKey,
@@ -21,14 +30,38 @@ function readRepo(path: string) {
 }
 
 describe("Connect Venice copy", () => {
-  it("locks Branding-ready labels and the API settings URL", () => {
-    expect(VENICE_CONNECT_TITLE).toBe("Connect Venice");
+  it("locks Branding-canonical labels and errors", () => {
+    expect(VENICE_CONNECT_TITLE).toBe("Venice");
     expect(VENICE_STATUS_CONNECTED).toBe("Connected");
     expect(VENICE_STATUS_DISCONNECTED).toBe("Not connected");
-    expect(VENICE_SAVE_KEY).toBe("Save key");
+    expect(VENICE_FIELD_LABEL).toBe("API key");
+    expect(VENICE_FIELD_PLACEHOLDER).toBe("Paste your API key");
+    expect(VENICE_CONNECT_HELP).toBe(
+      "Create a key at venice.ai/settings/api. Cast uses it only for still generation.",
+    );
+    expect(VENICE_SAVE).toBe("Save");
     expect(VENICE_DISCONNECT).toBe("Disconnect");
+    expect(VENICE_KEEP_CONNECTED).toBe("Keep connected");
+    expect(VENICE_EMPTY).toBe("Enter an API key to connect.");
+    expect(VENICE_INVALID_KEY).toBe(
+      "That API key didn’t work. Check it at venice.ai/settings/api and try again.",
+    );
+    expect(VENICE_NETWORK_ERROR).toBe("Couldn’t reach Venice. Try again in a moment.");
+    expect(VENICE_SAVE_SUCCESS).toBe("Venice connected.");
+    expect(VENICE_DISCONNECT_CONFIRM).toBe(
+      "Disconnect Venice? Still generation pauses until you reconnect.",
+    );
+    expect(VENICE_DISCONNECT_SUCCESS).toBe("Venice disconnected.");
     expect(VENICE_API_SETTINGS_URL).toBe("https://venice.ai/settings/api");
-    expect(VENICE_CONNECT_HELP).toContain("venice.ai/settings/api");
+  });
+
+  it("forbids OAuth / Login-with-Venice language", () => {
+    const ui = [
+      readRepo("components/connect-venice.tsx"),
+      readRepo("lib/venice-settings.ts"),
+      readRepo("app/admin/page.tsx"),
+    ].join("\n");
+    expect(ui).not.toMatch(/Login with Venice|Sign in with Venice|OAuth|Authorize|Sync account/i);
   });
 
   it("does not change locked 18+ copy or landing strings", () => {
@@ -67,12 +100,13 @@ describe("Venice key masking", () => {
   it("keeps Connect Venice UI client-safe and invite-gated", () => {
     const ui = readRepo("components/connect-venice.tsx");
     expect(ui).toContain("VENICE_CONNECT_TITLE");
-    expect(ui).toContain("VENICE_SAVE_KEY");
+    expect(ui).toContain("VENICE_SAVE");
     expect(ui).toContain("VENICE_DISCONNECT");
+    expect(ui).toContain("VENICE_KEEP_CONNECTED");
     expect(ui).toContain('type="password"');
     expect(ui).toContain("/api/admin/venice");
     expect(ui).not.toMatch(/venice-secret|resolveVeniceApiKey|encryptOperatorSecret|ciphertext/);
-    expect(readRepo("app/admin/page.tsx")).toContain("ConnectVenice");
+    expect(readRepo("app/admin/page.tsx")).toContain("ConnectVenicePanel");
     expect(readRepo("app/api/admin/venice/route.ts")).toContain("requireAdmin");
     expect(readRepo("components/studio-chrome.tsx")).toContain('href="/admin"');
   });

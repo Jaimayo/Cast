@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VeniceConnectError } from "@/lib/venice-settings";
+import { VeniceConnectError, VENICE_INVALID_KEY } from "@/lib/venice-settings";
 import { compileComposerPrompt } from "@/lib/prompt-compiler";
 import { JOB_ERROR_CODES, JobError, classifyJobError } from "@/lib/job-errors";
 import { shouldFallbackGenerateStill } from "@/server/providers/registry";
@@ -386,7 +386,7 @@ describe("validateVeniceApiKey", () => {
       await validateVeniceApiKey("sk-live-valid-key-0001");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      expect(message).toBe("Venice didn't accept that key. Check it at venice.ai/settings/api.");
+      expect(message).toBe(VENICE_INVALID_KEY);
       expect(message).not.toMatch(/sk-live-valid-key-0001|Bearer|dump/i);
     }
   });

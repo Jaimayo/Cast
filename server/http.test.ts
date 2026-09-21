@@ -186,15 +186,11 @@ describe("jsonError media failures", () => {
   });
 
   it("returns user-safe Venice connect errors without the API key", async () => {
-    const { VeniceConnectError } = await import("@/lib/venice-settings");
-    const rejected = jsonError(
-      new VeniceConnectError("Venice didn't accept that key. Check it at venice.ai/settings/api."),
-    );
+    const { VeniceConnectError, VENICE_INVALID_KEY } = await import("@/lib/venice-settings");
+    const rejected = jsonError(new VeniceConnectError(VENICE_INVALID_KEY));
     expect(rejected.status).toBe(400);
     const payload = await bodyOf(rejected);
-    expect(payload).toEqual({
-      error: "Venice didn't accept that key. Check it at venice.ai/settings/api.",
-    });
+    expect(payload).toEqual({ error: VENICE_INVALID_KEY });
     expect(JSON.stringify(payload)).not.toMatch(/sk-|Bearer|VENICE_API_KEY/i);
 
     const dumped = jsonError(new Error("VENICE_API_KEY Bearer sk-live-secret"));
