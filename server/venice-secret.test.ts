@@ -136,8 +136,8 @@ function memoryCookieJar() {
         const value = store.get(name);
         return value === undefined ? undefined : { value };
       },
-      set(name: string, value: string) {
-        if (!value) {
+      set(name: string, value: string, attrs?: { maxAge?: number }) {
+        if (!value || attrs?.maxAge === 0) {
           store.delete(name);
           return;
         }
@@ -164,7 +164,7 @@ describe("stub review Venice cookie persistence", () => {
     vi.stubEnv("NODE_ENV", "test");
   }
 
-  it("survives a new isolate and a later login as the same email", async () => {
+  it("clears globalThis overlay and still reads Connected last4 from the cookie", async () => {
     stubReviewEnv();
     const { jar, store } = memoryCookieJar();
     setVeniceCookieJarForTests(jar);
@@ -239,20 +239,36 @@ describe("stub review Venice cookie persistence", () => {
     expect(await resolveVeniceApiKey(stubPreviewUserId("other@cast.review"), "other@cast.review")).toBeUndefined();
   });
 
-  it("persists Disconnect across a cold start so env is not treated as Connected", async () => {
+  it("Disconnect expires the companion cookie so a new isolate is Not connected", async () => {
     stubReviewEnv();
     vi.stubEnv("VENICE_API_KEY", "env-key-after-disconnect-zzzz");
-    const { jar } = memoryCookieJar();
+    const { jar, store } = memoryCookieJar();
     setVeniceCookieJarForTests(jar);
     const userId = stubPreviewUserId(email);
     await saveVeniceApiKey({ apiKey: KEY, userId, email });
-    await disconnectVeniceApiKey(userId, email);
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeTruthy();
+
+    const disconnected = await disconnectVeniceApiKey(userId, email);
+    expect(disconnected.connected).toBe(false);
+    expect(disconnected.status).toBe("Not connected");
+    expect(disconnected.maskedKey).toBeNull();
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeUndefined();
+    expect(JSON.stringify(disconnected)).not.toMatch(/env-key-after-disconnect|sk-live/i);
+
     resetVeniceSecretOverlayForTests();
     const status = await getVenicePublicStatus({ userId, email });
     expect(status.connected).toBe(false);
     expect(status.status).toBe("Not connected");
     expect(status.maskedKey).toBeNull();
-    expect(await resolveVeniceApiKey(userId, email)).toBeUndefined();
-    expect(JSON.stringify(status)).not.toMatch(/env-key-after-disconnect|sk-live/i);
+    expect(JSON.stringify(status)).not.toContain(KEY);
+
+    const reconnected = await saveVeniceApiKey({ apiKey: KEY, userId, email });
+    expect(reconnected.connected).toBe(true);
+    expect(reconnected.maskedKey).toBe("••••9f3a");
+    expect(store.get(VENICE_SECRET_COOKIE)).toBeTruthy();
+    resetVeniceSecretOverlayForTests();
+    const afterReconnect = await getVenicePublicStatus({ userId, email });
+    expect(afterReconnect.connected).toBe(true);
+    expect(afterReconnect.maskedKey).toBe("••••9f3a");
   });
 });

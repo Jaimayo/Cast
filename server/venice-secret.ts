@@ -307,16 +307,13 @@ async function cookiePayloadFromOverlay(
   identity: VeniceSecretIdentity,
   overlay: Overlay,
 ): Promise<VeniceSecretCookiePayload | null> {
-  if (!overlay) {
+  if (overlay?.kind !== "key") {
     return null;
   }
   const env = getEnv();
   const email = normalizedEmail(identity.email);
   const emailHash = email ? stubPreviewEmailHash(email) : undefined;
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  if (overlay.kind === "disconnected") {
-    return { v: 1, sub: identity.userId, emailHash, kind: "disconnected", exp };
-  }
   const packed = encryptSecret(
     overlay.key,
     env.sessionSecret,
@@ -372,16 +369,21 @@ async function writeCookieOverlay(identity: VeniceSecretIdentity, overlay: Overl
     return;
   }
   const env = getEnv();
+  const production = env.nodeEnv === "production";
+  if (!overlay || overlay.kind === "disconnected") {
+    jar.set(
+      VENICE_SECRET_COOKIE,
+      "",
+      veniceSecretCookieAttrs({ production, maxAge: 0 }),
+    );
+    return;
+  }
   const payload = await cookiePayloadFromOverlay(identity, overlay);
   if (!payload) {
     return;
   }
   const token = await encodeVeniceSecretCookie(payload, env.sessionSecret);
-  jar.set(
-    VENICE_SECRET_COOKIE,
-    token,
-    veniceSecretCookieAttrs({ production: env.nodeEnv === "production" }),
-  );
+  jar.set(VENICE_SECRET_COOKIE, token, veniceSecretCookieAttrs({ production }));
 }
 
 async function persistOverlay(identity: VeniceSecretIdentity, overlay: Overlay): Promise<void> {
