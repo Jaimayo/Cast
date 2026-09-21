@@ -120,11 +120,7 @@ function envVeniceApiKey(): string | undefined {
 }
 
 function durableSecretsEnabled(): boolean {
-  if (
-    process.env.NODE_ENV === "test" &&
-    process.env.CAST_TEST_USER_SECRETS !== "1" &&
-    process.env.CAST_TEST_OPERATOR_SECRETS !== "1"
-  ) {
+  if (process.env.NODE_ENV === "test" && process.env.CAST_TEST_USER_SECRETS !== "1") {
     return false;
   }
   const env = getEnv();

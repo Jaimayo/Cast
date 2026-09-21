@@ -133,5 +133,10 @@ describe("Venice key masking", () => {
     expect(readRepo("server/providers/venice.ts")).toContain("resolveVeniceApiKey(input.userId)");
     expect(readRepo("db/schema.ts")).toContain("user_secrets");
     expect(readRepo("db/migrations/0011_user_secrets.sql")).toContain("user_secrets");
+    expect(readRepo("server/venice-secret.ts")).toContain("userSecrets");
+    expect(readRepo("server/venice-secret.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("app/api/settings/venice/route.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("workers/generateStill.ts")).not.toContain("operatorSecrets");
+    expect(readRepo("server/providers/venice.ts")).not.toContain("operatorSecrets");
   });
 });
