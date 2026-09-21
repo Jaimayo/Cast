@@ -116,6 +116,7 @@ describe("Stage 1 landing copy", () => {
     expect(css).toContain("background: #C4A574");
     expect(css).toContain("color: #0A0A0C");
     expect(css).toContain("rgba(196, 165, 116, 0.7)");
+    expect(css).toMatch(/\.btn\.landing-login\s*\{[^}]*background:\s*#07070A/s);
     expect(css).not.toContain(".landing-visual-card");
     expect(css).not.toContain(".landing-chip");
     expect(css).not.toMatch(/\.landing-badge\s*\{/);
