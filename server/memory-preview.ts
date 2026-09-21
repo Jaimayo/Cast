@@ -2,6 +2,7 @@ import "server-only";
 
 import type { User } from "@/db/schema";
 import { isMemoryPreviewMode } from "@/lib/memory-preview";
+import { roleForReviewUser } from "@/lib/review-preview";
 import type { SessionPayload } from "@/lib/session-cookie";
 import { getEnv } from "@/server/env";
 
@@ -12,10 +13,15 @@ export function isMemoryPreview(): boolean {
 
 export function previewUserFromSession(payload: SessionPayload): User {
   const now = new Date();
-  const role = payload.role === "admin" ? "admin" : "consumer";
+  const env = getEnv();
+  const email = payload.email ?? `preview+${payload.sub.replaceAll("-", "").slice(0, 8)}@cast.review`;
+  const role = roleForReviewUser(email, {
+    adminEmails: env.adminEmails,
+    stubReviewGrantsAdmin: env.stubReviewGrantsAdmin,
+  });
   return {
     id: payload.sub,
-    email: payload.email ?? `preview+${payload.sub.replaceAll("-", "").slice(0, 8)}@cast.review`,
+    email,
     passwordHash: "preview",
     role,
     ageAttestedAt: payload.age ? now : null,

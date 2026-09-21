@@ -66,7 +66,7 @@ cp .env.example .env
 Edit `.env.local` / `.env`:
 
 - Set a long `SESSION_SECRET`
-- Put your email in `ADMIN_EMAILS` so the first redeemed account can open **Settings** (`/admin`) and `/admin/invites`
+- Put your email in `ADMIN_EMAILS` so the first redeemed account can open **Settings** (`/admin`) and `/admin/invites`. Stub already treats `jai@cast.review` as admin.
 - Leave `PROVIDER_MODE=stub` until Venice/RunPod keys exist
 - Never commit real keys
 
@@ -98,11 +98,14 @@ Leave `PROVIDER_MODE=stub`. Do **not** set `DATABASE_URL`, `REDIS_URL`, S3/R2, V
 | `PROVIDER_MODE` | `stub` | Recommended (defaults to stub) |
 | `SESSION_SECRET` | any 32+ character string | Optional in stub (built-in review default) |
 | `REVIEW_INVITE_CODE` | `castreview` | Optional (this is the default) |
+| `ADMIN_EMAILS` | `jai@cast.review` | Optional. Unset on cookie-only review: every invite redeem is admin so **Settings** appears. Stub always includes `jai@cast.review`. |
 | `APP_BASE_URL` | public review URL | Optional |
 
 If `DATABASE_URL` is unset, `vercel-build` skips migrate/bootstrap and runs `next build` (memory preview). Setting `DATABASE_URL` turns the cookie-only path off and expects Postgres.
 
-Click-through: `/` → invite `castreview` → age **I confirm I am 18+.** → `/app/characters`.
+Click-through: `/` → invite **`jai@cast.review`** + code **`castreview`** (pre-filled on stub) → age **I confirm I am 18+.** → `/app/characters` → studio rail **Settings** → `/admin` (Connect Venice). Alias: `/studio/settings` → `/admin`. Unauthenticated `/admin` redirects to `/invite` (not a missing route). Non-admin sessions redirect to `/app`.
+
+There is no `/app/settings` or `/settings` — Connect Venice stays admin-only at `/admin`.
 
 Stub review seeds two **fictional** Character Packs so Library / roster are not empty:
 

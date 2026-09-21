@@ -115,5 +115,9 @@ describe("Venice key masking", () => {
     expect(readRepo("app/admin/page.tsx")).toContain("ConnectVenicePanel");
     expect(readRepo("app/api/admin/venice/route.ts")).toContain("requireAdmin");
     expect(readRepo("components/studio-chrome.tsx")).toContain('href="/admin"');
+    expect(readRepo("components/studio-chrome.tsx")).toContain("{props.admin ? <a href=\"/admin\">Settings</a> : null}");
+    expect(readRepo("components/studio-chrome.tsx")).not.toContain("/app/settings");
+    expect(readRepo("next.config.ts")).toContain('source: "/studio/settings"');
+    expect(readRepo("next.config.ts")).toContain('destination: "/admin"');
   });
 });

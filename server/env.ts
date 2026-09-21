@@ -1,6 +1,11 @@
 import { loadLocalEnv } from "@/lib/load-env";
-import { roleForEmail } from "@/lib/auth-guards";
-import { stubSessionSecret } from "@/lib/memory-preview";
+import { isMemoryPreviewMode, stubSessionSecret } from "@/lib/memory-preview";
+import {
+  adminEmailsForMode,
+  parseAdminEmails,
+  roleForReviewUser,
+  stubReviewGrantsAdmin,
+} from "@/lib/review-preview";
 import { parseStubJobScenario } from "@/lib/stub-job-scenario";
 
 loadLocalEnv();
@@ -28,14 +33,19 @@ export function getEnv() {
     throw new Error("Missing required environment variable DATABASE_URL");
   }
 
+  const envAdminEmails = parseAdminEmails(read("ADMIN_EMAILS"));
+  const memoryPreview = isMemoryPreviewMode({ providerMode, databaseUrl });
+
   return {
     nodeEnv: read("NODE_ENV") ?? "development",
     appBaseUrl: read("APP_BASE_URL") ?? "http://localhost:3000",
     sessionSecret,
-    adminEmails: (read("ADMIN_EMAILS") ?? "")
-      .split(",")
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean),
+    adminEmails: adminEmailsForMode(providerMode, envAdminEmails),
+    stubReviewGrantsAdmin: stubReviewGrantsAdmin({
+      providerMode,
+      memoryPreview,
+      envAdminEmails,
+    }),
     databaseUrl,
     redisUrl: read("REDIS_URL") ?? "redis://localhost:6379",
     providerMode,
@@ -71,5 +81,11 @@ export function getEnv() {
 }
 
 export function isAdminEmail(email: string): boolean {
-  return roleForEmail(email, getEnv().adminEmails) === "admin";
+  const env = getEnv();
+  return (
+    roleForReviewUser(email, {
+      adminEmails: env.adminEmails,
+      stubReviewGrantsAdmin: env.stubReviewGrantsAdmin,
+    }) === "admin"
+  );
 }
